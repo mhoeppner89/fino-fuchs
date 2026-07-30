@@ -13,6 +13,10 @@ import {
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
+// Kept separate from future recorded audio. Browser voices vary too much
+// between devices, so synthetic speech is disabled until recordings exist.
+const SYNTHETIC_VOICE_ENABLED = false;
+
 const elements = {
   screens: $$('.screen'),
   homeScreen: $('#home-screen'),
@@ -54,7 +58,7 @@ const elements = {
 const state = {
   category: 'lines',
   difficulty: 'easy',
-  sound: true,
+  sound: SYNTHETIC_VOICE_ENABLED,
   name: '',
   session: [],
   index: 0,
@@ -81,14 +85,14 @@ function chooseVoice() {
     ?? null;
 }
 
-if ('speechSynthesis' in window) {
+if (SYNTHETIC_VOICE_ENABLED && 'speechSynthesis' in window) {
   chooseVoice();
   window.speechSynthesis.addEventListener?.('voiceschanged', chooseVoice);
 }
 
 function speak(text, { interrupt = true } = {}) {
   state.currentSpeech = text;
-  if (!state.sound || !text || !('speechSynthesis' in window)) return;
+  if (!SYNTHETIC_VOICE_ENABLED || !state.sound || !text || !('speechSynthesis' in window)) return;
   if (interrupt) window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'de-DE';
@@ -99,17 +103,24 @@ function speak(text, { interrupt = true } = {}) {
   window.speechSynthesis.speak(utterance);
 }
 
+function stopSpeech() {
+  if (SYNTHETIC_VOICE_ENABLED && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+}
+
 function updateSoundButtons() {
   elements.soundButtons.forEach((button) => {
+    button.hidden = !SYNTHETIC_VOICE_ENABLED;
     button.classList.toggle('is-muted', !state.sound);
     button.setAttribute('aria-pressed', String(state.sound));
     button.setAttribute('aria-label', state.sound ? 'Ton ausschalten' : 'Ton einschalten');
   });
+  elements.listenButton.hidden = !SYNTHETIC_VOICE_ENABLED;
 }
 
 function toggleSound() {
+  if (!SYNTHETIC_VOICE_ENABLED) return;
   state.sound = !state.sound;
-  if (!state.sound && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+  if (!state.sound) stopSpeech();
   updateSoundButtons();
   if (state.sound) speak(state.screen === 'practice' ? state.currentSpeech : 'Ton ist an.');
 }
@@ -379,7 +390,7 @@ function finishSession(reason = 'complete') {
   state.taskToken += 1;
   state.transitioning = false;
   elements.successOverlay.hidden = true;
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  stopSpeech();
   const count = state.completed;
   const taskWord = count === 1 ? 'eine Aufgabe' : `${count} Aufgaben`;
   elements.finishSummary.textContent = reason === 'time'
@@ -396,13 +407,13 @@ function returnHome() {
   state.timeExpired = false;
   elements.successOverlay.hidden = true;
   elements.exitModal.hidden = true;
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  stopSpeech();
   showScreen('home');
 }
 
 function openExitModal() {
   elements.exitModal.hidden = false;
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  stopSpeech();
   window.setTimeout(() => elements.continueButton.focus(), 0);
 }
 
@@ -425,7 +436,9 @@ elements.activityCards.forEach((card) => {
   card.addEventListener('click', () => selectCategory(card.dataset.category));
 });
 
-elements.soundButtons.forEach((button) => button.addEventListener('click', toggleSound));
+if (SYNTHETIC_VOICE_ENABLED) {
+  elements.soundButtons.forEach((button) => button.addEventListener('click', toggleSound));
+}
 
 elements.form.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -463,13 +476,15 @@ elements.showButton.addEventListener('click', async () => {
 
 elements.doneButton.addEventListener('click', checkDrawing);
 
-elements.listenButton.addEventListener('click', () => {
-  const task = state.session[state.index];
-  if (task) {
-    setMentorMessage(task.speech);
-    speak(task.speech);
-  }
-});
+if (SYNTHETIC_VOICE_ENABLED) {
+  elements.listenButton.addEventListener('click', () => {
+    const task = state.session[state.index];
+    if (task) {
+      setMentorMessage(task.speech);
+      speak(task.speech);
+    }
+  });
+}
 
 elements.exitButton.addEventListener('click', openExitModal);
 elements.continueButton.addEventListener('click', closeExitModal);
@@ -486,7 +501,7 @@ document.addEventListener('keydown', (event) => {
 });
 
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+  if (document.hidden) stopSpeech();
 });
 
 updateSoundButtons();

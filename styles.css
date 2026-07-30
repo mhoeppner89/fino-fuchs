@@ -227,6 +227,10 @@ p {
   display: block;
 }
 
+.sound-button[hidden] {
+  display: none;
+}
+
 .home-layout {
   width: min(1180px, 100%);
   margin: 0 auto;
@@ -862,6 +866,10 @@ p {
 
 .listen-button:active {
   transform: scale(.96);
+}
+
+.listen-button[hidden] {
+  display: none;
 }
 
 .drawing-section {
