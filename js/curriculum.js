@@ -50,6 +50,7 @@ function makeTask({
   value = label,
   layout = '',
   completionGroups = [strokes.map((_, index) => index)],
+  angularStrokes = [],
 }) {
   return Object.freeze({
     id,
@@ -65,6 +66,7 @@ function makeTask({
     value,
     layout,
     completionGroups: Object.freeze(completionGroups.map((group) => Object.freeze([...group]))),
+    angularStrokes: Object.freeze([...angularStrokes]),
   });
 }
 
@@ -149,19 +151,19 @@ const shapeTemplates = [
   }),
   makeTask({
     id: 'shape-square', category: 'shapes', title: 'Viereck', speech: 'Male ein Viereck.', label: '□',
-    strokes: [poly([0.25, 0.22], [0.75, 0.22], [0.75, 0.78], [0.25, 0.78], [0.25, 0.22])], complexity: 1,
+    strokes: [poly([0.25, 0.22], [0.75, 0.22], [0.75, 0.78], [0.25, 0.78], [0.25, 0.22])], complexity: 1, angularStrokes: [0],
   }),
   makeTask({
     id: 'shape-triangle', category: 'shapes', title: 'Dreieck', speech: 'Male ein Dreieck.', label: '△',
-    strokes: [poly([0.5, 0.18], [0.82, 0.78], [0.18, 0.78], [0.5, 0.18])], complexity: 1,
+    strokes: [poly([0.5, 0.18], [0.82, 0.78], [0.18, 0.78], [0.5, 0.18])], complexity: 1, angularStrokes: [0],
   }),
   makeTask({
     id: 'shape-cross', category: 'shapes', title: 'Kreuz', speech: 'Male ein großes Kreuz.', label: '＋',
-    strokes: [poly([0.5, 0.18], [0.5, 0.82]), poly([0.18, 0.5], [0.82, 0.5])], complexity: 2,
+    strokes: [poly([0.5, 0.18], [0.5, 0.82]), poly([0.18, 0.5], [0.82, 0.5])], complexity: 2, angularStrokes: [0, 1],
   }),
   makeTask({
     id: 'shape-diamond', category: 'shapes', title: 'Raute', speech: 'Male eine Raute.', label: '◇',
-    strokes: [poly([0.5, 0.14], [0.82, 0.5], [0.5, 0.86], [0.18, 0.5], [0.5, 0.14])], complexity: 2,
+    strokes: [poly([0.5, 0.14], [0.82, 0.5], [0.5, 0.86], [0.18, 0.5], [0.5, 0.14])], complexity: 2, angularStrokes: [0],
   }),
   makeTask({
     id: 'shape-heart', category: 'shapes', title: 'Herz', speech: 'Male ein Herz.', label: 'Herz',
@@ -174,55 +176,55 @@ const shapeTemplates = [
   }),
   makeTask({
     id: 'shape-star', category: 'shapes', title: 'Stern', speech: 'Male einen Stern.', label: '☆',
-    strokes: [poly([0.5, 0.12], [0.59, 0.4], [0.88, 0.4], [0.64, 0.57], [0.73, 0.86], [0.5, 0.68], [0.27, 0.86], [0.36, 0.57], [0.12, 0.4], [0.41, 0.4], [0.5, 0.12])], complexity: 3,
+    strokes: [poly([0.5, 0.12], [0.59, 0.4], [0.88, 0.4], [0.64, 0.57], [0.73, 0.86], [0.5, 0.68], [0.27, 0.86], [0.36, 0.57], [0.12, 0.4], [0.41, 0.4], [0.5, 0.12])], complexity: 3, angularStrokes: [0],
   }),
   makeTask({
     id: 'shape-rectangle', category: 'shapes', title: 'Rechteck', speech: 'Male ein breites Rechteck.', label: '▭',
-    strokes: [poly([0.16, 0.3], [0.84, 0.3], [0.84, 0.7], [0.16, 0.7], [0.16, 0.3])], complexity: 1,
+    strokes: [poly([0.16, 0.3], [0.84, 0.3], [0.84, 0.7], [0.16, 0.7], [0.16, 0.3])], complexity: 1, angularStrokes: [0],
   }),
   makeTask({
     id: 'shape-pentagon', category: 'shapes', title: 'Fünfeck', speech: 'Male ein Fünfeck.', label: 'Fünfeck',
-    strokes: [poly([0.5, 0.15], [0.82, 0.39], [0.7, 0.82], [0.3, 0.82], [0.18, 0.39], [0.5, 0.15])], complexity: 2,
+    strokes: [poly([0.5, 0.15], [0.82, 0.39], [0.7, 0.82], [0.3, 0.82], [0.18, 0.39], [0.5, 0.15])], complexity: 2, angularStrokes: [0],
   }),
   makeTask({
     id: 'shape-hexagon', category: 'shapes', title: 'Sechseck', speech: 'Male ein Sechseck.', label: 'Sechseck',
-    strokes: [poly([0.33, 0.18], [0.67, 0.18], [0.84, 0.5], [0.67, 0.82], [0.33, 0.82], [0.16, 0.5], [0.33, 0.18])], complexity: 2,
+    strokes: [poly([0.33, 0.18], [0.67, 0.18], [0.84, 0.5], [0.67, 0.82], [0.33, 0.82], [0.16, 0.5], [0.33, 0.18])], complexity: 2, angularStrokes: [0],
   }),
   makeTask({
     id: 'shape-arrow', category: 'shapes', title: 'Pfeil', speech: 'Male einen Pfeil nach rechts.', label: 'Pfeil',
-    strokes: [poly([0.16, 0.5], [0.7, 0.5], [0.53, 0.32]), poly([0.7, 0.5], [0.53, 0.68])], complexity: 2,
+    strokes: [poly([0.16, 0.5], [0.7, 0.5], [0.53, 0.32]), poly([0.7, 0.5], [0.53, 0.68])], complexity: 2, angularStrokes: [0, 1],
   }),
   makeTask({
     id: 'shape-house', category: 'shapes', title: 'Haus', speech: 'Male ein kleines Haus.', label: 'Haus',
-    strokes: [poly([0.22, 0.5], [0.5, 0.2], [0.78, 0.5]), poly([0.28, 0.47], [0.28, 0.8], [0.72, 0.8], [0.72, 0.47])], complexity: 2,
+    strokes: [poly([0.22, 0.5], [0.5, 0.2], [0.78, 0.5]), poly([0.28, 0.47], [0.28, 0.8], [0.72, 0.8], [0.72, 0.47])], complexity: 2, angularStrokes: [0, 1],
   }),
   makeTask({
     id: 'shape-kite', category: 'shapes', title: 'Drachen', speech: 'Male einen Drachen mit Schwanz.', label: 'Drachen',
-    strokes: [poly([0.5, 0.16], [0.77, 0.46], [0.5, 0.75], [0.23, 0.46], [0.5, 0.16]), poly([0.5, 0.75], [0.58, 0.84], [0.5, 0.9], [0.42, 0.84])], complexity: 2,
+    strokes: [poly([0.5, 0.16], [0.77, 0.46], [0.5, 0.75], [0.23, 0.46], [0.5, 0.16]), poly([0.5, 0.75], [0.58, 0.84], [0.5, 0.9], [0.42, 0.84])], complexity: 2, angularStrokes: [0, 1],
   }),
   makeTask({
     id: 'shape-balloon', category: 'shapes', title: 'Ballon', speech: 'Male einen Ballon mit Schnur.', label: 'Ballon',
-    strokes: [arc(0.5, 0.4, 0.22, 0.27, -90, 270, 36), poly([0.5, 0.67], [0.46, 0.8], [0.52, 0.88])], complexity: 2,
+    strokes: [arc(0.5, 0.4, 0.22, 0.27, -90, 270, 36), poly([0.5, 0.67], [0.46, 0.8], [0.52, 0.88])], complexity: 2, angularStrokes: [1],
   }),
   makeTask({
     id: 'shape-fish', category: 'shapes', title: 'Fisch', speech: 'Male einen Fisch.', label: 'Fisch',
-    strokes: [arc(0.45, 0.5, 0.28, 0.18, -90, 270, 32), poly([0.72, 0.5], [0.88, 0.3], [0.88, 0.7], [0.72, 0.5])], complexity: 2,
+    strokes: [arc(0.45, 0.5, 0.28, 0.18, -90, 270, 32), poly([0.72, 0.5], [0.88, 0.3], [0.88, 0.7], [0.72, 0.5])], complexity: 2, angularStrokes: [1],
   }),
   makeTask({
     id: 'shape-flower', category: 'shapes', title: 'Blume', speech: 'Male eine Blume mit Stiel.', label: 'Blume',
-    strokes: [arc(0.5, 0.36, 0.2, 0.16, -90, 270, 28), arc(0.5, 0.36, 0.1, 0.26, 0, 360, 28), poly([0.5, 0.55], [0.5, 0.86]), poly([0.5, 0.72], [0.35, 0.64]), poly([0.5, 0.78], [0.65, 0.7])], complexity: 3,
+    strokes: [arc(0.5, 0.36, 0.2, 0.16, -90, 270, 28), arc(0.5, 0.36, 0.1, 0.26, 0, 360, 28), poly([0.5, 0.55], [0.5, 0.86]), poly([0.5, 0.72], [0.35, 0.64]), poly([0.5, 0.78], [0.65, 0.7])], complexity: 3, angularStrokes: [2, 3, 4],
   }),
   makeTask({
     id: 'shape-sun', category: 'shapes', title: 'Sonne', speech: 'Male eine Sonne mit Strahlen.', label: 'Sonne',
-    strokes: [arc(0.5, 0.5, 0.2, 0.2, -90, 270, 30), poly([0.5, 0.08], [0.5, 0.2]), poly([0.5, 0.8], [0.5, 0.92]), poly([0.08, 0.5], [0.2, 0.5]), poly([0.8, 0.5], [0.92, 0.5]), poly([0.2, 0.2], [0.29, 0.29]), poly([0.71, 0.71], [0.8, 0.8])], complexity: 3,
+    strokes: [arc(0.5, 0.5, 0.2, 0.2, -90, 270, 30), poly([0.5, 0.08], [0.5, 0.2]), poly([0.5, 0.8], [0.5, 0.92]), poly([0.08, 0.5], [0.2, 0.5]), poly([0.8, 0.5], [0.92, 0.5]), poly([0.2, 0.2], [0.29, 0.29]), poly([0.71, 0.71], [0.8, 0.8])], complexity: 3, angularStrokes: [1, 2, 3, 4, 5, 6],
   }),
   makeTask({
     id: 'shape-sailboat', category: 'shapes', title: 'Segelboot', speech: 'Male ein Segelboot.', label: 'Segelboot',
-    strokes: [poly([0.18, 0.72], [0.82, 0.72], [0.68, 0.84], [0.32, 0.84], [0.18, 0.72]), poly([0.5, 0.72], [0.5, 0.2], [0.76, 0.64], [0.5, 0.64]), poly([0.46, 0.28], [0.24, 0.64], [0.46, 0.64])], complexity: 3,
+    strokes: [poly([0.18, 0.72], [0.82, 0.72], [0.68, 0.84], [0.32, 0.84], [0.18, 0.72]), poly([0.5, 0.72], [0.5, 0.2], [0.76, 0.64], [0.5, 0.64]), poly([0.46, 0.28], [0.24, 0.64], [0.46, 0.64])], complexity: 3, angularStrokes: [0, 1, 2],
   }),
   makeTask({
     id: 'shape-rocket', category: 'shapes', title: 'Rakete', speech: 'Male eine Rakete.', label: 'Rakete',
-    strokes: [poly([0.5, 0.12], [0.7, 0.38], [0.66, 0.72], [0.5, 0.86], [0.34, 0.72], [0.3, 0.38], [0.5, 0.12]), arc(0.5, 0.46, 0.07, 0.07, -90, 270, 20), poly([0.42, 0.76], [0.34, 0.88]), poly([0.58, 0.76], [0.66, 0.88])], complexity: 3,
+    strokes: [poly([0.5, 0.12], [0.7, 0.38], [0.66, 0.72], [0.5, 0.86], [0.34, 0.72], [0.3, 0.38], [0.5, 0.12]), arc(0.5, 0.46, 0.07, 0.07, -90, 270, 20), poly([0.42, 0.76], [0.34, 0.88]), poly([0.58, 0.76], [0.66, 0.88])], complexity: 3, angularStrokes: [0, 2, 3],
   }),
 ];
 
@@ -437,10 +439,26 @@ function fitStrokes(strokes, rect) {
 }
 
 const LOWERCASE_EM_BOX = Object.freeze({ minX: 0.18, maxX: 0.82, minY: 0.12, maxY: 0.96 });
+const NARROW_CAPITAL_EM_BOX = Object.freeze({ minX: 0.2, maxX: 0.8, minY: 0.12, maxY: 0.9 });
+const NARROW_LETTERS = new Set(['I', 'i', 'j', 'l']);
+const WIDE_LETTERS = new Set(['M', 'W', 'm', 'w']);
 
 function fitLetterStrokes(letter, rect) {
   const lowerCase = letter === letter.toLocaleLowerCase('de-DE');
-  return fitStrokesToBounds(letterStrokes[letter], rect, lowerCase ? LOWERCASE_EM_BOX : boundsOf(letterStrokes[letter]));
+  const bounds = lowerCase
+    ? LOWERCASE_EM_BOX
+    : NARROW_LETTERS.has(letter)
+      ? NARROW_CAPITAL_EM_BOX
+      : boundsOf(letterStrokes[letter]);
+  return fitStrokesToBounds(letterStrokes[letter], rect, bounds);
+}
+
+function letterAdvance(letter) {
+  if (NARROW_LETTERS.has(letter)) return 0.58;
+  if (WIDE_LETTERS.has(letter)) return 1.18;
+  if ('JFT'.includes(letter)) return 0.78;
+  if ('ftr'.includes(letter)) return 0.7;
+  return 0.96;
 }
 
 function transformStrokes(strokes, { scale = 1, dx = 0, dy = 0, mirrorX = false, mirrorY = false } = {}) {
@@ -457,18 +475,24 @@ function textCharacters(rawText) {
 function textTaskData(rawText, rect = { x: 0.06, y: 0.2, width: 0.88, height: 0.62 }) {
   const characters = textCharacters(rawText);
   if (!characters.length) return { strokes: [], completionGroups: [] };
-  const gap = Math.min(0.025, rect.width * 0.04);
-  const usable = rect.width - gap * (characters.length - 1);
-  const slotWidth = usable / characters.length;
+  // Equal-width cells leave a conspicuous hole after narrow letters such as
+  // I/i. Give every glyph a modest, handwriting-like advance instead.
+  const gap = Math.min(0.026, rect.width * 0.045);
+  const advances = characters.map(letterAdvance);
+  const totalAdvance = advances.reduce((sum, advance) => sum + advance, 0);
+  const usable = Math.max(0.02, rect.width - gap * (characters.length - 1));
   const strokes = [];
   const completionGroups = [];
+  let cursor = rect.x;
   characters.forEach((character, index) => {
+    const slotWidth = usable * (advances[index] / totalAdvance);
     const fitted = fitLetterStrokes(character, {
-      x: rect.x + index * (slotWidth + gap), y: rect.y, width: slotWidth, height: rect.height,
+      x: cursor, y: rect.y, width: slotWidth, height: rect.height,
     });
     const firstStroke = strokes.length;
     strokes.push(...fitted);
     completionGroups.push(fitted.map((_, strokeIndex) => firstStroke + strokeIndex));
+    cursor += slotWidth + gap;
   });
   return { strokes, completionGroups };
 }
@@ -529,6 +553,7 @@ function variantBank(category, templates, layouts) {
     example: template.example,
     family: category,
     layout: key,
+    angularStrokes: template.angularStrokes,
   }))));
 }
 

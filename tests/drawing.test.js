@@ -2,10 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   demoStageAtProgress,
+  drawingBounds,
   evaluateDrawing,
   feedbackForEvaluation,
   inkColorAt,
   INK_COLORS,
+  guideStagesForTask,
   nextGuideStrokeIndex,
   passesDrawingCriteria,
   pointAlongGuidePath,
@@ -30,6 +32,15 @@ test('a slightly imperfect child-like trace remains acceptable', () => {
   ]];
   const result = evaluateDrawing(expected, user, { width: 900, height: 600 });
   assert.ok(result.score > 0.78, `score was ${result.score}`);
+});
+
+test('a child may trace inside a generous band without following the exact centre line', () => {
+  const vertical = [[{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.82 }]];
+  const kindOffset = [[{ x: 0.535, y: 0.18 }, { x: 0.535, y: 0.82 }]];
+  const tooFar = [[{ x: 0.58, y: 0.18 }, { x: 0.58, y: 0.82 }]];
+  const options = { width: 900, height: 620, tolerance: 620 * 0.075 };
+  assert.equal(passesDrawingCriteria(evaluateDrawing(vertical, kindOffset, options), 'easy'), true);
+  assert.equal(passesDrawingCriteria(evaluateDrawing(vertical, tooFar, options), 'easy'), false);
 });
 
 test('an unrelated scribble scores substantially lower', () => {
@@ -147,10 +158,11 @@ test('Fino scans the guide in writing order instead of jumping to the emptiest l
 
 test('the helper follows the same rounded curve as the dotted guide', () => {
   const stroke = [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }];
-  const guide = pointAlongGuidePath(stroke, 0.2, 100, 100);
-  const curveT = Math.sqrt(guide.point.x / 50);
-  const expectedY = 200 * curveT - 100 * curveT ** 2;
-  assert.ok(guide.point.x > 0 && guide.point.x < 50);
+  const guide = pointAlongGuidePath(stroke, 0.2, 145, 100);
+  const bounds = drawingBounds(145, 100);
+  const curveT = Math.sqrt((guide.point.x - bounds.x) / (bounds.width / 2));
+  const expectedY = bounds.y + bounds.height * (2 * curveT - curveT ** 2);
+  assert.ok(guide.point.x > bounds.x && guide.point.x < bounds.x + bounds.width / 2);
   assert.ok(Math.abs(guide.point.y - expectedY) < 0.001);
 });
 
@@ -160,6 +172,30 @@ test('the starting helper includes a jump between distinct strokes', () => {
   assert.equal(stage.fromStroke, 0);
   assert.equal(stage.toStroke, 1);
   assert.ok(Math.abs(stage.progress - 0.5) < 0.0001);
+});
+
+test('the fitted drawing area keeps the same aspect ratio in portrait and landscape', () => {
+  const portrait = drawingBounds(366, 608);
+  const landscape = drawingBounds(844, 390);
+  assert.ok(Math.abs(portrait.width / portrait.height - 900 / 620) < 0.0001);
+  assert.ok(Math.abs(landscape.width / landscape.height - 900 / 620) < 0.0001);
+  assert.ok(portrait.y > 0, 'portrait artboard should be vertically centred');
+  assert.ok(landscape.x > 0, 'landscape artboard should be horizontally centred');
+});
+
+test('complex pictures and multi-symbol tasks reveal guides in small stages', () => {
+  const flower = {
+    category: 'shapes',
+    strokes: Array.from({ length: 5 }, () => [{ x: 0.2, y: 0.2 }, { x: 0.8, y: 0.8 }]),
+    completionGroups: [[0], [1], [2], [3], [4]],
+  };
+  const word = {
+    category: 'letters',
+    strokes: Array.from({ length: 4 }, () => [{ x: 0.2, y: 0.2 }, { x: 0.8, y: 0.8 }]),
+    completionGroups: [[0], [1], [2], [3]],
+  };
+  assert.deepEqual(guideStagesForTask(flower), [[0, 1], [2, 3], [4]]);
+  assert.deepEqual(guideStagesForTask(word), [[0], [1], [2], [3]]);
 });
 
 test('each new pen stroke receives a different friendly ink color', () => {

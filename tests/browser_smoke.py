@@ -49,12 +49,13 @@ def draw_current_task_as_pen(page) -> None:
     box = page.locator("#drawing-canvas").bounding_box()
     assert box, "Canvas has no bounding box"
     strokes = page.evaluate("window.__fuchsschrift.board.task.strokes")
+    content = page.evaluate("window.__fuchsschrift.board.getContentBounds()")
     client = page.context.new_cdp_session(page)
 
     for stroke in strokes:
         first = stroke[0]
-        x = box["x"] + first["x"] * box["width"]
-        y = box["y"] + first["y"] * box["height"]
+        x = box["x"] + content["x"] + first["x"] * content["width"]
+        y = box["y"] + content["y"] + first["y"] * content["height"]
         client.send("Input.dispatchMouseEvent", {
             "type": "mouseMoved", "x": x, "y": y, "pointerType": "pen"
         })
@@ -63,8 +64,8 @@ def draw_current_task_as_pen(page) -> None:
             "clickCount": 1, "pointerType": "pen", "force": 0.55
         })
         for point in stroke[1:]:
-            x = box["x"] + point["x"] * box["width"]
-            y = box["y"] + point["y"] * box["height"]
+            x = box["x"] + content["x"] + point["x"] * content["width"]
+            y = box["y"] + content["y"] + point["y"] * content["height"]
             client.send("Input.dispatchMouseEvent", {
                 "type": "mouseMoved", "x": x, "y": y, "button": "left", "buttons": 1,
                 "pointerType": "pen", "force": 0.55

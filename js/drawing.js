@@ -3,14 +3,35 @@
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const DEMO_JUMP_UNITS = 0.42;
+const DESIGN_ASPECT_RATIO = 900 / 620;
 export const INK_COLORS = Object.freeze(['#284B73', '#C75C7B', '#2A9D8F', '#9A63BA', '#DD8530']);
 
 export function inkColorAt(strokeIndex) {
   return INK_COLORS[strokeIndex % INK_COLORS.length];
 }
 
+export function drawingBounds(width, height) {
+  const safeWidth = Math.max(1, width);
+  const safeHeight = Math.max(1, height);
+  if (safeWidth / safeHeight >= DESIGN_ASPECT_RATIO) {
+    const contentWidth = safeHeight * DESIGN_ASPECT_RATIO;
+    return { x: (safeWidth - contentWidth) / 2, y: 0, width: contentWidth, height: safeHeight };
+  }
+  const contentHeight = safeWidth / DESIGN_ASPECT_RATIO;
+  return { x: 0, y: (safeHeight - contentHeight) / 2, width: safeWidth, height: contentHeight };
+}
+
 function toPixels(point, width, height) {
-  return { x: point.x * width, y: point.y * height };
+  const bounds = drawingBounds(width, height);
+  return { x: bounds.x + point.x * bounds.width, y: bounds.y + point.y * bounds.height };
+}
+
+function toNormalized(point, width, height) {
+  const bounds = drawingBounds(width, height);
+  return {
+    x: clamp((point.x - bounds.x) / bounds.width, 0, 1),
+    y: clamp((point.y - bounds.y) / bounds.height, 0, 1),
+  };
 }
 
 function pointToSegmentDistance(point, a, b) {
@@ -79,6 +100,33 @@ function distanceScore(samples, targetStrokes, tolerance) {
     total += Math.exp(-((d / tolerance) ** 2));
   }
   return total / samples.length;
+}
+
+function bandCoverage(samples, targetStrokes, tolerance) {
+  if (!samples.length || !targetStrokes.length) return 0;
+  const matches = samples.filter((sample) => minDistanceToStrokes(sample, targetStrokes) <= tolerance).length;
+  return matches / samples.length;
+}
+
+function longestUncoveredRun(samples, targetStrokes, tolerance) {
+  if (!samples.length || !targetStrokes.length) return 1;
+  let longest = 0;
+  let current = 0;
+  samples.forEach((sample) => {
+    if (minDistanceToStrokes(sample, targetStrokes) <= tolerance) {
+      longest = Math.max(longest, current);
+      current = 0;
+    } else {
+      current += 1;
+    }
+  });
+  return Math.max(longest, current) / samples.length;
+}
+
+function pixelPolylineLength(points) {
+  return points.reduce((sum, point, index) => (
+    index ? sum + distance(points[index - 1], point) : sum
+  ), 0);
 }
 
 function pointStrokes(points) {
@@ -164,6 +212,7 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
   width = 900,
   height = 620,
   tolerance = Math.min(width, height) * 0.085,
+  completionTolerance = null,
   completionGroups = null,
 } = {}) {
   const expected = expectedStrokes.filter((stroke) => stroke.length).map((stroke) => stroke.map((point) => toPixels(point, width, height)));
@@ -176,6 +225,7 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
       score: 0, coverage: 0, precision: 0, start: 0, direction: 0,
       length: 0, strokeCount: 0, expectedLength, userLength, hasInk: false,
       completion: 0,
+      allRequired: false,
       componentCoverage: [],
       pathCoverage: expectedStrokes.map(() => 0),
     };
@@ -194,14 +244,27 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
   // for a path the child never drew. It still permits a child to merge,
   // split, reverse, or reorder their real pen strokes.
   const ownedSamplesByPath = pathOwnership(expectedSamplesByStroke, groups, userSamples);
-  // Completion is a little tighter than the overall quality score. A nearby
-  // vertical stroke must not count as most of a missing T bar, while the
-  // mode-specific tolerance still keeps easy/medium/hard appropriately kind.
-  const completionTolerance = tolerance * 0.65;
-  const pathCoverage = expectedSamplesByStroke.map((pathSamples, index) => (
-    distanceScore(pathSamples, pointStrokes(ownedSamplesByPath[index]), completionTolerance)
-      * clamp(ownedSamplesByPath[index].length / Math.max(1, pathSamples.length * 0.55), 0, 1)
-  ));
+  // Every required path gets its own forgiving corridor. A child may wobble
+  // inside that band, but an undrawn crossbar still owns no samples and gets
+  // no credit from its neighbouring line.
+  const requiredPathTolerance = completionTolerance
+    ?? clamp(drawingBounds(width, height).height * 0.07, 16, 36);
+  const pathLongestGaps = [];
+  const pathCoverage = expectedSamplesByStroke.map((pathSamples, index) => {
+    const ownedPoints = pointStrokes(ownedSamplesByPath[index]);
+    // A short crossbar must not be completed by its own stem at the
+    // intersection. Long paths retain the generous child-friendly corridor.
+    const pathTolerance = Math.min(requiredPathTolerance, Math.max(8, pixelPolylineLength(pathSamples) * 0.24));
+    const covered = bandCoverage(pathSamples, ownedPoints, pathTolerance);
+    const density = 0.82 + 0.18 * clamp(ownedSamplesByPath[index].length / Math.max(1, pathSamples.length * 0.32), 0, 1);
+    // A neighbouring character may land near both endpoints of a missing
+    // vertical, but it cannot fill its long empty middle. Keep that shortcut
+    // below the completion gate.
+    const longestGap = longestUncoveredRun(pathSamples, ownedPoints, pathTolerance);
+    pathLongestGaps.push(longestGap);
+    const gapPenalty = longestGap > 0.2 ? 0.68 : 1;
+    return covered * density * gapPenalty;
+  });
   // Every visible part is required: the least-covered path decides its
   // character's completion, and the least-complete character decides the
   // exercise. A crossbar, tail, or umlaut dot can no longer disappear into
@@ -209,6 +272,7 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
   const componentCoverage = groups
     .map((indexes) => Math.min(...indexes.map((index) => pathCoverage[index])));
   const completion = componentCoverage.length ? Math.min(...componentCoverage) : 0;
+  const allRequired = pathCoverage.length > 0 && pathCoverage.every((coverage) => coverage >= 0.7);
 
   let startTotal = 0;
   let directionTotal = 0;
@@ -236,9 +300,9 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
   const length = lengthRatio > 0 ? Math.exp(-Math.abs(Math.log(lengthRatio)) * 0.75) : 0;
   const shape = Math.sqrt(Math.max(0, coverage * precision));
   const rawScore =
-    0.54 * shape
+    0.58 * shape
       + 0.2 * coverage
-      + 0.2 * precision
+      + 0.16 * precision
       + 0.025 * start
       + 0.015 * direction
       + 0.015 * length
@@ -248,15 +312,15 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
   const score = clamp(rawScore * (0.74 + 0.26 * length), 0, 1);
 
   return {
-    score, coverage, precision, completion, componentCoverage, pathCoverage, start, direction, length, strokeCount,
+    score, coverage, precision, completion, allRequired, componentCoverage, pathCoverage, pathLongestGaps, start, direction, length, strokeCount,
     expectedLength, userLength, hasInk: true,
   };
 }
 
 const PASS_CRITERIA = Object.freeze({
-  easy: Object.freeze({ score: 0.52, coverage: 0.45, precision: 0.35, completion: 0.55 }),
-  medium: Object.freeze({ score: 0.56, coverage: 0.49, precision: 0.40, completion: 0.60 }),
-  hard: Object.freeze({ score: 0.60, coverage: 0.53, precision: 0.46, completion: 0.65 }),
+  easy: Object.freeze({ score: 0.52, coverage: 0.45, precision: 0.35, completion: 0.7 }),
+  medium: Object.freeze({ score: 0.56, coverage: 0.49, precision: 0.40, completion: 0.74 }),
+  hard: Object.freeze({ score: 0.60, coverage: 0.53, precision: 0.46, completion: 0.78 }),
 });
 
 /**
@@ -267,6 +331,7 @@ export function passesDrawingCriteria(result, assist, { qualityAdjustment = 0, s
   const criteria = PASS_CRITERIA[assist] ?? PASS_CRITERIA.easy;
   const qualitySlack = qualityAdjustment + slack;
   return result.hasInk
+    && result.allRequired
     && result.score >= criteria.score - qualitySlack
     && result.coverage >= criteria.coverage - qualitySlack
     && result.precision >= criteria.precision - qualitySlack
@@ -286,13 +351,13 @@ export function nextGuideStrokeIndex(expectedStrokes, userStrokes, {
     tolerance,
     completionGroups,
   });
-  const next = pathCoverage.findIndex((coverage) => coverage < 0.72);
+  const next = pathCoverage.findIndex((coverage) => coverage < 0.78);
   return next >= 0 ? next : Math.max(0, expectedStrokes.length - 1);
 }
 
 export function feedbackForEvaluation(result) {
   if (!result.hasInk) return 'Zeichne zuerst mit dem Stift oder Finger.';
-  if (result.completion < 0.5) return 'Fahr jede Zahl oder jeden Buchstaben nach.';
+  if (result.completion < 0.62) return 'Fahr jede Zahl oder jeden Buchstaben nach.';
   if (result.coverage < 0.38) return 'Fahr die ganze Linie entlang.';
   if (result.precision < 0.32) return 'Bleib ein bisschen näher an der Spur.';
   if (result.start < 0.3) return 'Beginne beim grünen Punkt.';
@@ -430,6 +495,24 @@ export function demoStageAtProgress(strokeCount, progress) {
   return { type: 'run', strokeIndex: strokeCount - 1, progress: 1 };
 }
 
+export function guideStagesForTask(task) {
+  if (!task?.strokes?.length) return [];
+  const allIndexes = task.strokes.map((_, index) => index);
+  const chunks = (indexes, size) => Array.from(
+    { length: Math.ceil(indexes.length / size) },
+    (_, index) => indexes.slice(index * size, (index + 1) * size),
+  );
+  const groups = task.completionGroups?.filter((group) => group.length) ?? [];
+
+  // One symbol at a time keeps rows of letters/numbers readable. Complex
+  // pictures reveal two marks at once, while simple one- and two-stroke
+  // exercises remain whole.
+  if (['letters', 'numbers', 'name'].includes(task.category) && groups.length > 1) return groups.map((group) => [...group]);
+  if (task.category === 'shapes' && task.strokes.length > 2) return chunks(allIndexes, 2);
+  if (task.strokes.length > 3) return chunks(allIndexes, 2);
+  return [allIndexes];
+}
+
 export class DrawingBoard {
   constructor(canvas, hooks = {}) {
     if (!(canvas instanceof HTMLCanvasElement)) throw new TypeError('DrawingBoard requires a canvas element.');
@@ -444,6 +527,9 @@ export class DrawingBoard {
     this.activePointerId = null;
     this.lastPenAt = 0;
     this.demoProgress = null;
+    this.demoStrokeIndexes = [];
+    this.demoResolve = null;
+    this.demoFinishTimer = 0;
     this.demoFrame = 0;
     this.jumpAnimation = null;
     this.jumpFrame = 0;
@@ -467,7 +553,7 @@ export class DrawingBoard {
 
   destroy() {
     this.resizeObserver.disconnect();
-    cancelAnimationFrame(this.demoFrame);
+    this.stopDemo({ render: false });
     cancelAnimationFrame(this.jumpFrame);
     this.canvas.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
@@ -492,12 +578,14 @@ export class DrawingBoard {
   }
 
   setTask(task, assist = 'easy') {
+    this.stopDemo({ render: false });
     this.task = task;
     this.assist = assist;
     this.userStrokes = [];
     this.strokeColors = [];
     this.activeStroke = null;
     this.demoProgress = null;
+    this.demoStrokeIndexes = [];
     this.jumpAnimation = null;
     this.highlightUntil = 0;
     cancelAnimationFrame(this.demoFrame);
@@ -507,6 +595,7 @@ export class DrawingBoard {
   }
 
   clear() {
+    this.stopDemo({ render: false });
     this.userStrokes = [];
     this.strokeColors = [];
     this.activeStroke = null;
@@ -537,12 +626,40 @@ export class DrawingBoard {
   }
 
   evaluationOptions() {
-    const toleranceByAssist = { easy: 0.068, medium: 0.058, hard: 0.048 };
+    const toleranceByAssist = { easy: 0.075, medium: 0.062, hard: 0.052 };
+    const bounds = drawingBounds(this.width, this.height);
+    const unit = bounds.height;
     return {
       width: this.width,
       height: this.height,
-      tolerance: Math.min(this.width, this.height) * toleranceByAssist[this.assist],
+      tolerance: clamp(unit * toleranceByAssist[this.assist], this.assist === 'easy' ? 18 : 14, this.assist === 'easy' ? 36 : this.assist === 'medium' ? 31 : 27),
+      completionTolerance: clamp(unit * 0.07, 16, 36),
     };
+  }
+
+  getContentBounds() {
+    return { ...drawingBounds(this.width, this.height) };
+  }
+
+  isAngularGuide(strokeIndex) {
+    return ['letters', 'numbers', 'name'].includes(this.task?.category)
+      || this.task?.angularStrokes?.includes(strokeIndex);
+  }
+
+  guideStages() {
+    return guideStagesForTask(this.task);
+  }
+
+  visibleGuideStrokeIndexes() {
+    const stages = this.guideStages();
+    if (!stages.length) return [];
+    if (!this.hasInk()) return stages[0];
+    const result = evaluateDrawing(this.task.strokes, this.userStrokes, {
+      ...this.evaluationOptions(),
+      completionGroups: this.task.completionGroups,
+    });
+    const stageIndex = stages.findIndex((stage) => stage.some((index) => result.pathCoverage[index] < 0.78));
+    return stageIndex >= 0 ? stages[stageIndex] : stages.at(-1);
   }
 
   nextGuideStrokeIndex() {
@@ -562,55 +679,106 @@ export class DrawingBoard {
   }
 
   startDemo() {
-    if (!this.task || this.demoProgress !== null) return Promise.resolve();
+    if (!this.task || this.demoProgress !== null || this.hasInk()) return Promise.resolve();
     this.jumpAnimation = null;
     cancelAnimationFrame(this.jumpFrame);
+    this.demoStrokeIndexes = [...this.visibleGuideStrokeIndexes()];
+    const demoStrokes = this.demoStrokeIndexes.map((index) => this.task.strokes[index]);
+    if (!demoStrokes.length) return Promise.resolve();
     this.demoProgress = 0;
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    // Fino moves at 1.5× the previous pace. The path stays invisible so it
-    // demonstrates the movement without drawing the child's orange trace.
-    const duration = reducedMotion ? 240 : clamp((this.task.strokes.length * 350 + 950) / 1.5, 733, 1533);
+    // Pace the helper by distance, not stroke count. It stays calm for a
+    // detailed picture and only demonstrates the currently visible stage.
+    const pathLength = demoStrokes.reduce((sum, stroke) => sum + polylineLength(stroke, this.width, this.height), 0);
+    const demoSpeed = clamp(drawingBounds(this.width, this.height).height * 0.55, 70, 140);
+    const duration = reducedMotion ? 240 : clamp((pathLength / demoSpeed) * 1000, 900, 4600);
     const startedAt = performance.now();
 
     return new Promise((resolve) => {
+      this.demoResolve = resolve;
+      const finish = () => {
+        if (this.demoProgress === null) return;
+        this.demoProgress = null;
+        this.demoStrokeIndexes = [];
+        this.demoResolve = null;
+        this.demoFinishTimer = 0;
+        this.render();
+        resolve();
+      };
       const frame = (now) => {
         this.demoProgress = clamp((now - startedAt) / duration, 0, 1);
         this.render();
         if (this.demoProgress < 1) {
           this.demoFrame = requestAnimationFrame(frame);
         } else {
-          window.setTimeout(() => {
-            this.demoProgress = null;
-            this.render();
-            resolve();
-          }, reducedMotion ? 100 : 280);
+          this.demoFinishTimer = window.setTimeout(finish, reducedMotion ? 100 : 280);
         }
       };
       this.demoFrame = requestAnimationFrame(frame);
     });
   }
 
+  stopDemo({ render = true } = {}) {
+    if (this.demoProgress === null && !this.demoResolve) return;
+    cancelAnimationFrame(this.demoFrame);
+    window.clearTimeout(this.demoFinishTimer);
+    this.demoFrame = 0;
+    this.demoFinishTimer = 0;
+    this.demoProgress = null;
+    this.demoStrokeIndexes = [];
+    const resolve = this.demoResolve;
+    this.demoResolve = null;
+    resolve?.();
+    if (render) this.render();
+  }
+
+  demoFoxPosition() {
+    if (this.demoProgress === null || !this.task || !this.demoStrokeIndexes.length) return null;
+    const stage = demoStageAtProgress(this.demoStrokeIndexes.length, this.demoProgress);
+    if (!stage) return null;
+    if (stage.type === 'run') {
+      const strokeIndex = this.demoStrokeIndexes[stage.strokeIndex];
+      return pointAlongGuidePath(this.task.strokes[strokeIndex] ?? [], stage.progress, this.width, this.height, this.isAngularGuide(strokeIndex))?.point ?? null;
+    }
+    const fromIndex = this.demoStrokeIndexes[stage.fromStroke];
+    const toIndex = this.demoStrokeIndexes[stage.toStroke];
+    const from = pointAlongGuidePath(this.task.strokes[fromIndex] ?? [], 1, this.width, this.height, this.isAngularGuide(fromIndex));
+    const to = pointAlongGuidePath(this.task.strokes[toIndex] ?? [], 0, this.width, this.height, this.isAngularGuide(toIndex));
+    if (!from || !to) return null;
+    return {
+      x: from.point.x + (to.point.x - from.point.x) * stage.progress,
+      y: from.point.y + (to.point.y - from.point.y) * stage.progress,
+    };
+  }
+
   pointFromEvent(event) {
     const rect = this.canvas.getBoundingClientRect();
+    const normalized = toNormalized({
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    }, this.width, this.height);
     return {
-      x: clamp((event.clientX - rect.left) / rect.width, 0, 1),
-      y: clamp((event.clientY - rect.top) / rect.height, 0, 1),
+      ...normalized,
       pressure: event.pressure > 0 ? event.pressure : event.pointerType === 'mouse' ? 0.5 : 0.45,
       time: performance.now(),
     };
   }
 
   onPointerDown(event) {
-    if (!this.task || this.demoProgress !== null || this.activePointerId !== null) return;
+    if (!this.task || this.activePointerId !== null) return;
     if (event.pointerType === 'touch' && (!event.isPrimary || performance.now() - this.lastPenAt < 900)) return;
     if (event.pointerType === 'pen') this.lastPenAt = performance.now();
     event.preventDefault();
-    this.jumpAnimation = null;
+    const point = this.pointFromEvent(event);
+    const demoPosition = this.demoFoxPosition();
+    this.stopDemo({ render: false });
+    if (!demoPosition) this.jumpAnimation = null;
     cancelAnimationFrame(this.jumpFrame);
     this.activePointerId = event.pointerId;
-    this.activeStroke = [this.pointFromEvent(event)];
+    this.activeStroke = [point];
     this.userStrokes.push(this.activeStroke);
     this.strokeColors.push(inkColorAt(this.userStrokes.length - 1));
+    if (demoPosition) this.animateFoxJump(demoPosition, toPixels(point, this.width, this.height), { maxDuration: 220 });
     this.canvas.setPointerCapture?.(event.pointerId);
     this.hooks.onStrokeStart?.();
     this.hooks.onInkChange?.(true);
@@ -630,8 +798,8 @@ export class DrawingBoard {
       const point = this.pointFromEvent(item);
       const last = this.activeStroke[this.activeStroke.length - 1];
       if (!last || distance(
-        { x: last.x * this.width, y: last.y * this.height },
-        { x: point.x * this.width, y: point.y * this.height },
+        toPixels(last, this.width, this.height),
+        toPixels(point, this.width, this.height),
       ) >= 1.4) this.activeStroke.push(point);
     }
     this.render();
@@ -661,6 +829,10 @@ export class DrawingBoard {
 
     const from = toPixels(lastPoint, this.width, this.height);
     const to = toPixels(nextPoint, this.width, this.height);
+    this.animateFoxJump(from, to);
+  }
+
+  animateFoxJump(from, to, { maxDuration = 520 } = {}) {
     const travel = distance(from, to);
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     this.jumpAnimation = {
@@ -669,7 +841,7 @@ export class DrawingBoard {
       progress: 0,
       travel,
       startedAt: performance.now(),
-      duration: reducedMotion ? 170 : clamp(230 + travel * 0.45, 300, 520),
+      duration: reducedMotion ? 170 : clamp(140 + travel * 0.35, 160, maxDuration),
     };
 
     const frame = (now) => {
@@ -688,14 +860,15 @@ export class DrawingBoard {
 
   drawGuidelines(context) {
     if (!this.task || !['letters', 'numbers', 'name'].includes(this.task.category)) return;
+    const bounds = drawingBounds(this.width, this.height);
     context.save();
     context.strokeStyle = 'rgba(82, 105, 142, .13)';
     context.lineWidth = 2;
     context.setLineDash([7, 9]);
     [0.18, 0.5, 0.84].forEach((y, index) => {
       context.beginPath();
-      context.moveTo(this.width * 0.08, this.height * y);
-      context.lineTo(this.width * 0.92, this.height * y);
+      context.moveTo(bounds.x + bounds.width * 0.08, bounds.y + bounds.height * y);
+      context.lineTo(bounds.x + bounds.width * 0.92, bounds.y + bounds.height * y);
       context.stroke();
       if (index === 2) {
         context.setLineDash([]);
@@ -712,17 +885,19 @@ export class DrawingBoard {
     dash = [],
     alpha = 1,
     angular = false,
+    angularForStroke = null,
   }) {
     context.save();
     context.strokeStyle = color;
     context.globalAlpha = alpha;
     context.lineWidth = width;
     context.lineCap = 'round';
-    context.lineJoin = angular ? 'miter' : 'round';
     context.setLineDash(dash);
-    strokes.forEach((stroke) => {
+    strokes.forEach((stroke, index) => {
+      const useAngular = angularForStroke ? angularForStroke(stroke, index) : angular;
+      context.lineJoin = useAngular ? 'miter' : 'round';
       context.beginPath();
-      if (angular) angularPath(context, stroke, this.width, this.height);
+      if (useAngular) angularPath(context, stroke, this.width, this.height);
       else roundedPath(context, stroke, this.width, this.height);
       context.stroke();
     });
@@ -730,7 +905,8 @@ export class DrawingBoard {
   }
 
   drawGuideFox(context, point, angle = 0, { jumping = false } = {}) {
-    const size = clamp(Math.min(this.width, this.height) * 0.08, 26, 46);
+    const bounds = drawingBounds(this.width, this.height);
+    const size = clamp(Math.min(bounds.width, bounds.height) * 0.08, 26, 46);
     context.save();
     context.translate(point.x, point.y - (jumping ? size * 0.34 : 0));
     context.rotate(angle);
@@ -800,8 +976,9 @@ export class DrawingBoard {
       return;
     }
 
-    const nextStroke = this.task.strokes[this.nextGuideStrokeIndex()];
-    const angular = ['letters', 'numbers', 'name'].includes(this.task.category);
+    const nextStrokeIndex = this.nextGuideStrokeIndex();
+    const nextStroke = this.task.strokes[nextStrokeIndex];
+    const angular = this.isAngularGuide(nextStrokeIndex);
     // Fino waits just after the green starting point, still exactly on the
     // dotted path. This leaves the child a clear, visible place to begin.
     const next = pointAlongGuidePath(nextStroke ?? [], 0.07, this.width, this.height, angular);
@@ -817,7 +994,8 @@ export class DrawingBoard {
       y: jump.from.y + (jump.to.y - jump.from.y) * eased,
     };
     const lift = Math.sin(Math.PI * jump.progress) * clamp(jump.travel * 0.2, 24, 58);
-    const size = clamp(Math.min(this.width, this.height) * 0.08, 26, 46);
+    const bounds = drawingBounds(this.width, this.height);
+    const size = clamp(Math.min(bounds.width, bounds.height) * 0.08, 26, 46);
 
     context.save();
     context.globalAlpha = 0.12 + (1 - Math.sin(Math.PI * jump.progress)) * 0.08;
@@ -833,19 +1011,21 @@ export class DrawingBoard {
 
   drawDemo(context) {
     if (this.demoProgress === null || !this.task) return;
-    const angular = ['letters', 'numbers', 'name'].includes(this.task.category);
-    const stage = demoStageAtProgress(this.task.strokes.length, this.demoProgress);
+    const stage = demoStageAtProgress(this.demoStrokeIndexes.length, this.demoProgress);
     if (!stage) return;
 
     if (stage.type === 'run') {
-      const activeStroke = this.task.strokes[stage.strokeIndex];
-      const guide = pointAlongGuidePath(activeStroke ?? [], stage.progress, this.width, this.height, angular);
+      const activeIndex = this.demoStrokeIndexes[stage.strokeIndex];
+      const activeStroke = this.task.strokes[activeIndex];
+      const guide = pointAlongGuidePath(activeStroke ?? [], stage.progress, this.width, this.height, this.isAngularGuide(activeIndex));
       if (guide) this.drawGuideFox(context, guide.point, guide.angle);
       return;
     }
 
-    const from = pointAlongGuidePath(this.task.strokes[stage.fromStroke], 1, this.width, this.height, angular);
-    const to = pointAlongGuidePath(this.task.strokes[stage.toStroke], 0, this.width, this.height, angular);
+    const fromIndex = this.demoStrokeIndexes[stage.fromStroke];
+    const toIndex = this.demoStrokeIndexes[stage.toStroke];
+    const from = pointAlongGuidePath(this.task.strokes[fromIndex], 1, this.width, this.height, this.isAngularGuide(fromIndex));
+    const to = pointAlongGuidePath(this.task.strokes[toIndex], 0, this.width, this.height, this.isAngularGuide(toIndex));
     if (from && to) {
       this.drawJumpingFox(context, {
         from: from.point,
@@ -858,11 +1038,13 @@ export class DrawingBoard {
 
   drawStartPoint(context) {
     if (!this.task || this.demoProgress !== null || this.activeStroke?.length || this.jumpAnimation) return;
-    const stroke = this.task.strokes[this.nextGuideStrokeIndex()];
-    const angular = ['letters', 'numbers', 'name'].includes(this.task.category);
+    const strokeIndex = this.nextGuideStrokeIndex();
+    const stroke = this.task.strokes[strokeIndex];
+    const angular = this.isAngularGuide(strokeIndex);
     const guide = pointAlongGuidePath(stroke ?? [], 0, this.width, this.height, angular);
     if (!guide) return;
-    const radius = clamp(Math.min(this.width, this.height) * 0.016, 6, 10);
+    const bounds = drawingBounds(this.width, this.height);
+    const radius = clamp(Math.min(bounds.width, bounds.height) * 0.016, 6, 10);
     context.save();
     context.fillStyle = '#ffffff';
     context.beginPath();
@@ -883,18 +1065,20 @@ export class DrawingBoard {
     this.drawGuidelines(context);
     if (this.task) {
       const isHighlight = performance.now() < this.highlightUntil;
-      const angularGuide = ['letters', 'numbers', 'name'].includes(this.task.category);
+      const guideIndexes = this.visibleGuideStrokeIndexes();
+      const visibleStrokes = guideIndexes.map((index) => this.task.strokes[index]);
+      const bounds = drawingBounds(this.width, this.height);
       const guideStyle = {
         easy: { width: 0.021, min: 10, max: 17, dash: [2, 22], alpha: 0.45, color: '#B9D8DE' },
         medium: { width: 0.015, min: 7, max: 12, dash: [9, 12], alpha: 0.34, color: '#C9D6E2' },
         hard: { width: 0.01, min: 5, max: 8, dash: [5, 13], alpha: 0.25, color: '#D0DAE5' },
       }[this.assist];
-      this.drawStrokeSet(context, this.task.strokes, {
+      this.drawStrokeSet(context, visibleStrokes, {
         color: isHighlight ? '#F3B348' : guideStyle.color,
-        width: clamp(Math.min(this.width, this.height) * guideStyle.width, guideStyle.min, guideStyle.max),
+        width: clamp(Math.min(bounds.width, bounds.height) * guideStyle.width, guideStyle.min, guideStyle.max),
         dash: guideStyle.dash,
         alpha: isHighlight ? 0.72 : guideStyle.alpha,
-        angular: angularGuide,
+        angularForStroke: (_, index) => this.isAngularGuide(guideIndexes[index]),
       });
 
       this.drawFoxForCurrentStroke(context);
@@ -903,9 +1087,10 @@ export class DrawingBoard {
     }
 
     this.userStrokes.forEach((stroke, index) => {
+      const bounds = drawingBounds(this.width, this.height);
       this.drawStrokeSet(context, [stroke], {
         color: this.strokeColors[index] ?? inkColorAt(index),
-        width: clamp(Math.min(this.width, this.height) * 0.025, 11, 20),
+        width: clamp(Math.min(bounds.width, bounds.height) * 0.025, 11, 20),
         alpha: 0.98,
       });
     });

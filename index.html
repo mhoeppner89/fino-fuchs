@@ -103,7 +103,7 @@
               </div>
               <label class="name-field custom-set-field" id="number-set-field" hidden>
                 <span class="sr-only">Eigene Zahlen</span>
-                <input id="number-set" type="text" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="z. B. 2 5 7" aria-describedby="number-set-help" disabled>
+                <input id="number-set" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" maxlength="20" placeholder="z. B. 2 5 7" aria-describedby="number-set-help" disabled>
               </label>
               <p class="field-help" id="number-set-help" hidden>Tippe die Zahlen, die du üben möchtest. Doppelte Zahlen zählen nur einmal.</p>
             </fieldset>
@@ -115,7 +115,7 @@
               </div>
               <label class="name-field custom-set-field" id="letter-set-field" hidden>
                 <span class="sr-only">Eigene Buchstaben</span>
-                <input id="letter-set" type="text" inputmode="text" autocomplete="off" autocapitalize="none" maxlength="20" placeholder="z. B. M A R T I N oder m a r t i n" aria-describedby="letter-set-help" disabled>
+                <input id="letter-set" type="text" inputmode="text" enterkeyhint="done" autocomplete="off" autocapitalize="none" maxlength="20" placeholder="z. B. M A R T I N oder m a r t i n" aria-describedby="letter-set-help" disabled>
               </label>
               <p class="field-help" id="letter-set-help" hidden>Tippe die Buchstaben, die du üben möchtest. Ä, Ö und Ü gehen auch.</p>
             </fieldset>
@@ -123,7 +123,7 @@
               <legend>Wie heißt du?</legend>
               <label class="name-field">
                 <span class="sr-only">Vorname des Kindes</span>
-                <input id="child-name" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" maxlength="12" placeholder="Vorname" aria-describedby="name-help">
+                <input id="child-name" type="text" inputmode="text" enterkeyhint="go" autocomplete="off" autocapitalize="characters" maxlength="12" placeholder="Vorname" aria-describedby="name-help">
               </label>
               <p class="field-help" id="name-help">Der Name bleibt nur bis zum Neuladen der Seite erhalten.</p>
             </fieldset>

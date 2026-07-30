@@ -42,10 +42,15 @@ test('custom number and letter sets retain enough unique exercises for a full ro
 test('the number and letter selector consistently says Alle and has spaced custom inputs', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   assert.ok(OPTION_SETS.numbers.some((option) => option.value === 'all' && option.label === 'Alle'));
   assert.ok(OPTION_SETS.letters.some((option) => option.value === 'all' && option.label === 'Alle'));
   assert.equal((html.match(/>Alle<\/span>/g) ?? []).length, 2);
   assert.match(styles, /\.custom-set-field\s*\{[^}]*margin-top:\s*15px/s);
+  assert.match(html, /id="child-name"[^>]*enterkeyhint="go"/);
+  assert.match(html, /id="number-set"[^>]*inputmode="numeric"[^>]*enterkeyhint="done"/);
+  assert.doesNotMatch(app, /setTimeout\(\(\) => elements\.childName\.focus/);
+  assert.match(app, /if \(custom && focus\) input\.focus/);
 });
 
 test('lowercase letters are included in the regular 100-exercise letter bank', () => {
@@ -129,6 +134,28 @@ test('word task composes supported letters into the board', () => {
     assert.ok(point.x >= 0 && point.x <= 1);
     assert.ok(point.y >= 0 && point.y <= 1);
   });
+});
+
+test('name spacing keeps narrow I centred between its neighbours', () => {
+  const word = createWordTask('MIM');
+  const [leftGroup, iGroup, rightGroup] = word.completionGroups;
+  const boundsFor = (group) => group.flatMap((index) => word.strokes[index]).reduce((bounds, point) => ({
+    minX: Math.min(bounds.minX, point.x), maxX: Math.max(bounds.maxX, point.x),
+  }), { minX: Infinity, maxX: -Infinity });
+  const left = boundsFor(leftGroup);
+  const middle = boundsFor(iGroup);
+  const right = boundsFor(rightGroup);
+  const before = middle.minX - left.maxX;
+  const after = right.minX - middle.maxX;
+  assert.ok(before > 0 && after > 0, 'letters should not overlap');
+  assert.ok(Math.abs(before - after) < 0.035, `uneven gaps around I: ${before} / ${after}`);
+});
+
+test('straight-edged shape guides preserve hard corners', () => {
+  const cross = EXERCISE_BANKS.shapes.find((task) => task.id === 'shapes-shape-cross-gross');
+  const circle = EXERCISE_BANKS.shapes.find((task) => task.id === 'shapes-shape-circle-gross');
+  assert.deepEqual(cross.angularStrokes, [0, 1]);
+  assert.deepEqual(circle.angularStrokes, []);
 });
 
 test('restricted choices still form a repetition-free round', () => {

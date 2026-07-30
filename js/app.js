@@ -151,7 +151,7 @@ function showToast(message, duration = 2800) {
   }, duration);
 }
 
-function selectCategory(category, { announce = true } = {}) {
+function selectCategory(category, { announce = true, focusInput = false } = {}) {
   if (!CATEGORY_CONFIG[category]) return;
   state.category = category;
   elements.activityCards.forEach((card) => {
@@ -164,9 +164,8 @@ function selectCategory(category, { announce = true } = {}) {
     panel.hidden = !selected;
     panel.classList.toggle('is-visible', selected);
   });
-  if (category === 'name') {
-    window.setTimeout(() => elements.childName.focus({ preventScroll: true }), 120);
-  }
+  // Safari only opens its keyboard when focus happens in the tap itself.
+  if (category === 'name' && focusInput) elements.childName.focus({ preventScroll: true });
   if (announce) speak(CATEGORY_CONFIG[category].speech);
 }
 
@@ -191,7 +190,7 @@ function updateCustomSetField(category, { focus = false } = {}) {
   field.hidden = !custom;
   input.disabled = !custom;
   help.hidden = !custom;
-  if (custom && focus) window.setTimeout(() => input.focus({ preventScroll: true }), 0);
+  if (custom && focus) input.focus({ preventScroll: true });
 }
 
 function selectedOption() {
@@ -273,7 +272,7 @@ async function renderTask() {
   const shouldDemo = task.assist === 'easy' || (state.index === 0 && task.assist === 'medium');
   if (shouldDemo) {
     window.setTimeout(async () => {
-      if (token !== state.taskToken || state.screen !== 'practice') return;
+      if (token !== state.taskToken || state.screen !== 'practice' || board.hasInk()) return;
       await board.startDemo();
       if (token === state.taskToken && !board.hasInk()) {
         setMentorMessage('Jetzt du.');
@@ -387,6 +386,10 @@ function checkDrawing({ quietIncomplete = false } = {}) {
     return { passed: true, result };
   }
 
+  // A partial multi-stroke drawing is progress, not a failed attempt. The
+  // visible stage and Fino already point to the next missing part.
+  if (quietIncomplete && !result.allRequired) return { passed: false, result, inProgress: true };
+
   state.attempts += 1;
   const nearPass = state.attempts >= 3 && passCriteria(result, task.assist, task, 0.04);
   if (nearPass) {
@@ -450,7 +453,7 @@ const board = new DrawingBoard(elements.drawingCanvas, {
 });
 
 elements.activityCards.forEach((card) => {
-  card.addEventListener('click', () => selectCategory(card.dataset.category));
+  card.addEventListener('click', () => selectCategory(card.dataset.category, { focusInput: true }));
 });
 
 if (SYNTHETIC_VOICE_ENABLED) {
@@ -477,8 +480,13 @@ $$('input[name="difficulty"]').forEach((input) => {
 $$('input[name="number-selection"], input[name="letter-selection"]').forEach((input) => {
   input.addEventListener('change', () => {
     const category = input.name === 'number-selection' ? 'numbers' : 'letters';
-    updateCustomSetField(category, { focus: input.value === 'custom' });
+    updateCustomSetField(category);
     speak(input.nextElementSibling?.textContent ?? '');
+  });
+  input.addEventListener('click', () => {
+    if (input.value !== 'custom') return;
+    const category = input.name === 'number-selection' ? 'numbers' : 'letters';
+    updateCustomSetField(category, { focus: true });
   });
 });
 

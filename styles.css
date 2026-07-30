@@ -1471,6 +1471,17 @@ p {
   }
 }
 
+@media (orientation: portrait) {
+  /* Keep the actual writing surface in the same proportions as its drawing
+     coordinates. Tall phones should not turn a letter into a stretched one
+     or leave an oversized empty board around a tiny guide. */
+  .drawing-card {
+    min-height: 0;
+    flex: 0 0 auto;
+    aspect-ratio: 900 / 620;
+  }
+}
+
 @media (orientation: landscape) and (max-height: 620px) {
   .practice-screen {
     padding-top: max(5px, env(safe-area-inset-top));
