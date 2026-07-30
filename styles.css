@@ -1528,6 +1528,62 @@ p {
   }
 }
 
+@media (min-width: 820px) and (max-width: 1199px) and (min-height: 650px) and (orientation: landscape) {
+  /* iPad landscape: use a compact side rail and give the writing page its
+     real 900:620 shape. This removes the blank strip inside a too-tall card
+     while keeping Fino and the controls within easy reach. */
+  .practice-screen {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  .practice-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(278px, 300px);
+    grid-template-rows: auto auto;
+    gap: 10px 14px;
+    align-content: start;
+  }
+
+  .drawing-section {
+    align-self: start;
+    flex: 0 0 auto;
+  }
+
+  .drawing-card {
+    min-height: 0;
+    flex: 0 0 auto;
+    aspect-ratio: 900 / 620;
+  }
+
+  .mentor-row {
+    min-height: 54px;
+    gap: 8px;
+  }
+
+  .mentor-avatar {
+    width: 52px;
+    height: 52px;
+    flex-basis: 52px;
+  }
+
+  .mentor-bubble {
+    min-height: 46px;
+    padding: 10px 12px;
+    border-radius: 15px;
+    font-size: .9rem;
+    line-height: 1.25;
+  }
+
+  .practice-controls {
+    align-self: start;
+    gap: 8px;
+  }
+
+  .practice-controls button {
+    min-height: 56px;
+  }
+}
+
 @media (orientation: landscape) and (max-height: 620px) {
   .practice-screen {
     padding-top: max(5px, env(safe-area-inset-top));

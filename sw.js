@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fino-schreibt-v1.0.16';
+const CACHE_NAME = 'fino-schreibt-v1.0.17';
 const APP_SHELL = [
   './',
   './index.html',

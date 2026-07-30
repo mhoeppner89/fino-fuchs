@@ -293,7 +293,9 @@ const letterStrokes = {
   // Start at the bottom-left, travel up, dip to the middle, then rise and
   // finish down the right side. The former order described an upside-down M.
   M: [poly([0.18, 0.84], [0.18, 0.16], [0.5, 0.55], [0.82, 0.16], [0.82, 0.84])],
-  N: [poly([0.22, 0.16], [0.22, 0.84], [0.78, 0.16], [0.78, 0.84])],
+  // An N has a diagonal that travels from top-left to bottom-right. Keep its
+  // three marks separate so the helper can show the natural pen lifts too.
+  N: [poly([0.22, 0.16], [0.22, 0.84]), poly([0.22, 0.16], [0.78, 0.84]), poly([0.78, 0.84], [0.78, 0.16])],
   O: [arc(0.5, 0.5, 0.3, 0.37, -90, 270, 46)],
   P: [poly([0.27, 0.16], [0.27, 0.84]), bezier(p(0.27, 0.16), p(0.82, 0.12), p(0.83, 0.54), p(0.27, 0.51), 34)],
   Q: [arc(0.5, 0.48, 0.3, 0.35, -90, 270, 46), poly([0.57, 0.65], [0.8, 0.88])],
@@ -484,17 +486,36 @@ function textTaskData(rawText, rect = { x: 0.06, y: 0.2, width: 0.88, height: 0.
   // Give neighbouring characters enough physical breathing room for the
   // generous tracing corridor. This is especially important beside i/l,
   // whose narrow bodies otherwise make the next letter feel glued on.
-  const gap = Math.min(0.05, rect.width * 0.07);
+  const preferredGap = Math.min(0.05, rect.width * 0.07);
+  // Keep breathing room around short names, then share at most 28% of the
+  // word's width between gaps. Otherwise an 11- or 12-letter name would use
+  // more of the board for empty gaps than for the letters themselves.
+  const gap = Math.min(
+    preferredGap,
+    (rect.width * 0.28) / Math.max(1, characters.length - 1),
+  );
   const advances = characters.map(letterAdvance);
   const totalAdvance = advances.reduce((sum, advance) => sum + advance, 0);
   const usable = Math.max(0.02, rect.width - gap * (characters.length - 1));
+  const averageCharacterWidth = usable / totalAdvance;
+  // A long name must become smaller as a whole. Keeping the old full height
+  // while narrowing each slot made the letters look squeezed and unnaturally
+  // tall. Four letters still use the generous writing height; longer names
+  // gently reduce their height and stay centred in the same writing area.
+  const textHeight = characters.length <= 4
+    ? rect.height
+    : Math.max(
+      rect.height * (characters.length > 8 ? 0.27 : 0.35),
+      Math.min(rect.height * (4 / characters.length), averageCharacterWidth * 3.1),
+    );
+  const textY = rect.y + (rect.height - textHeight) / 2;
   const strokes = [];
   const completionGroups = [];
   let cursor = rect.x;
   characters.forEach((character, index) => {
     const slotWidth = usable * (advances[index] / totalAdvance);
     const fitted = fitLetterStrokes(character, {
-      x: cursor, y: rect.y, width: slotWidth, height: rect.height,
+      x: cursor, y: textY, width: slotWidth, height: textHeight,
     });
     const firstStroke = strokes.length;
     strokes.push(...fitted);
@@ -509,7 +530,7 @@ function textStrokes(rawText, rect) {
 }
 
 export function createWordTask(rawName) {
-  const name = normalizeName(rawName).replace(/[- ]/g, '').slice(0, 8);
+  const name = normalizeName(rawName).replace(/[- ]/g, '');
   const data = textTaskData(name);
   if (!data.strokes.length) return null;
   return makeTask({
@@ -526,7 +547,7 @@ export function createWordTask(rawName) {
 }
 
 function createNameRound(rawName) {
-  const name = normalizeName(rawName).replace(/[- ]/g, '').slice(0, 8) || 'FINO';
+  const name = normalizeName(rawName).replace(/[- ]/g, '') || 'FINO';
   const characters = textCharacters(name);
   const letterRect = { x: 0.28, y: 0.12, width: 0.44, height: 0.76 };
   const letterTasks = characters.map((letter, index) => {
@@ -810,7 +831,7 @@ function nameRect(index, dx = 0) {
 }
 
 export function createNameExerciseBank(rawName) {
-  const name = normalizeName(rawName).replace(/[- ]/g, '').slice(0, 8) || 'FINO';
+  const name = normalizeName(rawName).replace(/[- ]/g, '') || 'FINO';
   const characters = textCharacters(name);
   const chunks = Array.from({ length: 20 }, (_, index) => {
     const length = 1 + (index % Math.min(3, characters.length));

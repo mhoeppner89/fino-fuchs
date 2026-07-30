@@ -40,3 +40,10 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Name sessions are now intentionally variable in length: each character is practised in order, including repeated letters, followed by one full-name task.
 - Completed guide stages remain on the canvas. Fino demonstrates only the current unfinished stage, while earlier dotted targets stay available as context.
 - Verification: `npm test` passes 41 of 41 checks. Focused browser checks confirmed `ANNA` follows A → N → N → A → ANNA and a staged number keeps the completed first digit visible while the second remains dotted; no browser errors were recorded.
+
+## 2026-07-30 fourth follow-up
+
+- Corrected capital N: its diagonal now runs from top-left to bottom-right, with separate natural pen lifts for the two uprights and the diagonal.
+- Long names now reduce their letter height as a single centred word once they exceed four characters. Names are no longer clipped at eight letters; all 12 allowed characters fit on the board with gaps that compact only when needed.
+- Added an iPad-landscape layout (1024×768): an exact-proportion 900:620 writing board sits beside a compact Fino/control rail instead of becoming a tall card with empty space inside it.
+- Verification: `npm test` passes 43 of 43 checks, including new N-direction/pen-lift and long-name-height/full-name regressions. The required final Playwright canvas run recorded no errors, and an iPad landscape visual check measured a 678×467 board (900:620) with Fino and both controls alongside it.

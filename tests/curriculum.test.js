@@ -70,6 +70,15 @@ test('M is upright and the lowercase i dot is centred above its stem', () => {
   assert.ok(Math.max(...i.strokes[1].map((point) => point.y)) < Math.min(...i.strokes[0].map((point) => point.y)), 'i dot should sit above its stem');
 });
 
+test('N uses the normal downward-right diagonal with natural pen lifts', () => {
+  const n = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-N-gross');
+  assert.equal(n.strokes.length, 3, 'N should have two uprights and one diagonal');
+  const [left, diagonal, right] = n.strokes;
+  assert.ok(left[0].y < left.at(-1).y, 'left upright should travel downward');
+  assert.ok(diagonal[0].x < diagonal.at(-1).x && diagonal[0].y < diagonal.at(-1).y, 'N diagonal should travel down to the right');
+  assert.ok(right[0].y > right.at(-1).y, 'right upright should finish upward');
+});
+
 test('curriculum uses text and drawing data instead of emoji decorations', () => {
   const pictographic = /\p{Extended_Pictographic}/u;
   TASKS.forEach((task) => {
@@ -181,6 +190,19 @@ test('name spacing keeps narrow I centred between its neighbours', () => {
   const after = right.minX - middle.maxX;
   assert.ok(before > 0 && after > 0, 'letters should not overlap');
   assert.ok(Math.abs(before - after) < 0.035, `uneven gaps around I: ${before} / ${after}`);
+});
+
+test('long names become shorter as a whole instead of squeezing tall letters into narrow slots', () => {
+  const shortName = createWordTask('MIA');
+  const longName = createWordTask('ELISABETH');
+  const verticalSpan = (task) => {
+    const points = task.strokes.flat();
+    return Math.max(...points.map((point) => point.y)) - Math.min(...points.map((point) => point.y));
+  };
+  assert.equal(longName.label, 'ELISABETH', 'a full long name should not be clipped');
+  assert.equal(longName.completionGroups.length, 9, 'every letter in a long name should remain required');
+  assert.ok(verticalSpan(longName) < verticalSpan(shortName) * 0.5, 'long-name letters should be visibly shorter');
+  assert.ok(verticalSpan(longName) > 0.2, 'long-name letters should remain easy to trace');
 });
 
 test('straight-edged shape guides preserve hard corners', () => {
