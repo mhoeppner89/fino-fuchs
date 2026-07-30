@@ -6,7 +6,7 @@ Fino schreibt ist eine statische, deutschsprachige Schreiblern-App für kurze Ü
 
 - sechs Bereiche: **Linien**, **Formen**, **Zahlen**, **Buchstaben**, **Mein Name** und **Bunte Mischung**
 - drei Hilfestufen: **Leicht**, **Mittel** und **Knifflig**
-- 10 kontrolliert zufällig ausgewählte Aufgaben pro Runde; verfügbare Zahlen, Buchstaben und Vorlagen wechseln sich ab, bevor etwas wiederkommt
+- 10 kontrolliert zufällig ausgewählte Aufgaben pro Runde; verfügbare Zahlen, Buchstaben und Vorlagen wechseln sich ab, bevor etwas wiederkommt. Bei **Mein Name** wird zuerst jeder Buchstabe und dann der ganze Name geschrieben.
 - automatischer, kurzer Abschluss-Check nach jedem abgesetzten Strich
 - 100 unterschiedliche Übungen pro Bereich: Wege, Formen, Zahlen, Buchstaben, Namen und bunte Mischung
 - bei Zahlen und Buchstaben: **Alle** üben oder eine eigene Auswahl eingeben

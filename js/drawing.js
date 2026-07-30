@@ -547,6 +547,12 @@ export function guideStagesForTask(task) {
   return [allIndexes];
 }
 
+export function visibleGuideIndexes(stages, activeStageIndex = 0) {
+  if (!stages.length) return [];
+  const lastVisibleStage = clamp(activeStageIndex, 0, stages.length - 1);
+  return stages.slice(0, lastVisibleStage + 1).flat();
+}
+
 export class DrawingBoard {
   constructor(canvas, hooks = {}) {
     if (!(canvas instanceof HTMLCanvasElement)) throw new TypeError('DrawingBoard requires a canvas element.');
@@ -684,16 +690,24 @@ export class DrawingBoard {
     return guideStagesForTask(this.task);
   }
 
-  visibleGuideStrokeIndexes() {
+  activeGuideStageIndex() {
     const stages = this.guideStages();
-    if (!stages.length) return [];
-    if (!this.hasInk()) return stages[0];
+    if (!stages.length || !this.hasInk()) return 0;
     const result = evaluateDrawing(this.task.strokes, this.userStrokes, {
       ...this.evaluationOptions(),
       completionGroups: this.task.completionGroups,
     });
     const stageIndex = stages.findIndex((stage) => stage.some((index) => result.pathCoverage[index] < REQUIRED_PATH_COVERAGE));
-    return stageIndex >= 0 ? stages[stageIndex] : stages.at(-1);
+    return stageIndex >= 0 ? stageIndex : stages.length - 1;
+  }
+
+  activeGuideStrokeIndexes() {
+    const stages = this.guideStages();
+    return stages[this.activeGuideStageIndex()] ?? [];
+  }
+
+  visibleGuideStrokeIndexes() {
+    return visibleGuideIndexes(this.guideStages(), this.activeGuideStageIndex());
   }
 
   nextGuideStrokeIndex() {
@@ -716,7 +730,7 @@ export class DrawingBoard {
     if (!this.task || this.demoProgress !== null || this.hasInk()) return Promise.resolve();
     this.jumpAnimation = null;
     cancelAnimationFrame(this.jumpFrame);
-    this.demoStrokeIndexes = [...this.visibleGuideStrokeIndexes()];
+    this.demoStrokeIndexes = [...this.activeGuideStrokeIndexes()];
     const demoStrokes = this.demoStrokeIndexes.map((index) => this.task.strokes[index]);
     if (!demoStrokes.length) return Promise.resolve();
     this.demoProgress = 0;

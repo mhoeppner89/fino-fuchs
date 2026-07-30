@@ -525,6 +525,40 @@ export function createWordTask(rawName) {
   });
 }
 
+function createNameRound(rawName) {
+  const name = normalizeName(rawName).replace(/[- ]/g, '').slice(0, 8) || 'FINO';
+  const characters = textCharacters(name);
+  const letterRect = { x: 0.28, y: 0.12, width: 0.44, height: 0.76 };
+  const letterTasks = characters.map((letter, index) => {
+    const strokes = fitLetterStrokes(letter, letterRect);
+    return makeTask({
+      id: `name-round-${name}-letter-${index}`,
+      category: 'name',
+      title: `Buchstabe ${letter}`,
+      speech: `Schreib den Buchstaben ${letter}.`,
+      label: letter,
+      value: `${letter}-${index}`,
+      strokes,
+      completionGroups: [strokes.map((_, strokeIndex) => strokeIndex)],
+      complexity: 1,
+      group: 'name',
+      family: 'name',
+      layout: 'single-letter',
+    });
+  });
+  const wholeName = createWordTask(name);
+  return [
+    ...letterTasks,
+    makeTask({
+      ...wholeName,
+      id: `name-round-${name}-full`,
+      title: 'Dein ganzer Name',
+      speech: `Jetzt schreibst du deinen Namen. ${name}.`,
+      layout: 'whole-name',
+    }),
+  ];
+}
+
 const ROUTE_LAYOUTS = [
   ['gross', 'groß', { scale: 1 }],
   ['kompakt', 'kompakt', { scale: 0.76 }],
@@ -890,6 +924,16 @@ export const SESSION_SIZE = 10;
 export function buildSession({ category, difficulty = 'easy', option = '', name = '', rng = Math.random }) {
   if (!CATEGORY_CONFIG[category]) throw new Error(`Unknown category: ${category}`);
   if (!DIFFICULTIES[difficulty]) throw new Error(`Unknown difficulty: ${difficulty}`);
+
+  if (category === 'name') {
+    const sequence = createNameRound(name);
+    return sequence.map((task, index) => ({
+      ...task,
+      uid: `${task.id}-${index}`,
+      assist: index === sequence.length - 1 ? 'easy' : assistancePlans[difficulty][index % assistancePlans[difficulty].length],
+      slot: index,
+    }));
+  }
 
   const primary = ['numbers', 'letters'].includes(category) && difficulty === 'easy'
     ? createEasySymbolBank(category, option)

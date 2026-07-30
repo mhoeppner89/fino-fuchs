@@ -8,6 +8,7 @@ import {
   inkColorAt,
   INK_COLORS,
   guideStagesForTask,
+  visibleGuideIndexes,
   nextGuideStrokeIndex,
   passesDrawingCriteria,
   pointAlongGuidePath,
@@ -196,6 +197,13 @@ test('complex pictures and multi-symbol tasks reveal guides in small stages', ()
   };
   assert.deepEqual(guideStagesForTask(flower), [[0, 1], [2, 3], [4]]);
   assert.deepEqual(guideStagesForTask(word), [[0], [1], [2], [3]]);
+});
+
+test('completed guide stages stay visible while Fino works on the next stage', () => {
+  const stages = [[0, 1], [2], [3, 4]];
+  assert.deepEqual(visibleGuideIndexes(stages, 0), [0, 1]);
+  assert.deepEqual(visibleGuideIndexes(stages, 1), [0, 1, 2]);
+  assert.deepEqual(visibleGuideIndexes(stages, 2), [0, 1, 2, 3, 4]);
 });
 
 test('each new pen stroke receives a different friendly ink color', () => {

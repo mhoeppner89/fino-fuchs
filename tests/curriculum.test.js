@@ -84,7 +84,6 @@ test('every category creates a 10-task session', () => {
     { category: 'shapes', difficulty: 'medium' },
     { category: 'numbers', difficulty: 'hard', option: 'all' },
     { category: 'letters', difficulty: 'medium', option: 'all' },
-    { category: 'name', difficulty: 'easy', name: 'Martin' },
     { category: 'mixed', difficulty: 'hard' },
   ];
   cases.forEach((config, index) => {
@@ -93,6 +92,16 @@ test('every category creates a 10-task session', () => {
     assert.equal(session.at(-1).assist, 'easy');
     assert.ok(session.every((task) => task.strokes.length > 0));
   });
+});
+
+test('name rounds adapt to the name: each character comes first, then the whole name', () => {
+  const session = buildSession({ category: 'name', difficulty: 'medium', name: 'Anna', rng: seededRandom(17) });
+  assert.equal(session.length, 5);
+  assert.deepEqual(session.slice(0, -1).map((task) => task.label), ['A', 'N', 'N', 'A']);
+  assert.deepEqual(session.slice(0, -1).map((task) => task.layout), ['single-letter', 'single-letter', 'single-letter', 'single-letter']);
+  assert.equal(session.at(-1).label, 'ANNA');
+  assert.equal(session.at(-1).layout, 'whole-name');
+  assert.equal(session.at(-1).assist, 'easy');
 });
 
 test('a playthrough samples 10 distinct exercises without repetition', () => {
@@ -189,7 +198,11 @@ test('restricted choices still form a repetition-free round', () => {
   cases.forEach((config, caseIndex) => {
     for (let seed = 1; seed <= 100; seed += 1) {
       const session = buildSession({ ...config, rng: seededRandom(seed + caseIndex * 1000) });
-      assert.equal(new Set(session.map((task) => task.id)).size, SESSION_SIZE);
+      assert.equal(new Set(session.map((task) => task.id)).size, session.length);
+      const expectedLength = config.category === 'name'
+        ? normalizeName(config.name).replace(/[- ]/g, '').length + 1
+        : SESSION_SIZE;
+      assert.equal(session.length, expectedLength);
     }
   });
 });

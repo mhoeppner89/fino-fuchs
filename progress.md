@@ -34,3 +34,9 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Name characters have wider breathing room, especially around narrow letters such as i. Rounds now contain 10 tasks and rotate through available symbols/templates before repeating one.
 - Portrait layouts no longer leave an invisible flex column under the board; wide desktop layouts put Fino and controls alongside the writing page, keeping the card close to its intended proportions.
 - Verification: `npm test` passes 39 of 39 checks, including the all-bank exact/missing-path regression and the wider acceptance band. The final Playwright canvas smoke check reached the 10-task practice round, rendered Fino on the dotted guide, and recorded no console errors.
+
+## 2026-07-30 third follow-up
+
+- Name sessions are now intentionally variable in length: each character is practised in order, including repeated letters, followed by one full-name task.
+- Completed guide stages remain on the canvas. Fino demonstrates only the current unfinished stage, while earlier dotted targets stay available as context.
+- Verification: `npm test` passes 41 of 41 checks. Focused browser checks confirmed `ANNA` follows A → N → N → A → ANNA and a staged number keeps the completed first digit visible while the second remains dotted; no browser errors were recorded.
