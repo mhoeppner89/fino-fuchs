@@ -72,6 +72,7 @@ const state = {
   transitioning: false,
   screen: 'home',
   toastTimer: 0,
+  autoCheckTimer: 0,
   taskToken: 0,
 };
 
@@ -235,6 +236,24 @@ function setMentorMessage(message, { announce = false } = {}) {
   if (announce) speak(message);
 }
 
+function clearAutoCheck() {
+  window.clearTimeout(state.autoCheckTimer);
+  state.autoCheckTimer = 0;
+}
+
+function scheduleAutoCheck() {
+  const task = state.session[state.index];
+  const strokes = board.getUserStrokes();
+  if (state.transitioning || !task || task.strokes.length !== 1 || strokes.length !== 1 || strokes[0].length < 2) return;
+
+  clearAutoCheck();
+  const taskToken = state.taskToken;
+  state.autoCheckTimer = window.setTimeout(() => {
+    state.autoCheckTimer = 0;
+    if (state.taskToken === taskToken && state.screen === 'practice' && !state.transitioning) checkDrawing();
+  }, 360);
+}
+
 async function renderTask() {
   const task = state.session[state.index];
   if (!task) {
@@ -243,6 +262,7 @@ async function renderTask() {
   }
 
   state.attempts = 0;
+  clearAutoCheck();
   state.transitioning = false;
   state.taskToken += 1;
   const token = state.taskToken;
@@ -341,6 +361,7 @@ function makeConfetti() {
 }
 
 function celebrate(message, { gentle = false } = {}) {
+  clearAutoCheck();
   state.transitioning = true;
   elements.successText.textContent = message;
   makeConfetti();
@@ -348,7 +369,7 @@ function celebrate(message, { gentle = false } = {}) {
   navigator.vibrate?.(gentle ? 18 : [18, 25, 18]);
   speak(message);
 
-  const delay = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 420 : 1050;
+  const delay = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 320 : 650;
   window.setTimeout(() => {
     elements.successOverlay.hidden = true;
     state.completed += 1;
@@ -387,6 +408,7 @@ function checkDrawing() {
 function finishSession(reason = 'complete') {
   if (state.screen === 'finish') return;
   stopTimer();
+  clearAutoCheck();
   state.taskToken += 1;
   state.transitioning = false;
   elements.successOverlay.hidden = true;
@@ -402,6 +424,7 @@ function finishSession(reason = 'complete') {
 
 function returnHome() {
   stopTimer();
+  clearAutoCheck();
   state.taskToken += 1;
   state.transitioning = false;
   state.timeExpired = false;
@@ -427,8 +450,12 @@ const board = new DrawingBoard(elements.drawingCanvas, {
     elements.doneButton.disabled = !hasInk || state.transitioning;
     elements.canvasHint.classList.toggle('is-hidden', hasInk || state.session[state.index]?.assist !== 'hard');
   },
+  onStrokeStart() {
+    clearAutoCheck();
+  },
   onStrokeEnd() {
     if (state.timeExpired && !state.transitioning) finishSession('time');
+    else scheduleAutoCheck();
   },
 });
 

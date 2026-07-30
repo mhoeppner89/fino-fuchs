@@ -186,6 +186,16 @@ function roundedPath(context, points, width, height) {
   context.lineTo(last.x, last.y);
 }
 
+function angularPath(context, points, width, height) {
+  if (!points.length) return;
+  const first = toPixels(points[0], width, height);
+  context.moveTo(first.x, first.y);
+  for (let index = 1; index < points.length; index += 1) {
+    const point = toPixels(points[index], width, height);
+    context.lineTo(point.x, point.y);
+  }
+}
+
 function partialStroke(stroke, progress) {
   if (progress <= 0) return [];
   if (progress >= 1) return stroke;
@@ -411,17 +421,24 @@ export class DrawingBoard {
     context.restore();
   }
 
-  drawStrokeSet(context, strokes, { color, width, dash = [], alpha = 1 }) {
+  drawStrokeSet(context, strokes, {
+    color,
+    width,
+    dash = [],
+    alpha = 1,
+    angular = false,
+  }) {
     context.save();
     context.strokeStyle = color;
     context.globalAlpha = alpha;
     context.lineWidth = width;
     context.lineCap = 'round';
-    context.lineJoin = 'round';
+    context.lineJoin = angular ? 'miter' : 'round';
     context.setLineDash(dash);
     strokes.forEach((stroke) => {
       context.beginPath();
-      roundedPath(context, stroke, this.width, this.height);
+      if (angular) angularPath(context, stroke, this.width, this.height);
+      else roundedPath(context, stroke, this.width, this.height);
       context.stroke();
     });
     context.restore();
@@ -487,6 +504,7 @@ export class DrawingBoard {
       color: '#F58B45',
       width: clamp(Math.min(this.width, this.height) * 0.026, 12, 22),
       alpha: 0.96,
+      angular: ['letters', 'numbers', 'name'].includes(this.task.category),
     });
 
     const activeIndex = Math.min(total - 1, Math.floor(scaled));
@@ -517,12 +535,14 @@ export class DrawingBoard {
 
     if (this.task) {
       const isHighlight = performance.now() < this.highlightUntil;
+      const angularGuide = ['letters', 'numbers', 'name'].includes(this.task.category);
       if (this.assist === 'easy') {
         this.drawStrokeSet(context, this.task.strokes, {
           color: isHighlight ? '#F3B348' : '#B9D8DE',
           width: clamp(Math.min(this.width, this.height) * 0.034, 16, 28),
           dash: [2, clamp(Math.min(this.width, this.height) * 0.045, 20, 34)],
           alpha: isHighlight ? 0.9 : 0.72,
+          angular: angularGuide,
         });
       } else if (this.assist === 'medium') {
         this.drawStrokeSet(context, this.task.strokes, {
@@ -530,6 +550,7 @@ export class DrawingBoard {
           width: clamp(Math.min(this.width, this.height) * 0.016, 7, 13),
           dash: [10, 10],
           alpha: isHighlight ? 0.92 : 0.64,
+          angular: angularGuide,
         });
       } else if (isHighlight) {
         this.drawStrokeSet(context, this.task.strokes, {
@@ -537,6 +558,7 @@ export class DrawingBoard {
           width: clamp(Math.min(this.width, this.height) * 0.014, 7, 12),
           dash: [9, 10],
           alpha: 0.8,
+          angular: angularGuide,
         });
       }
 
