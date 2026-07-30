@@ -1,0 +1,11 @@
+{
+  "name": "fuchsschrift",
+  "version": "1.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Statische Schreiblern-App für Kinder, optimiert für Touch und Stift.",
+  "scripts": {
+    "serve": "python3 -m http.server 4173",
+    "test": "node --test tests/*.test.js"
+  }
+}

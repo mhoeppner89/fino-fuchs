@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#FFF7EC">
+  <meta name="description" content="Fuchsschrift – kurze Schreibübungen für Kinder mit Finger oder Stift.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Fuchsschrift">
+  <title>Fuchsschrift</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./assets/icons/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell" id="app">
+    <section class="screen home-screen is-active" id="home-screen" aria-labelledby="home-title">
+      <header class="home-header">
+        <div class="brand" aria-label="Fuchsschrift">
+          <img src="./assets/fox-face.svg" alt="" class="brand-fox" width="58" height="58">
+          <div>
+            <p class="eyebrow">Mit Fini dem Fuchs</p>
+            <h1>Fuchsschrift</h1>
+          </div>
+        </div>
+        <button class="icon-button sound-button" id="home-sound-button" type="button" aria-label="Ton ausschalten" aria-pressed="true">
+          <svg class="icon icon-sound-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10H4Zm12.5-2.5a6 6 0 0 1 0 9m2.7-11.7a10 10 0 0 1 0 14.4"/></svg>
+          <svg class="icon icon-sound-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10H4Zm12-2 5 5m0-5-5 5"/></svg>
+        </button>
+      </header>
+
+      <main class="home-layout">
+        <div class="welcome-card">
+          <div class="welcome-copy">
+            <span class="speech-kicker">Hallo, ich bin Fini!</span>
+            <h2 id="home-title">Was möchtest du üben?</h2>
+            <p>Eine Runde dauert ungefähr fünf Minuten.</p>
+          </div>
+          <img src="./assets/fox-mentor.svg" alt="Fini, der freundliche Fuchs" class="mentor-large" width="340" height="292">
+        </div>
+
+        <form class="selection-panel" id="session-form">
+          <fieldset class="selection-group activity-group">
+            <legend>Aufgabe</legend>
+            <div class="activity-grid" id="activity-grid">
+              <button class="activity-card is-selected" type="button" data-category="lines" aria-pressed="true">
+                <span class="activity-icon icon-lines" aria-hidden="true">
+                  <svg viewBox="0 0 80 64"><path d="M10 49c12-40 26 5 38-29 8-21 14 18 24 4"/><circle cx="10" cy="49" r="4"/><circle cx="72" cy="24" r="4"/></svg>
+                </span>
+                <span>Linien</span>
+                <span class="card-check" aria-hidden="true">✓</span>
+              </button>
+              <button class="activity-card" type="button" data-category="shapes" aria-pressed="false">
+                <span class="activity-icon icon-shapes" aria-hidden="true">
+                  <svg viewBox="0 0 80 64"><circle cx="22" cy="32" r="14"/><path d="m48 48 13-29 13 29H48Z"/><rect x="36" y="8" width="19" height="19" rx="3"/></svg>
+                </span>
+                <span>Formen</span>
+                <span class="card-check" aria-hidden="true">✓</span>
+              </button>
+              <button class="activity-card" type="button" data-category="numbers" aria-pressed="false">
+                <span class="activity-icon icon-numbers" aria-hidden="true"><strong>1 2 3</strong></span>
+                <span>Zahlen</span>
+                <span class="card-check" aria-hidden="true">✓</span>
+              </button>
+              <button class="activity-card" type="button" data-category="letters" aria-pressed="false">
+                <span class="activity-icon icon-letters" aria-hidden="true"><strong>A B C</strong></span>
+                <span>Buchstaben</span>
+                <span class="card-check" aria-hidden="true">✓</span>
+              </button>
+              <button class="activity-card" type="button" data-category="name" aria-pressed="false">
+                <span class="activity-icon icon-name" aria-hidden="true">
+                  <svg viewBox="0 0 80 64"><path d="M12 18h38l18 14-18 14H12V18Z"/><circle cx="22" cy="32" r="4"/><path d="M34 27h18M34 37h14"/></svg>
+                </span>
+                <span>Mein Name</span>
+                <span class="card-check" aria-hidden="true">✓</span>
+              </button>
+              <button class="activity-card" type="button" data-category="mixed" aria-pressed="false">
+                <span class="activity-icon icon-mixed" aria-hidden="true">
+                  <svg viewBox="0 0 80 64"><path d="m40 7 5 15 16-4-9 13 12 10-16 1-1 16-10-12-13 9 4-16-15-5 14-7-3-16 13 10 3-14Z"/></svg>
+                </span>
+                <span>Bunte Mischung</span>
+                <span class="card-check" aria-hidden="true">✓</span>
+              </button>
+            </div>
+          </fieldset>
+
+          <div class="option-region" id="option-region" aria-live="polite">
+            <fieldset class="selection-group option-panel is-visible" data-options-for="lines">
+              <legend>In dieser Runde</legend>
+              <p class="option-note">Gerade, schräge und gebogene Linien werden gemischt.</p>
+            </fieldset>
+            <fieldset class="selection-group option-panel" data-options-for="shapes" hidden>
+              <legend>In dieser Runde</legend>
+              <p class="option-note">Kreise, Ecken und einfache Formen werden gemischt.</p>
+            </fieldset>
+            <fieldset class="selection-group option-panel" data-options-for="numbers" hidden>
+              <legend>Welche Zahlen?</legend>
+              <div class="choice-row" role="radiogroup" aria-label="Zahlenbereich">
+                <label class="choice-chip"><input type="radio" name="number-range" value="1-3" checked><span>1–3</span></label>
+                <label class="choice-chip"><input type="radio" name="number-range" value="1-6"><span>1–6</span></label>
+                <label class="choice-chip"><input type="radio" name="number-range" value="0-9"><span>0–9</span></label>
+              </div>
+            </fieldset>
+            <fieldset class="selection-group option-panel" data-options-for="letters" hidden>
+              <legend>Welche Buchstaben?</legend>
+              <div class="choice-row" role="radiogroup" aria-label="Buchstabengruppe">
+                <label class="choice-chip"><input type="radio" name="letter-group" value="straight" checked><span>Gerade</span></label>
+                <label class="choice-chip"><input type="radio" name="letter-group" value="diagonal"><span>Schräg</span></label>
+                <label class="choice-chip"><input type="radio" name="letter-group" value="round"><span>Rund</span></label>
+                <label class="choice-chip"><input type="radio" name="letter-group" value="all"><span>Alle</span></label>
+              </div>
+            </fieldset>
+            <fieldset class="selection-group option-panel" data-options-for="name" hidden>
+              <legend>Wie heißt du?</legend>
+              <label class="name-field">
+                <span class="sr-only">Vorname des Kindes</span>
+                <input id="child-name" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" maxlength="12" placeholder="Vorname" aria-describedby="name-help">
+                <span class="name-pencil" aria-hidden="true">✎</span>
+              </label>
+              <p class="field-help" id="name-help">Der Name bleibt nur bis zum Neuladen der Seite erhalten.</p>
+            </fieldset>
+            <fieldset class="selection-group option-panel" data-options-for="mixed" hidden>
+              <legend>In dieser Runde</legend>
+              <p class="option-note">Linien, Formen, Zahlen und Buchstaben werden bunt gemischt.</p>
+            </fieldset>
+          </div>
+
+          <fieldset class="selection-group difficulty-group">
+            <legend>Wie viel Hilfe?</legend>
+            <div class="difficulty-control" role="radiogroup" aria-label="Schwierigkeit">
+              <label class="difficulty-option">
+                <input type="radio" name="difficulty" value="easy" checked>
+                <span class="difficulty-main">Leicht</span>
+                <span class="difficulty-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                <small>Dicke Spur</small>
+              </label>
+              <label class="difficulty-option">
+                <input type="radio" name="difficulty" value="medium">
+                <span class="difficulty-main">Mittel</span>
+                <span class="difficulty-dots dots-medium" aria-hidden="true"><i></i><i></i><i></i></span>
+                <small>Feine Spur</small>
+              </label>
+              <label class="difficulty-option">
+                <input type="radio" name="difficulty" value="hard">
+                <span class="difficulty-main">Knifflig</span>
+                <span class="difficulty-dots dots-hard" aria-hidden="true"><i></i><i></i><i></i></span>
+                <small>Startpunkte</small>
+              </label>
+            </div>
+          </fieldset>
+
+          <button class="primary-button start-button" id="start-button" type="submit">
+            <span>Los geht’s!</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+          </button>
+        </form>
+      </main>
+      <footer class="privacy-line">Ohne Konto · Ohne Werbung · Keine Datenübertragung</footer>
+    </section>
+
+    <section class="screen practice-screen" id="practice-screen" aria-labelledby="task-title" hidden>
+      <header class="practice-header">
+        <button class="icon-button" id="exit-button" type="button" aria-label="Übung beenden">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>
+        </button>
+        <div class="session-progress" aria-label="Fortschritt">
+          <div class="progress-dots" id="progress-dots" aria-hidden="true"></div>
+          <span class="progress-text" id="progress-text">1 von 7</span>
+        </div>
+        <div class="timer-chip" id="timer-chip" aria-label="Verbleibende Zeit">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M9 3h6M12 8v5l3 2"/></svg>
+          <span id="timer-text">5:00</span>
+        </div>
+        <button class="icon-button sound-button" id="practice-sound-button" type="button" aria-label="Ton ausschalten" aria-pressed="true">
+          <svg class="icon icon-sound-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10H4Zm12.5-2.5a6 6 0 0 1 0 9m2.7-11.7a10 10 0 0 1 0 14.4"/></svg>
+          <svg class="icon icon-sound-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10H4Zm12-2 5 5m0-5-5 5"/></svg>
+        </button>
+      </header>
+
+      <main class="practice-layout">
+        <div class="mentor-row" aria-live="polite">
+          <img src="./assets/fox-face.svg" alt="" class="mentor-avatar" width="66" height="66">
+          <div class="mentor-bubble">
+            <span class="bubble-tail" aria-hidden="true"></span>
+            <p id="mentor-message">Schau gut hin.</p>
+          </div>
+          <button class="listen-button" id="listen-button" type="button" aria-label="Aufgabe noch einmal anhören">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10H4Zm12.5-2.5a6 6 0 0 1 0 9"/></svg>
+          </button>
+        </div>
+
+        <section class="drawing-section" aria-labelledby="task-title">
+          <div class="task-heading">
+            <div>
+              <p class="task-mode" id="task-mode">Mit Spur</p>
+              <h2 id="task-title">Von oben nach unten</h2>
+            </div>
+            <div class="reference-chip" id="reference-chip" aria-label="Vorlage">│</div>
+          </div>
+          <div class="drawing-card" id="drawing-card">
+            <canvas id="drawing-canvas" aria-label="Zeichenfläche. Zeichne mit Finger oder Stift." role="img"></canvas>
+            <div class="canvas-hint" id="canvas-hint" aria-hidden="true">
+              <svg viewBox="0 0 48 48"><path d="M31 5 10 26l-2 10 10-2L39 13 31 5Z"/><path d="m27 9 8 8M10 26l8 8"/></svg>
+              <span>Hier schreiben</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="practice-controls">
+          <button class="secondary-button" id="clear-button" type="button">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 8-8 6 6-5 5H7l-3-3Zm12-6 2-2 3 3-2 2"/></svg>
+            <span>Wegwischen</span>
+          </button>
+          <button class="secondary-button" id="show-button" type="button">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+            <span>Zeigen</span>
+          </button>
+          <button class="primary-button done-button" id="done-button" type="button" disabled>
+            <span>Fertig</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+          </button>
+        </div>
+      </main>
+    </section>
+
+    <section class="screen finish-screen" id="finish-screen" aria-labelledby="finish-title" hidden>
+      <div class="finish-card">
+        <div class="finish-sparkles" aria-hidden="true"><span>★</span><span>●</span><span>★</span><span>●</span><span>★</span></div>
+        <img src="./assets/fox-mentor.svg" alt="Fini der Fuchs freut sich" class="finish-fox" width="320" height="274">
+        <p class="eyebrow">Runde geschafft</p>
+        <h2 id="finish-title">Super geübt!</h2>
+        <p id="finish-summary">Du hast sieben Aufgaben geschafft.</p>
+        <div class="finish-actions">
+          <button class="primary-button" id="repeat-button" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 5.3M20 5v6h-6"/></svg>
+            <span>Noch eine Runde</span>
+          </button>
+          <button class="secondary-button" id="home-button" type="button">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8v9h-6v-6H9v6H3v-9Z"/></svg>
+            <span>Zur Auswahl</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <div class="success-overlay" id="success-overlay" hidden aria-live="assertive">
+      <div class="confetti" aria-hidden="true"></div>
+      <div class="success-badge">
+        <img src="./assets/fox-face.svg" alt="" width="110" height="110">
+        <strong id="success-text">Prima!</strong>
+        <span>✓</span>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="exit-modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="exit-title">
+        <img src="./assets/fox-face.svg" alt="" width="90" height="90">
+        <h2 id="exit-title">Übung beenden?</h2>
+        <p>Die aktuelle Runde wird beendet.</p>
+        <div class="modal-actions">
+          <button class="secondary-button" id="continue-button" type="button">Weiterüben</button>
+          <button class="danger-light-button" id="confirm-exit-button" type="button">Beenden</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  </div>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

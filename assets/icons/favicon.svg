@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Fini der Fuchs">
+  <defs>
+    <linearGradient id="fur" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFAE57"/><stop offset="1" stop-color="#F06A35"/>
+    </linearGradient>
+  </defs>
+  <circle cx="100" cy="100" r="94" fill="#FFF4DF"/>
+  <path d="m29 74 20-55 43 40c8-3 17-4 27-4 11 0 21 2 30 5l43-41 16 58c9 11 14 26 14 42 0 47-42 77-102 77-58 0-100-29-100-75 0-18 3-33 9-47Z" fill="url(#fur)"/>
+  <path d="m40 64 10-30 25 29c-13 2-24 6-35 12V64Zm120 2 25-30 7 33-1 7c-10-5-20-9-31-11v1Z" fill="#7A3A2D"/>
+  <path d="M50 118c0-27 26-49 57-49 33 0 60 21 60 48 0 31-24 56-60 56-34 0-57-24-57-55Z" fill="#FFF0D8"/>
+  <path d="M107 82c-1 22-11 40-30 54 15 1 25 6 31 16 6-10 17-15 33-16-21-14-32-32-34-54Z" fill="#fff" opacity=".8"/>
+  <ellipse cx="82" cy="110" rx="6.5" ry="9" fill="#27314A"/>
+  <ellipse cx="133" cy="110" rx="6.5" ry="9" fill="#27314A"/>
+  <circle cx="80" cy="107" r="2" fill="#fff"/><circle cx="131" cy="107" r="2" fill="#fff"/>
+  <path d="M99 129c4-5 14-5 18 0 2 2 1 5-1 8-5 5-11 5-16 0-2-3-3-6-1-8Z" fill="#27314A"/>
+  <path d="M90 143c9 10 27 10 36 0" fill="none" stroke="#27314A" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="66" cy="132" r="7" fill="#F7A0A0" opacity=".5"/>
+  <circle cx="149" cy="132" r="7" fill="#F7A0A0" opacity=".5"/>
+</svg>
