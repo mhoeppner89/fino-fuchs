@@ -36,7 +36,7 @@ def assert_no_horizontal_overflow(page, label: str) -> None:
 
 
 def solve_session(page) -> None:
-    for _ in range(8):
+    for _ in range(22):
         state = page.evaluate("window.__fuchsschrift.getState()")
         if state["screen"] != "practice":
             return
@@ -120,7 +120,7 @@ def main() -> None:
             assert page.locator("#mentor-message").inner_text() != ""
             solve_session(page)
             page.wait_for_selector("#finish-screen:not([hidden])")
-            assert "7 Aufgaben" in page.locator("#finish-summary").inner_text()
+            assert "20 Aufgaben" in page.locator("#finish-summary").inner_text()
             page.screenshot(path=str(ARTIFACTS / "phone-finish.png"))
             context.close()
 
@@ -150,7 +150,6 @@ def main() -> None:
             page.wait_for_selector("#practice-screen:not([hidden])")
             page.wait_for_timeout(550)
             assert_no_horizontal_overflow(page, "phone landscape")
-            assert page.locator("#done-button").is_visible()
             page.screenshot(path=str(ARTIFACTS / "phone-landscape-practice.png"))
             context.close()
 
@@ -164,9 +163,7 @@ def main() -> None:
             page.wait_for_selector("#practice-screen:not([hidden])")
             page.wait_for_timeout(900)
             draw_current_task_as_pen(page)
-            assert page.locator("#done-button").is_enabled()
-            page.locator("#done-button").click()
-            page.wait_for_timeout(560)
+            page.wait_for_timeout(1_200)
             assert page.evaluate("window.__fuchsschrift.getState().completed") == 1
 
             page.goto(base_url, wait_until="load")

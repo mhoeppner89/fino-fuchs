@@ -5,6 +5,7 @@ import {
   buildSession,
   createWordTask,
   normalizeName,
+  SESSION_SIZE,
   seededRandom,
 } from '../js/curriculum.js';
 
@@ -22,7 +23,7 @@ test('curriculum uses text and drawing data instead of emoji decorations', () =>
   });
 });
 
-test('every category creates a seven-task session', () => {
+test('every category creates a 20-task session', () => {
   const cases = [
     { category: 'lines', difficulty: 'easy' },
     { category: 'shapes', difficulty: 'medium' },
@@ -33,7 +34,7 @@ test('every category creates a seven-task session', () => {
   ];
   cases.forEach((config, index) => {
     const session = buildSession({ ...config, rng: seededRandom(index + 4) });
-    assert.equal(session.length, 7);
+    assert.equal(session.length, SESSION_SIZE);
     assert.equal(session.at(-1).assist, 'easy');
     assert.ok(session.every((task) => task.strokes.length > 0));
   });

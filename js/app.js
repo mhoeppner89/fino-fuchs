@@ -31,8 +31,6 @@ const elements = {
   exitButton: $('#exit-button'),
   progressDots: $('#progress-dots'),
   progressText: $('#progress-text'),
-  timerChip: $('#timer-chip'),
-  timerText: $('#timer-text'),
   mentorMessage: $('#mentor-message'),
   listenButton: $('#listen-button'),
   taskMode: $('#task-mode'),
@@ -42,7 +40,6 @@ const elements = {
   canvasHint: $('#canvas-hint'),
   clearButton: $('#clear-button'),
   showButton: $('#show-button'),
-  doneButton: $('#done-button'),
   finishSummary: $('#finish-summary'),
   repeatButton: $('#repeat-button'),
   homeButton: $('#home-button'),
@@ -65,10 +62,6 @@ const state = {
   completed: 0,
   attempts: 0,
   currentSpeech: '',
-  secondsRemaining: 300,
-  timerId: 0,
-  deadline: 0,
-  timeExpired: false,
   transitioning: false,
   screen: 'home',
   toastTimer: 0,
@@ -180,39 +173,6 @@ function selectedDifficulty() {
   return $('input[name="difficulty"]:checked')?.value ?? 'easy';
 }
 
-function formatTime(seconds) {
-  const safe = Math.max(0, seconds);
-  return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`;
-}
-
-function updateTimer() {
-  elements.timerText.textContent = formatTime(state.secondsRemaining);
-  elements.timerChip.setAttribute('aria-label', `${state.secondsRemaining} Sekunden verbleiben`);
-  elements.timerChip.classList.toggle('is-ending', state.secondsRemaining <= 30);
-}
-
-function stopTimer() {
-  window.clearInterval(state.timerId);
-  state.timerId = 0;
-}
-
-function startTimer() {
-  stopTimer();
-  state.secondsRemaining = 300;
-  state.deadline = Date.now() + 300_000;
-  state.timeExpired = false;
-  updateTimer();
-  state.timerId = window.setInterval(() => {
-    state.secondsRemaining = Math.max(0, Math.ceil((state.deadline - Date.now()) / 1000));
-    updateTimer();
-    if (state.secondsRemaining <= 0) {
-      stopTimer();
-      state.timeExpired = true;
-      if (!state.transitioning && board.activePointerId === null) finishSession('time');
-    }
-  }, 250);
-}
-
 function updateProgress() {
   elements.progressDots.innerHTML = '';
   state.session.forEach((_, index) => {
@@ -244,7 +204,8 @@ function clearAutoCheck() {
 function scheduleAutoCheck() {
   const task = state.session[state.index];
   const strokes = board.getUserStrokes();
-  if (state.transitioning || !task || task.strokes.length !== 1 || strokes.length !== 1 || strokes[0].length < 2) return;
+  const lastStroke = strokes.at(-1);
+  if (state.transitioning || !task || strokes.length < task.strokes.length || !lastStroke || lastStroke.length < 2) return;
 
   clearAutoCheck();
   const taskToken = state.taskToken;
@@ -271,7 +232,6 @@ async function renderTask() {
   elements.taskTitle.textContent = task.title;
   elements.referenceChip.textContent = task.label;
   elements.referenceChip.setAttribute('aria-label', `Vorlage ${task.label}`);
-  elements.doneButton.disabled = true;
   elements.clearButton.disabled = false;
   elements.showButton.disabled = false;
   elements.canvasHint.classList.toggle('is-hidden', task.assist !== 'hard');
@@ -326,7 +286,6 @@ function beginSession() {
   state.attempts = 0;
   state.transitioning = false;
   showScreen('practice');
-  startTimer();
   requestAnimationFrame(() => renderTask());
 }
 
@@ -374,8 +333,8 @@ function celebrate(message, { gentle = false } = {}) {
     elements.successOverlay.hidden = true;
     state.completed += 1;
     state.index += 1;
-    if (state.index >= state.session.length || state.timeExpired) {
-      finishSession(state.timeExpired ? 'time' : 'complete');
+    if (state.index >= state.session.length) {
+      finishSession();
     } else {
       renderTask();
     }
@@ -391,7 +350,6 @@ function checkDrawing() {
   const generousPass = state.attempts >= 3 && result.hasInk && result.coverage > 0.16 && result.precision > 0.12;
 
   if (passed || generousPass) {
-    elements.doneButton.disabled = true;
     elements.clearButton.disabled = true;
     elements.showButton.disabled = true;
     const message = generousPass && !passed ? 'Gut probiert!' : praise[Math.floor(Math.random() * praise.length)];
@@ -402,12 +360,10 @@ function checkDrawing() {
   const feedback = feedbackForEvaluation(result);
   setMentorMessage(feedback, { announce: true });
   board.flashGuide();
-  elements.doneButton.disabled = !board.hasInk();
 }
 
-function finishSession(reason = 'complete') {
+function finishSession() {
   if (state.screen === 'finish') return;
-  stopTimer();
   clearAutoCheck();
   state.taskToken += 1;
   state.transitioning = false;
@@ -415,19 +371,15 @@ function finishSession(reason = 'complete') {
   stopSpeech();
   const count = state.completed;
   const taskWord = count === 1 ? 'eine Aufgabe' : `${count} Aufgaben`;
-  elements.finishSummary.textContent = reason === 'time'
-    ? `Fünf Minuten sind um. Du hast ${taskWord} geschafft.`
-    : `Du hast ${taskWord} geschafft.`;
+  elements.finishSummary.textContent = `Du hast ${taskWord} geschafft.`;
   showScreen('finish');
   speak('Super geübt!');
 }
 
 function returnHome() {
-  stopTimer();
   clearAutoCheck();
   state.taskToken += 1;
   state.transitioning = false;
-  state.timeExpired = false;
   elements.successOverlay.hidden = true;
   elements.exitModal.hidden = true;
   stopSpeech();
@@ -447,15 +399,13 @@ function closeExitModal() {
 
 const board = new DrawingBoard(elements.drawingCanvas, {
   onInkChange(hasInk) {
-    elements.doneButton.disabled = !hasInk || state.transitioning;
     elements.canvasHint.classList.toggle('is-hidden', hasInk || state.session[state.index]?.assist !== 'hard');
   },
   onStrokeStart() {
     clearAutoCheck();
   },
   onStrokeEnd() {
-    if (state.timeExpired && !state.transitioning) finishSession('time');
-    else scheduleAutoCheck();
+    scheduleAutoCheck();
   },
 });
 
@@ -501,8 +451,6 @@ elements.showButton.addEventListener('click', async () => {
   if (!state.transitioning) elements.showButton.disabled = false;
 });
 
-elements.doneButton.addEventListener('click', checkDrawing);
-
 if (SYNTHETIC_VOICE_ENABLED) {
   elements.listenButton.addEventListener('click', () => {
     const task = state.session[state.index];
@@ -533,8 +481,6 @@ document.addEventListener('visibilitychange', () => {
 
 updateSoundButtons();
 selectCategory('lines', { announce: false });
-updateTimer();
-
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch((error) => console.warn('Service worker registration failed:', error));
@@ -548,7 +494,6 @@ if (new URLSearchParams(location.search).has('test')) {
       difficulty: state.difficulty,
       index: state.index,
       completed: state.completed,
-      secondsRemaining: state.secondsRemaining,
       task: state.session[state.index]?.id ?? null,
       assist: state.session[state.index]?.assist ?? null,
       screen: state.screen,
@@ -564,7 +509,7 @@ if (new URLSearchParams(location.search).has('test')) {
       board.setUserStrokes([[{ x: 0.05, y: 0.05 }, { x: 0.95, y: 0.95 }, { x: 0.05, y: 0.95 }]]);
       checkDrawing();
     },
-    finish: () => finishSession('complete'),
+    finish: () => finishSession(),
     board,
   };
 }

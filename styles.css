@@ -708,7 +708,7 @@ p {
   min-height: 56px;
   margin: 0 auto 8px;
   display: grid;
-  grid-template-columns: auto minmax(120px, 1fr) auto auto;
+  grid-template-columns: auto minmax(120px, 1fr) auto;
   align-items: center;
   gap: 10px;
 }
@@ -758,33 +758,6 @@ p {
   font-size: .82rem;
   font-weight: 750;
   white-space: nowrap;
-}
-
-.timer-chip {
-  min-height: 42px;
-  padding: 0 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  border: 2px solid rgba(37, 54, 78, .1);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, .86);
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  font-weight: 850;
-  box-shadow: var(--shadow-sm);
-}
-
-.timer-chip .icon {
-  width: 20px;
-  height: 20px;
-  color: var(--orange-deep);
-}
-
-.timer-chip.is-ending {
-  border-color: #efbc76;
-  background: #fff5df;
-  animation: timer-pulse 1s ease-in-out infinite;
 }
 
 .practice-layout {
@@ -978,16 +951,12 @@ p {
   min-height: 68px;
   padding: 3px 0 6px;
   display: grid;
-  grid-template-columns: minmax(140px, .8fr) minmax(120px, .7fr) minmax(180px, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
 .practice-controls button {
   min-height: 58px;
-}
-
-.done-button {
-  font-size: 1.08rem;
 }
 
 /* Finish */
@@ -1206,10 +1175,6 @@ p {
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes timer-pulse {
-  50% { transform: scale(1.03); }
-}
-
 @keyframes finish-pop {
   from { opacity: 0; transform: translateY(18px) scale(.93); }
   to { opacity: 1; transform: translateY(0) scale(1); }
@@ -1361,7 +1326,7 @@ p {
   }
 
   .practice-header {
-    grid-template-columns: auto minmax(50px, 1fr) auto auto;
+    grid-template-columns: auto minmax(50px, 1fr) auto;
     gap: 6px;
     min-height: 48px;
     margin-bottom: 4px;
@@ -1384,12 +1349,6 @@ p {
 
   .progress-text {
     display: none;
-  }
-
-  .timer-chip {
-    min-height: 39px;
-    padding: 0 9px;
-    font-size: .88rem;
   }
 
   .practice-layout {
@@ -1454,7 +1413,7 @@ p {
 
   .practice-controls {
     min-height: 61px;
-    grid-template-columns: 1fr 1fr 1.25fr;
+    grid-template-columns: 1fr 1fr;
     gap: 6px;
     padding-bottom: 2px;
   }

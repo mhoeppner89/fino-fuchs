@@ -36,7 +36,7 @@
           <div class="welcome-copy">
             <span class="speech-kicker">Hallo, ich bin Fino!</span>
             <h2 id="home-title">Was möchtest du üben?</h2>
-            <p>Eine Runde dauert ungefähr fünf Minuten.</p>
+            <p>In jeder Runde warten 20 Aufgaben auf dich.</p>
           </div>
           <img src="./assets/fox-mentor.svg" alt="Fino, der freundliche Fuchs" class="mentor-large" width="340" height="292">
         </div>
@@ -166,11 +166,7 @@
         </button>
         <div class="session-progress" aria-label="Fortschritt">
           <div class="progress-dots" id="progress-dots" aria-hidden="true"></div>
-          <span class="progress-text" id="progress-text">1 von 7</span>
-        </div>
-        <div class="timer-chip" id="timer-chip" aria-label="Verbleibende Zeit">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M9 3h6M12 8v5l3 2"/></svg>
-          <span id="timer-text">5:00</span>
+          <span class="progress-text" id="progress-text">1 von 20</span>
         </div>
         <button class="icon-button sound-button" id="practice-sound-button" type="button" aria-label="Ton ausschalten" aria-pressed="true" hidden>
           <svg class="icon icon-sound-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10H4Zm12.5-2.5a6 6 0 0 1 0 9m2.7-11.7a10 10 0 0 1 0 14.4"/></svg>
@@ -216,10 +212,6 @@
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
             <span>Zeigen</span>
           </button>
-          <button class="primary-button done-button" id="done-button" type="button" disabled>
-            <span>Fertig</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
-          </button>
         </div>
       </main>
     </section>
@@ -229,7 +221,7 @@
         <img src="./assets/fox-mentor.svg" alt="Fino der Fuchs freut sich" class="finish-fox" width="320" height="274">
         <p class="eyebrow">Runde geschafft</p>
         <h2 id="finish-title">Super geübt!</h2>
-        <p id="finish-summary">Du hast sieben Aufgaben geschafft.</p>
+        <p id="finish-summary">Du hast 20 Aufgaben geschafft.</p>
         <div class="finish-actions">
           <button class="primary-button" id="repeat-button" type="button">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 5.3M20 5v6h-6"/></svg>

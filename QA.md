@@ -4,12 +4,12 @@ Stand: 30. Juli 2026
 
 ## Automatisierte Logiktests
 
-Ergebnis: **11 von 11 Tests bestanden**.
+Ergebnis: **15 von 15 Tests bestanden**.
 
 Geprüft wurden:
 
 - Vollständigkeit der 56 Vorlagen
-- Sitzungen mit exakt sieben Aufgaben in allen sechs Bereichen
+- Sitzungen mit exakt 20 Aufgaben in allen sechs Bereichen
 - kontrollierte Zufallsauswahl ohne direkte Wiederholung
 - Höchstgrenze von zwei Wiederholungen derselben Aufgabe pro Runde
 - Interleaving bei kleinen Auswahlmengen, etwa 1–3 oder einem einbuchstabigen Namen
@@ -39,14 +39,13 @@ Geprüfte Abläufe:
 
 - Startseite mit allen sechs Auswahlkarten
 - Auswahl von Buchstabengruppe und Hilfestufe
-- Start einer fünfminütigen Runde
+- Start einer 20-Aufgaben-Runde ohne Zeitlimit
 - Fehlversuch mit hilfreicher deutscher Rückmeldung
-- vollständige Runde mit sieben Aufgaben und Abschlussbildschirm
+- vollständige Runde mit 20 Aufgaben und Abschlussbildschirm
 - Namensübung mit „Käthe“ einschließlich Umlaut
 - Zeichenfläche ohne horizontales Überlaufen in allen Ansichten
 - vertrauenswürdige Browser-Pointer-Events mit `pointerType: pen`
-- Aktivierung des Fertig-Buttons nach Stifteingabe
-- erfolgreiche lokale Auswertung einer Stiftspur
+- automatische lokale Auswertung nach dem letzten benötigten Strich
 - Service-Worker-Kontrolle und vollständiger Offline-Neustart
 - alle App-Dateien ohne fehlende Ressourcen
 

@@ -427,9 +427,10 @@ const assistancePlans = {
   medium: ['easy', 'medium', 'medium', 'medium', 'hard', 'medium', 'easy'],
   hard: ['medium', 'hard', 'hard', 'hard', 'hard', 'medium', 'easy'],
 };
+export const SESSION_SIZE = 20;
 
 /**
- * Creates a seven-task session with controlled randomization.
+ * Creates a 20-task session with controlled randomization.
  */
 export function buildSession({ category, difficulty = 'easy', option = '', name = '', rng = Math.random }) {
   if (!CATEGORY_CONFIG[category]) throw new Error(`Unknown category: ${category}`);
@@ -453,7 +454,6 @@ export function buildSession({ category, difficulty = 'easy', option = '', name 
   const counts = new Map();
   const recent = [];
   const roles = [
-    starterPool.length ? starterPool : primary,
     easyPool,
     variedCurrent,
     variedCurrent,
@@ -462,24 +462,40 @@ export function buildSession({ category, difficulty = 'easy', option = '', name 
     easyPool,
   ];
 
-  const session = roles.map((pool, index) => ({
-    ...choose(pool, rng, counts, recent),
-    uid: `${Date.now()}-${index}-${Math.floor(rng() * 1e8)}`,
-    assist: assistancePlans[difficulty][index],
-    slot: index,
-  }));
+  const session = Array.from({ length: SESSION_SIZE }, (_, index) => {
+    const pool = index === 0 ? starterPool.length ? starterPool : primary : roles[(index - 1) % roles.length];
+    return {
+      ...choose(pool, rng, counts, recent),
+      uid: `${Date.now()}-${index}-${Math.floor(rng() * 1e8)}`,
+      assist: index === SESSION_SIZE - 1 ? 'easy' : assistancePlans[difficulty][index % assistancePlans[difficulty].length],
+      slot: index,
+    };
+  });
 
   if (category === 'name') {
     const wordTask = createWordTask(name);
     if (wordTask) {
-      session[5] = { ...wordTask, uid: `${Date.now()}-word`, assist: difficulty === 'easy' ? 'medium' : difficulty, slot: 5 };
+      const wordSlot = SESSION_SIZE - 5;
+      const finishSlot = SESSION_SIZE - 1;
+      session[wordSlot] = { ...wordTask, uid: `${Date.now()}-word`, assist: difficulty === 'easy' ? 'medium' : difficulty, slot: wordSlot };
       const letterPool = taskPool('name', difficulty, option, name);
       const used = new Map();
-      session.slice(0, 6).forEach((task) => used.set(task.id, (used.get(task.id) ?? 0) + 1));
+      session.slice(0, finishSlot).forEach((task) => used.set(task.id, (used.get(task.id) ?? 0) + 1));
       const preferred = letterPool.filter((task) => (used.get(task.id) ?? 0) < 2);
-      const fallback = warmups.filter((task) => (used.get(task.id) ?? 0) < 2 && task.id !== session[5].id);
-      const finisher = randomFrom(preferred.length ? preferred : fallback.length ? fallback : letterPool, rng);
-      session[6] = { ...finisher, uid: `${Date.now()}-finish`, assist: 'easy', slot: 6 };
+      const fallback = warmups.filter((task) => (used.get(task.id) ?? 0) < 2 && task.id !== session[wordSlot].id);
+      const previousId = session[finishSlot - 1].id;
+      const preferredWithoutPrevious = preferred.filter((task) => task.id !== previousId);
+      const fallbackWithoutPrevious = fallback.filter((task) => task.id !== previousId);
+      const anyWarmupWithoutPrevious = warmups.filter((task) => task.id !== previousId && task.id !== session[wordSlot].id);
+      const candidates = preferredWithoutPrevious.length
+        ? preferredWithoutPrevious
+        : fallbackWithoutPrevious.length
+          ? fallbackWithoutPrevious
+          : anyWarmupWithoutPrevious.length
+            ? anyWarmupWithoutPrevious
+            : preferred.length ? preferred : fallback.length ? fallback : letterPool;
+      const finisher = randomFrom(candidates, rng);
+      session[finishSlot] = { ...finisher, uid: `${Date.now()}-finish`, assist: 'easy', slot: finishSlot };
     }
   }
 
