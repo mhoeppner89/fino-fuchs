@@ -66,6 +66,19 @@ test('a complete cross can be recognised even when drawn as one continuous strok
   assert.equal(result.strokeCount < 1, true);
 });
 
+test('a repeated number does not finish while one copy is still missing', () => {
+  const repeatedOnes = [
+    [{ x: 0.18, y: 0.2 }, { x: 0.18, y: 0.8 }],
+    [{ x: 0.5, y: 0.2 }, { x: 0.5, y: 0.8 }],
+    [{ x: 0.82, y: 0.2 }, { x: 0.82, y: 0.8 }],
+  ];
+  const firstTwo = repeatedOnes.slice(0, 2);
+  const result = evaluateDrawing(repeatedOnes, firstTwo, { width: 900, height: 600, tolerance: 600 * 0.068 });
+  assert.ok(result.coverage > 0.6, `global coverage was ${result.coverage}`);
+  assert.ok(result.completion < 0.05, `missing-copy completion was ${result.completion}`);
+  assert.equal(result.componentCoverage.length, 3);
+});
+
 test('the helper follows the same rounded curve as the dotted guide', () => {
   const stroke = [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }];
   const guide = pointAlongGuidePath(stroke, 0.2, 100, 100);

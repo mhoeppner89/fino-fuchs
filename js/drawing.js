@@ -76,6 +76,38 @@ function distanceScore(samples, targetStrokes, tolerance) {
   return total / samples.length;
 }
 
+function strokeComponents(expectedStrokes, samplesByStroke, tolerance) {
+  const parents = expectedStrokes.map((_, index) => index);
+  const root = (index) => {
+    while (parents[index] !== index) {
+      parents[index] = parents[parents[index]];
+      index = parents[index];
+    }
+    return index;
+  };
+  const join = (a, b) => {
+    const aRoot = root(a);
+    const bRoot = root(b);
+    if (aRoot !== bRoot) parents[bRoot] = aRoot;
+  };
+  // Strokes that touch belong to one character or shape. Separate copies in
+  // a row remain their own components, so every copy has to be traced.
+  const touchDistance = Math.max(3, tolerance * 0.2);
+  for (let first = 0; first < expectedStrokes.length; first += 1) {
+    for (let second = first + 1; second < expectedStrokes.length; second += 1) {
+      const touches = samplesByStroke[first].some((point) => minDistanceToStrokes(point, [expectedStrokes[second]]) <= touchDistance)
+        || samplesByStroke[second].some((point) => minDistanceToStrokes(point, [expectedStrokes[first]]) <= touchDistance);
+      if (touches) join(first, second);
+    }
+  }
+  return expectedStrokes.reduce((groups, _, index) => {
+    const key = root(index);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(index);
+    return groups;
+  }, new Map());
+}
+
 function vectorScore(aStart, aEnd, bStart, bEnd) {
   const ax = aEnd.x - aStart.x;
   const ay = aEnd.y - aStart.y;
@@ -108,10 +140,14 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
     };
   }
 
-  const expectedSamples = expectedStrokes.flatMap((stroke) => resampleStroke(stroke, width, height));
+  const expectedSamplesByStroke = expectedStrokes.filter((stroke) => stroke.length).map((stroke) => resampleStroke(stroke, width, height));
+  const expectedSamples = expectedSamplesByStroke.flat();
   const userSamples = userStrokes.flatMap((stroke) => resampleStroke(stroke, width, height));
   const coverage = distanceScore(expectedSamples, user, tolerance);
   const precision = distanceScore(userSamples, expected, tolerance);
+  const componentCoverage = [...strokeComponents(expected, expectedSamplesByStroke, tolerance).values()]
+    .map((indexes) => distanceScore(indexes.flatMap((index) => expectedSamplesByStroke[index]), user, tolerance));
+  const completion = componentCoverage.length ? Math.min(...componentCoverage) : 0;
 
   let startTotal = 0;
   let directionTotal = 0;
@@ -151,13 +187,14 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
   const score = clamp(rawScore * (0.74 + 0.26 * length), 0, 1);
 
   return {
-    score, coverage, precision, start, direction, length, strokeCount,
+    score, coverage, precision, completion, componentCoverage, start, direction, length, strokeCount,
     expectedLength, userLength, hasInk: true,
   };
 }
 
 export function feedbackForEvaluation(result) {
   if (!result.hasInk) return 'Zeichne zuerst mit dem Stift oder Finger.';
+  if (result.completion < 0.5) return 'Fahr jede Zahl oder jeden Buchstaben nach.';
   if (result.coverage < 0.38) return 'Fahr die ganze Linie entlang.';
   if (result.precision < 0.32) return 'Bleib ein bisschen näher an der Spur.';
   if (result.start < 0.3) return 'Beginne beim grünen Punkt.';

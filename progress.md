@@ -8,3 +8,5 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Made the stroke check run after every completed stroke and reduced the influence of stroke count on the result.
 - All modes now show a thinner, more transparent guide; hit tolerance becomes stricter by mode.
 - Logic test suite passes 17 of 17 tests. The local Playwright canvas check launches the practice screen, loads every app asset, and captures Fino on the guide.
+- Bug found: global coverage could accept a repeated letter or number before its final copy was drawn. Completion is now checked for each disconnected character/number component.
+- Verification: 18 of 18 logic tests pass; Playwright canvas smoke test passes after the completion fix.

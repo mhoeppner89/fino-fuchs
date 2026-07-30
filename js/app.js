@@ -291,15 +291,16 @@ function beginSession() {
 
 function passCriteria(result, assist, task, slack = 0) {
   const criteria = {
-    easy: { score: 0.52, coverage: 0.45, precision: 0.35 },
-    medium: { score: 0.56, coverage: 0.49, precision: 0.40 },
-    hard: { score: 0.60, coverage: 0.53, precision: 0.46 },
+    easy: { score: 0.52, coverage: 0.45, precision: 0.35, completion: 0.55 },
+    medium: { score: 0.56, coverage: 0.49, precision: 0.40, completion: 0.60 },
+    hard: { score: 0.60, coverage: 0.53, precision: 0.46, completion: 0.65 },
   }[assist];
   const wordAdjustment = task.category === 'name' && task.id.startsWith('word-') ? 0.07 : 0;
   return result.hasInk
     && result.score >= criteria.score - wordAdjustment - slack
     && result.coverage >= criteria.coverage - wordAdjustment - slack
-    && result.precision >= criteria.precision - wordAdjustment - slack;
+    && result.precision >= criteria.precision - wordAdjustment - slack
+    && result.completion >= criteria.completion - wordAdjustment - slack;
 }
 
 const praise = ['Prima!', 'Super!', 'Toll gemacht!', 'Klasse!', 'Sehr gut!'];
