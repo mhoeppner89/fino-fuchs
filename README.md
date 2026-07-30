@@ -1,6 +1,6 @@
-# Fuchsschrift
+# Fino schreibt
 
-Fuchsschrift ist eine statische, deutschsprachige Schreiblern-App für kurze Übungen mit Finger, Touch-Stift oder Apple Pencil. Sie läuft vollständig im Browser und kann direkt über GitHub Pages veröffentlicht werden.
+Fino schreibt ist eine statische, deutschsprachige Schreiblern-App für kurze Übungen mit Finger, Touch-Stift oder Apple Pencil. Sie läuft vollständig im Browser und kann direkt über GitHub Pages veröffentlicht werden.
 
 ## Enthaltene Funktionen
 
@@ -9,10 +9,10 @@ Fuchsschrift ist eine statische, deutschsprachige Schreiblern-App für kurze Üb
 - sieben kontrolliert zufällig ausgewählte Aufgaben pro Runde
 - automatisches Ende nach sieben Aufgaben oder fünf Minuten
 - 56 Zeichenvorlagen: neun Linien, acht Formen, zehn Zahlen und 29 Großbuchstaben einschließlich Ä, Ö und Ü
-- animierte Schreibvorführung, Startpunkte, Pfeile und unterschiedliche Spurhilfen
+- Fino führt die Schreibspur vor; beim Absetzen springt er zum nächsten Strich
 - lokale, bewusst großzügige Auswertung von Form, Abdeckung, Startpunkt, Richtung und Strichlänge
 - freundliche Wiederholungen ohne sichtbare Fehlerpunkte oder Ranglisten
-- kurze deutsche Sprachanweisungen über die Stimme des Geräts
+- Hinweise als gut lesbarer Text; die Sprachfunktion ist derzeit ausgeschaltet
 - responsive Darstellung für Telefone, Tablets sowie Hoch- und Querformat
 - Pointer-Events für Finger, Maus und Stift; Touch-Gesten sind auf der Zeichenfläche deaktiviert
 - einfache Unterdrückung versehentlicher Handballen-Touches, sobald ein Stift erkannt wurde
@@ -54,13 +54,13 @@ Auf dem iPad kann die Seite anschließend in Safari über das Teilen-Menü zum H
 
 ## Datenschutz und Speicherung
 
-Fuchsschrift verwendet weder `localStorage` noch IndexedDB. Der eingegebene Name und die aktuelle Runde liegen nur im Arbeitsspeicher der geöffneten Seite und verschwinden beim Neuladen.
+Fino schreibt verwendet weder `localStorage` noch IndexedDB. Der eingegebene Name und die aktuelle Runde liegen nur im Arbeitsspeicher der geöffneten Seite und verschwinden beim Neuladen.
 
 Der Service Worker speichert ausschließlich die statischen App-Dateien, damit die App offline startet. Handzeichnungen, Namen und Ergebnisse werden nicht in diesen Cache geschrieben und nicht übertragen.
 
-## Sprachausgabe
+## Sprache
 
-Die Sprachanweisungen verwenden die eingebaute Web-Speech-Stimme des Geräts mit `de-DE`. Dadurch sind keine Audiodateien und keine Netzwerkdienste erforderlich. Stimme und Aussprache hängen vom jeweiligen Betriebssystem ab. Die App bleibt vollständig bedienbar, falls ein Browser keine Sprachausgabe bereitstellt.
+Die Sprachfunktion ist derzeit ausgeschaltet. Alle Hinweise stehen deshalb direkt auf dem Bildschirm. Eigene, aufgenommene Audiodateien können später ergänzt werden, ohne dass dafür ein Online-Dienst nötig ist.
 
 ## Inhalt anpassen
 
@@ -72,7 +72,7 @@ js/curriculum.js
 
 Wichtige Bereiche:
 
-- `lineTasks`: Linien und spielerische Start-/Zielsymbole
+- `lineTasks`: Linien und ihre Schreibspuren
 - `shapeTasks`: Formen
 - `digitStrokes`: Zahlen 0–9
 - `letterStrokes`: Großbuchstaben und Umlaute
@@ -85,7 +85,7 @@ Die Zeichenauswertung und Canvas-Eingabe stehen in:
 js/drawing.js
 ```
 
-Oberfläche, Timer, Sprachausgabe und Navigation stehen in:
+Oberfläche, Timer und Navigation stehen in:
 
 ```text
 js/app.js

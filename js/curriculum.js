@@ -1,5 +1,5 @@
 /**
- * Fuchsschrift curriculum and deterministic session generation.
+ * Fino schreibt curriculum and deterministic session generation.
  * All coordinates are normalized to the drawing board (0..1).
  */
 
@@ -63,32 +63,32 @@ function makeTask({
 const lineTasks = [
   makeTask({
     id: 'line-vertical', category: 'lines', title: 'Von oben nach unten',
-    speech: 'Folge Fini von oben nach unten.', label: '│',
+    speech: 'Folge Fino von oben nach unten.', label: '│',
     strokes: [poly([0.5, 0.18], [0.5, 0.82])], complexity: 1,
   }),
   makeTask({
     id: 'line-horizontal', category: 'lines', title: 'Von links nach rechts',
-    speech: 'Folge Fini von links nach rechts.', label: '—',
+    speech: 'Folge Fino von links nach rechts.', label: '—',
     strokes: [poly([0.18, 0.5], [0.82, 0.5])], complexity: 1,
   }),
   makeTask({
     id: 'line-diagonal-down', category: 'lines', title: 'Schräg nach unten',
-    speech: 'Folge Fini schräg nach unten.', label: '╲',
+    speech: 'Folge Fino schräg nach unten.', label: '╲',
     strokes: [poly([0.25, 0.2], [0.75, 0.8])], complexity: 1,
   }),
   makeTask({
     id: 'line-diagonal-up', category: 'lines', title: 'Schräg nach oben',
-    speech: 'Folge Fini schräg nach oben.', label: '╱',
+    speech: 'Folge Fino schräg nach oben.', label: '╱',
     strokes: [poly([0.25, 0.8], [0.75, 0.2])], complexity: 1,
   }),
   makeTask({
     id: 'line-arch', category: 'lines', title: 'Ein großer Bogen',
-    speech: 'Folge Fini über den großen Bogen.', label: '⌒',
+    speech: 'Folge Fino über den großen Bogen.', label: '⌒',
     strokes: [arc(0.5, 0.64, 0.32, 0.42, 180, 360, 34)], complexity: 2,
   }),
   makeTask({
     id: 'line-wave', category: 'lines', title: 'Eine Wellenlinie',
-    speech: 'Folge Fini durch die Wellen.', label: 'Welle',
+    speech: 'Folge Fino durch die Wellen.', label: 'Welle',
     strokes: [join(
       bezier(p(0.12, 0.52), p(0.22, 0.25), p(0.32, 0.25), p(0.42, 0.52), 18),
       bezier(p(0.42, 0.52), p(0.52, 0.79), p(0.62, 0.79), p(0.72, 0.52), 18),
@@ -97,12 +97,12 @@ const lineTasks = [
   }),
   makeTask({
     id: 'line-zigzag', category: 'lines', title: 'Zickzack',
-    speech: 'Folge Fini im Zickzack.', label: 'Zickzack',
+    speech: 'Folge Fino im Zickzack.', label: 'Zickzack',
     strokes: [poly([0.12, 0.72], [0.28, 0.28], [0.44, 0.72], [0.6, 0.28], [0.76, 0.72], [0.9, 0.34])], complexity: 2,
   }),
   makeTask({
     id: 'line-loop', category: 'lines', title: 'Eine Schleife',
-    speech: 'Folge Fini durch die große Schleife.', label: '∞',
+    speech: 'Folge Fino durch die große Schleife.', label: '∞',
     strokes: [join(
       bezier(p(0.12, 0.5), p(0.27, 0.12), p(0.42, 0.12), p(0.5, 0.5), 24),
       bezier(p(0.5, 0.5), p(0.58, 0.88), p(0.75, 0.88), p(0.88, 0.5), 24),
@@ -112,7 +112,7 @@ const lineTasks = [
   }),
   makeTask({
     id: 'line-spiral', category: 'lines', title: 'Eine Schnecke',
-    speech: 'Folge Fini von außen nach innen.', label: 'Spirale',
+    speech: 'Folge Fino von außen nach innen.', label: 'Spirale',
     strokes: [[...Array.from({ length: 60 }, (_, i) => {
       const t = i / 59;
       const angle = t * Math.PI * 4.4;

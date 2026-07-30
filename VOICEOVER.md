@@ -1,4 +1,4 @@
-# Fuchsschrift – Sprechertext
+# Fino schreibt – Sprechertext
 
 Sprich freundlich, ruhig und warm. Lass nach jedem Satz etwa eine halbe Sekunde
 Pause. Die Aufnahme sollte eher wie eine geduldige Begleitung als wie eine
@@ -45,15 +45,15 @@ Ansage klingen.
 
 ## Linien
 
-- Folge Fini von oben nach unten.
-- Folge Fini von links nach rechts.
-- Folge Fini schräg nach unten.
-- Folge Fini schräg nach oben.
-- Folge Fini über den großen Bogen.
-- Folge Fini durch die Wellen.
-- Folge Fini im Zickzack.
-- Folge Fini durch die große Schleife.
-- Folge Fini von außen nach innen.
+- Folge Fino von oben nach unten.
+- Folge Fino von links nach rechts.
+- Folge Fino schräg nach unten.
+- Folge Fino schräg nach oben.
+- Folge Fino über den großen Bogen.
+- Folge Fino durch die Wellen.
+- Folge Fino im Zickzack.
+- Folge Fino durch die große Schleife.
+- Folge Fino von außen nach innen.
 
 ## Formen
 

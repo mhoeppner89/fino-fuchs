@@ -1,35 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 360" role="img" aria-labelledby="title desc">
-  <title id="title">Fini, der freundliche Fuchs</title>
-  <desc id="desc">Ein lächelnder orangefarbener Fuchs winkt.</desc>
+  <title id="title">Fino, der freundliche Fuchs</title>
+  <desc id="desc">Ein freundlicher orangefarbener Fuchs winkt.</desc>
   <defs>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
-      <feDropShadow dx="0" dy="9" stdDeviation="8" flood-color="#29314A" flood-opacity=".14"/>
-    </filter>
-    <linearGradient id="fur" x1=".16" y1=".06" x2=".84" y2=".96">
-      <stop offset="0" stop-color="#FFB45C"/>
-      <stop offset="1" stop-color="#F36F38"/>
-    </linearGradient>
+    <g id="fino-face">
+      <path d="M33 83C36 58 44 38 52 22c17 11 30 22 39 36 6-3 12-4 18 0 9-14 22-25 39-36 8 16 16 36 19 61 11 18 10 44-1 63-13 23-37 36-66 36s-53-13-66-36C23 127 22 101 33 83Z" fill="#F47B3D"/>
+      <path d="M51 41c9 7 18 15 25 24-12 1-23 5-33 11 1-12 4-24 8-35Z" fill="#7C3E32"/>
+      <path d="M149 41c-9 7-18 15-25 24 12 1 23 5 33 11-1-12-4-24-8-35Z" fill="#7C3E32"/>
+      <path d="M100 113C84 98 61 98 49 114c-12 16-7 36 9 46 12 8 27 11 42 12 15-1 30-4 42-12 16-10 21-30 9-46-12-16-35-16-51-1Z" fill="#FFF0D7"/>
+      <path d="M69 105c3-7 10-10 15-5 4 4 3 12-1 16-5 5-13 3-15-3-1-3-1-6 1-8Z" fill="#27314A"/>
+      <path d="M131 105c-3-7-10-10-15-5-4 4-3 12 1 16 5 5 13 3 15-3 1-3 1-6-1-8Z" fill="#27314A"/>
+      <circle cx="78" cy="106" r="2" fill="#FFF"/><circle cx="122" cy="106" r="2" fill="#FFF"/>
+      <path d="M93 137c3-4 11-4 14 0 1 2 1 4-1 6-4 4-8 4-12 0-2-2-2-4-1-6Z" fill="#27314A"/>
+      <path d="M89 150c3 4 7 6 11 6s8-2 11-6" fill="none" stroke="#27314A" stroke-width="3.5" stroke-linecap="round"/>
+      <ellipse cx="64" cy="135" rx="8" ry="5" fill="#F3A29B" opacity=".62"/>
+      <ellipse cx="136" cy="135" rx="8" ry="5" fill="#F3A29B" opacity=".62"/>
+    </g>
   </defs>
-  <g filter="url(#shadow)">
-    <ellipse cx="215" cy="333" rx="118" ry="18" fill="#27314A" opacity=".08"/>
-    <path d="M263 272c42-37 93-34 114-2 20 31-9 64-65 59 27-11 39-25 31-38-8-13-45-4-67 20l-25-13 12-26Z" fill="url(#fur)"/>
-    <path d="M342 291c12 13-4 28-30 38 28 3 49-5 57-18 8-13-2-24-27-20Z" fill="#FFF0D8"/>
-    <path d="M151 198c-13 18-19 43-17 75 2 40 29 62 80 62 53 0 80-23 81-64 1-31-8-57-25-74l-119 1Z" fill="url(#fur)"/>
-    <path d="M174 239c7 45 23 74 40 74 20 0 36-29 43-74-10-9-22-14-42-14-19 0-32 5-41 14Z" fill="#FFF0D8"/>
-    <path d="M153 245c-24 4-40 20-36 37 4 15 19 17 31 6 13-12 17-29 15-42l-10-1Z" fill="url(#fur)"/>
-    <path d="M274 240c17-24 33-45 50-49 13-4 20 7 13 19l-10 16 14 8c10 6 7 20-4 22-18 4-31-6-43 9l-20-25Z" fill="url(#fur)"/>
-    <path d="M317 195c5-12 14-18 22-15 8 3 8 14 2 22l-10 12-14-19Z" fill="#FFF0D8"/>
-    <path d="M120 140 138 56l54 43c11-4 23-6 34-5 12 0 24 2 35 6l56-44 16 85c10 14 14 30 13 47-2 47-39 75-101 75-60 0-97-27-99-72-1-19 3-36 14-51Z" fill="url(#fur)"/>
-    <path d="M137 128 146 89l30 30c-14 2-27 6-39 12Z" fill="#7A3A2D"/>
-    <path d="M291 125 321 90l9 39c-12-4-25-7-39-8Z" fill="#7A3A2D"/>
-    <path d="M147 183c0-36 28-63 66-63 39 0 68 26 68 63 0 40-28 65-68 65-38 0-66-25-66-65Z" fill="#FFF0D8"/>
-    <path d="M214 157c-5 24-18 42-40 55 17 2 30 9 40 22 9-13 22-20 40-22-22-13-35-31-40-55Z" fill="#FFF" opacity=".8"/>
-    <ellipse cx="188" cy="177" rx="7.5" ry="10" fill="#27314A"/>
-    <ellipse cx="242" cy="177" rx="7.5" ry="10" fill="#27314A"/>
-    <circle cx="185.5" cy="174" r="2.2" fill="#FFF"/><circle cx="239.5" cy="174" r="2.2" fill="#FFF"/>
-    <path d="M205 198c4-5 14-5 18 0 2 2 1 6-1 9-5 5-12 5-17 0-2-3-2-6 0-9Z" fill="#27314A"/>
-    <path d="M194 218c11 11 29 11 40 0" fill="none" stroke="#27314A" stroke-width="5" stroke-linecap="round"/>
-    <circle cx="169" cy="205" r="8" fill="#F7A0A0" opacity=".52"/><circle cx="257" cy="205" r="8" fill="#F7A0A0" opacity=".52"/>
-    <path d="M177 318c-3 11 2 17 13 17h24c8 0 10-8 5-16l-42-1Zm57 1c-4 10 0 16 11 16h24c8 0 10-7 5-15l-40-1Z" fill="#7A3A2D"/>
+  <ellipse cx="210" cy="335" rx="132" ry="16" fill="#27314A" opacity=".08"/>
+  <g id="fino-mentor">
+    <path d="M247 273c44-48 108-43 136-5 24 33 6 67-30 76-31 8-63-3-89-30l-19-25 2-16Z" fill="#F47B3D"/>
+    <path d="M346 239c16 2 30 12 37 29 24 33 6 67-30 76-6 1-11 1-16 0 4-20-7-43-26-58 16-12 28-29 35-47Z" fill="#FFF0D7"/>
+    <path d="M154 226c-15 23-16 60-1 85 13 22 35 28 57 28s44-6 57-28c15-25 14-62-1-85-24-17-88-17-112 0Z" fill="#F47B3D"/>
+    <path d="M178 257c-5 21 0 51 13 66 10 11 28 11 38 0 13-15 18-45 13-66-16-10-48-10-64 0Z" fill="#FFF0D7"/>
+    <path d="M160 248c-18 5-30 19-29 35 1 11 9 17 18 13 13-6 20-23 21-40l-10-8Z" fill="#F47B3D"/>
+    <path d="M135 277c2 3 4 5 7 6m-5-10c2 3 4 5 7 6" fill="none" stroke="#FFF0D7" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M247 248c13-5 20-20 25-39 5-19 12-35 24-41 9-5 16 2 11 11 8-5 16-5 19 1 3 6-2 12-9 16 7-2 13 1 13 7 0 8-10 14-20 18-14 5-20 13-26 28-5 14-13 24-25 30l-12-30Z" fill="#F47B3D"/>
+    <use href="#fino-face" transform="translate(95 30) scale(1.15)"/>
+    <path d="M163 320c8-11 23-13 32-5 6 5 6 13-2 17-11 5-27 4-34-1-5-3-4-8 4-11Z" fill="#FFF0D7"/>
+    <path d="M225 315c8-8 23-8 31 0 6 6 4 14-4 17-12 4-27 2-33-4-4-4-2-9 6-13Z" fill="#FFF0D7"/>
+    <path d="M174 325l3 3m8-5 3 3m47-2 3 3m8-4 3 3" fill="none" stroke="#F47B3D" stroke-width="2.5" stroke-linecap="round"/>
   </g>
 </svg>

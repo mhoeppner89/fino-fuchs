@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""End-to-end smoke tests for Fuchsschrift.
+"""End-to-end smoke tests for Fino schreibt.
 
 Requires: pip install playwright && playwright install chromium
 The script also accepts CHROMIUM_PATH=/path/to/chromium.
@@ -98,7 +98,7 @@ def main() -> None:
             page.on("console", lambda message: errors.append(f"phone console {message.type}: {message.text}") if message.type == "error" else None)
             page.on("pageerror", lambda error: errors.append(f"phone pageerror: {error}"))
             page.goto(base_url, wait_until="networkidle")
-            assert page.title() == "Fuchsschrift"
+            assert page.title() == "Fino schreibt"
             assert page.locator(".activity-card").count() == 6
             assert_no_horizontal_overflow(page, "phone home")
             page.screenshot(path=str(ARTIFACTS / "phone-home.png"), full_page=True)
@@ -177,7 +177,7 @@ def main() -> None:
             context.set_offline(True)
             page.reload(wait_until="domcontentloaded", timeout=15_000)
             page.wait_for_timeout(250)
-            assert page.title() == "Fuchsschrift"
+            assert page.title() == "Fino schreibt"
             assert page.locator(".activity-card").count() == 6
             context.close()
 
