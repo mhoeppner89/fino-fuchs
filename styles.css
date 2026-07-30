@@ -521,7 +521,7 @@ p {
 .name-field input {
   width: 100%;
   min-height: 56px;
-  padding: 10px 48px 10px 16px;
+  padding: 10px 16px;
   border: 2px solid #d9d4ca;
   border-radius: 16px;
   background: #fff;
@@ -537,15 +537,6 @@ p {
   font-weight: 650;
   letter-spacing: 0;
   text-transform: none;
-}
-
-.name-pencil {
-  position: absolute;
-  top: 50%;
-  right: 17px;
-  color: var(--orange-deep);
-  font-size: 1.35rem;
-  transform: translateY(-50%);
 }
 
 .difficulty-group {
@@ -1065,18 +1056,6 @@ p {
   grid-template-columns: 1.3fr 1fr;
   gap: 12px;
 }
-
-.finish-sparkles span {
-  position: absolute;
-  color: var(--yellow);
-  animation: sparkle 2.2s ease-in-out infinite;
-}
-
-.finish-sparkles span:nth-child(1) { left: 12%; top: 18%; font-size: 1.7rem; }
-.finish-sparkles span:nth-child(2) { right: 13%; top: 24%; color: var(--teal); animation-delay: .3s; }
-.finish-sparkles span:nth-child(3) { right: 20%; top: 9%; font-size: 1.25rem; animation-delay: .8s; }
-.finish-sparkles span:nth-child(4) { left: 17%; top: 37%; color: var(--orange); animation-delay: 1s; }
-.finish-sparkles span:nth-child(5) { right: 10%; top: 43%; font-size: 1.3rem; animation-delay: .5s; }
 
 /* Success overlay */
 .success-overlay {

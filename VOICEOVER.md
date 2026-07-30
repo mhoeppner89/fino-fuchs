@@ -45,15 +45,15 @@ Ansage klingen.
 
 ## Linien
 
-- Hilf der Biene zur Blume. Zieh die Linie von oben nach unten.
-- Fahr mit dem Auto zur Garage. Von links nach rechts.
-- Lass den Ball schräg nach unten rollen.
-- Flieg mit der Rakete schräg nach oben.
-- Male einen großen Regenbogen.
-- Schwimm mit dem Fisch durch die Wellen.
-- Klettere im Zickzack über die Berge.
-- Flieg eine große Schleife.
-- Male das Schneckenhaus von außen nach innen.
+- Folge Fini von oben nach unten.
+- Folge Fini von links nach rechts.
+- Folge Fini schräg nach unten.
+- Folge Fini schräg nach oben.
+- Folge Fini über den großen Bogen.
+- Folge Fini durch die Wellen.
+- Folge Fini im Zickzack.
+- Folge Fini durch die große Schleife.
+- Folge Fini von außen nach innen.
 
 ## Formen
 

@@ -203,6 +203,23 @@ function partialStroke(stroke, progress) {
   return stroke.slice(0, count);
 }
 
+function pointAlongStroke(stroke, progress, width, height) {
+  if (!stroke.length) return null;
+  if (stroke.length === 1) return { point: toPixels(stroke[0], width, height), angle: 0 };
+  const scaled = clamp(progress, 0, 1) * (stroke.length - 1);
+  const startIndex = Math.min(stroke.length - 2, Math.floor(scaled));
+  const amount = scaled - startIndex;
+  const start = toPixels(stroke[startIndex], width, height);
+  const end = toPixels(stroke[startIndex + 1], width, height);
+  return {
+    point: {
+      x: start.x + (end.x - start.x) * amount,
+      y: start.y + (end.y - start.y) * amount,
+    },
+    angle: Math.atan2(end.y - start.y, end.x - start.x),
+  };
+}
+
 export class DrawingBoard {
   constructor(canvas, hooks = {}) {
     if (!(canvas instanceof HTMLCanvasElement)) throw new TypeError('DrawingBoard requires a canvas element.');
@@ -410,17 +427,6 @@ export class DrawingBoard {
     context.restore();
   }
 
-  drawDecorations(context) {
-    if (!this.task?.decorations?.length) return;
-    context.save();
-    const size = clamp(Math.min(this.width, this.height) * 0.075, 28, 50);
-    context.font = `${size}px system-ui, "Apple Color Emoji", "Segoe UI Emoji"`;
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    this.task.decorations.forEach(({ x, y, symbol }) => context.fillText(symbol, x * this.width, y * this.height));
-    context.restore();
-  }
-
   drawStrokeSet(context, strokes, {
     color,
     width,
@@ -444,51 +450,76 @@ export class DrawingBoard {
     context.restore();
   }
 
-  drawStartPointsAndArrows(context) {
-    if (!this.task || this.assist === 'hard' && this.task.category === 'name') return;
-    const radius = clamp(Math.min(this.width, this.height) * 0.018, 7, 13);
+  drawGuideFox(context, point, angle = 0, { jumping = false } = {}) {
+    const size = clamp(Math.min(this.width, this.height) * 0.08, 26, 46);
     context.save();
-    this.task.strokes.forEach((stroke, index) => {
-      if (!stroke.length) return;
-      const start = toPixels(stroke[0], this.width, this.height);
-      context.beginPath();
-      context.fillStyle = '#62C892';
-      context.arc(start.x, start.y, radius, 0, Math.PI * 2);
-      context.fill();
-      context.lineWidth = 3;
-      context.strokeStyle = '#FFFFFF';
-      context.stroke();
+    context.translate(point.x, point.y - (jumping ? size * 0.34 : 0));
+    context.rotate(angle);
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
 
-      if (this.assist === 'easy' && stroke.length > 2) {
-        const arrowIndex = Math.min(stroke.length - 1, Math.max(1, Math.floor(stroke.length * 0.18)));
-        const before = toPixels(stroke[arrowIndex - 1], this.width, this.height);
-        const after = toPixels(stroke[arrowIndex], this.width, this.height);
-        const angle = Math.atan2(after.y - before.y, after.x - before.x);
-        const x = (before.x + after.x) / 2;
-        const y = (before.y + after.y) / 2;
-        const size = radius * 1.45;
-        context.save();
-        context.translate(x, y);
-        context.rotate(angle);
-        context.beginPath();
-        context.moveTo(size, 0);
-        context.lineTo(-size * 0.55, -size * 0.55);
-        context.lineTo(-size * 0.55, size * 0.55);
-        context.closePath();
-        context.fillStyle = '#F58B45';
-        context.fill();
-        context.restore();
-      }
+    context.beginPath();
+    context.moveTo(-size * 0.18, size * 0.06);
+    context.quadraticCurveTo(-size * 0.56, -size * 0.18, -size * 0.64, size * 0.12);
+    context.quadraticCurveTo(-size * 0.54, size * 0.3, -size * 0.28, size * 0.17);
+    context.fillStyle = '#F58B45';
+    context.fill();
 
-      if (this.task.strokes.length > 1 && this.assist !== 'hard') {
-        context.fillStyle = '#23405F';
-        context.font = `700 ${clamp(radius * 1.2, 10, 16)}px system-ui`;
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.fillText(String(index + 1), start.x, start.y);
-      }
-    });
+    context.beginPath();
+    context.ellipse(-size * 0.08, size * 0.06, size * 0.31, size * 0.2, 0, 0, Math.PI * 2);
+    context.fillStyle = '#F58B45';
+    context.fill();
+
+    context.beginPath();
+    context.moveTo(-size * 0.04, -size * 0.22);
+    context.lineTo(size * 0.04, -size * 0.48);
+    context.lineTo(size * 0.16, -size * 0.2);
+    context.closePath();
+    context.moveTo(size * 0.22, -size * 0.2);
+    context.lineTo(size * 0.34, -size * 0.47);
+    context.lineTo(size * 0.42, -size * 0.16);
+    context.closePath();
+    context.fillStyle = '#F58B45';
+    context.fill();
+
+    context.beginPath();
+    context.arc(size * 0.19, -size * 0.15, size * 0.24, 0, Math.PI * 2);
+    context.fill();
+    context.beginPath();
+    context.ellipse(size * 0.34, -size * 0.08, size * 0.16, size * 0.12, 0, 0, Math.PI * 2);
+    context.fillStyle = '#FFF0D8';
+    context.fill();
+    context.beginPath();
+    context.arc(size * 0.22, -size * 0.21, size * 0.032, 0, Math.PI * 2);
+    context.fillStyle = '#27314A';
+    context.fill();
+    context.beginPath();
+    context.arc(size * 0.47, -size * 0.08, size * 0.045, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = '#7A3A2D';
+    context.lineWidth = size * 0.07;
+    context.beginPath();
+    context.moveTo(-size * 0.17, size * 0.2);
+    context.lineTo(-size * 0.05, size * 0.3);
+    context.moveTo(size * 0.14, size * 0.19);
+    context.lineTo(size * 0.24, size * 0.29);
+    context.stroke();
     context.restore();
+  }
+
+  drawFoxForCurrentStroke(context) {
+    if (!this.task || this.demoProgress !== null) return;
+    if (this.activeStroke?.length) {
+      const lastIndex = this.activeStroke.length - 1;
+      const point = toPixels(this.activeStroke[lastIndex], this.width, this.height);
+      const previous = toPixels(this.activeStroke[Math.max(0, lastIndex - 1)], this.width, this.height);
+      this.drawGuideFox(context, point, Math.atan2(point.y - previous.y, point.x - previous.x));
+      return;
+    }
+
+    const nextStroke = this.task.strokes[this.userStrokes.length];
+    const next = pointAlongStroke(nextStroke ?? [], 0, this.width, this.height);
+    if (next) this.drawGuideFox(context, next.point, next.angle, { jumping: this.userStrokes.length > 0 });
   }
 
   drawDemo(context) {
@@ -510,19 +541,8 @@ export class DrawingBoard {
     const activeIndex = Math.min(total - 1, Math.floor(scaled));
     const local = clamp(scaled - activeIndex, 0, 1);
     const activeStroke = this.task.strokes[activeIndex];
-    if (activeStroke?.length && local > 0 && local < 1) {
-      const pointIndex = Math.min(activeStroke.length - 1, Math.floor(local * activeStroke.length));
-      const point = toPixels(activeStroke[pointIndex], this.width, this.height);
-      context.save();
-      context.beginPath();
-      context.arc(point.x, point.y, clamp(Math.min(this.width, this.height) * 0.022, 10, 16), 0, Math.PI * 2);
-      context.fillStyle = '#FFFFFF';
-      context.fill();
-      context.lineWidth = 5;
-      context.strokeStyle = '#F58B45';
-      context.stroke();
-      context.restore();
-    }
+    const guide = pointAlongStroke(activeStroke ?? [], local, this.width, this.height);
+    if (guide) this.drawGuideFox(context, guide.point, guide.angle, { jumping: activeIndex > 0 && local < 0.08 });
   }
 
   render() {
@@ -531,8 +551,6 @@ export class DrawingBoard {
     context.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     context.clearRect(0, 0, this.width, this.height);
     this.drawGuidelines(context);
-    this.drawDecorations(context);
-
     if (this.task) {
       const isHighlight = performance.now() < this.highlightUntil;
       const angularGuide = ['letters', 'numbers', 'name'].includes(this.task.category);
@@ -562,7 +580,7 @@ export class DrawingBoard {
         });
       }
 
-      this.drawStartPointsAndArrows(context);
+      this.drawFoxForCurrentStroke(context);
       this.drawDemo(context);
     }
 

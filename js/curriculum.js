@@ -45,7 +45,6 @@ function makeTask({
   strokes,
   complexity = 1,
   group = 'all',
-  decorations = [],
   example = '',
 }) {
   return Object.freeze({
@@ -57,7 +56,6 @@ function makeTask({
     strokes: Object.freeze(strokes.map((stroke) => Object.freeze(stroke))),
     complexity,
     group,
-    decorations: Object.freeze(decorations),
     example,
   });
 }
@@ -65,71 +63,62 @@ function makeTask({
 const lineTasks = [
   makeTask({
     id: 'line-vertical', category: 'lines', title: 'Von oben nach unten',
-    speech: 'Hilf der Biene zur Blume. Zieh die Linie von oben nach unten.', label: '│',
+    speech: 'Folge Fini von oben nach unten.', label: '│',
     strokes: [poly([0.5, 0.18], [0.5, 0.82])], complexity: 1,
-    decorations: [{ x: 0.5, y: 0.1, symbol: '🐝' }, { x: 0.5, y: 0.9, symbol: '🌼' }],
   }),
   makeTask({
     id: 'line-horizontal', category: 'lines', title: 'Von links nach rechts',
-    speech: 'Fahr mit dem Auto zur Garage. Von links nach rechts.', label: '—',
+    speech: 'Folge Fini von links nach rechts.', label: '—',
     strokes: [poly([0.18, 0.5], [0.82, 0.5])], complexity: 1,
-    decorations: [{ x: 0.1, y: 0.5, symbol: '🚗' }, { x: 0.9, y: 0.5, symbol: '🏠' }],
   }),
   makeTask({
     id: 'line-diagonal-down', category: 'lines', title: 'Schräg nach unten',
-    speech: 'Lass den Ball schräg nach unten rollen.', label: '╲',
+    speech: 'Folge Fini schräg nach unten.', label: '╲',
     strokes: [poly([0.25, 0.2], [0.75, 0.8])], complexity: 1,
-    decorations: [{ x: 0.2, y: 0.14, symbol: '⚽' }, { x: 0.82, y: 0.86, symbol: '🥅' }],
   }),
   makeTask({
     id: 'line-diagonal-up', category: 'lines', title: 'Schräg nach oben',
-    speech: 'Flieg mit der Rakete schräg nach oben.', label: '╱',
+    speech: 'Folge Fini schräg nach oben.', label: '╱',
     strokes: [poly([0.25, 0.8], [0.75, 0.2])], complexity: 1,
-    decorations: [{ x: 0.2, y: 0.86, symbol: '🚀' }, { x: 0.82, y: 0.14, symbol: '⭐' }],
   }),
   makeTask({
     id: 'line-arch', category: 'lines', title: 'Ein großer Bogen',
-    speech: 'Male einen großen Regenbogen.', label: '⌒',
+    speech: 'Folge Fini über den großen Bogen.', label: '⌒',
     strokes: [arc(0.5, 0.64, 0.32, 0.42, 180, 360, 34)], complexity: 2,
-    decorations: [{ x: 0.13, y: 0.66, symbol: '☁️' }, { x: 0.87, y: 0.66, symbol: '☁️' }],
   }),
   makeTask({
     id: 'line-wave', category: 'lines', title: 'Eine Wellenlinie',
-    speech: 'Schwimm mit dem Fisch durch die Wellen.', label: '〰',
+    speech: 'Folge Fini durch die Wellen.', label: 'Welle',
     strokes: [join(
       bezier(p(0.12, 0.52), p(0.22, 0.25), p(0.32, 0.25), p(0.42, 0.52), 18),
       bezier(p(0.42, 0.52), p(0.52, 0.79), p(0.62, 0.79), p(0.72, 0.52), 18),
       bezier(p(0.72, 0.52), p(0.8, 0.29), p(0.87, 0.29), p(0.92, 0.5), 14),
     )], complexity: 2,
-    decorations: [{ x: 0.08, y: 0.52, symbol: '🐟' }, { x: 0.95, y: 0.5, symbol: '🐚' }],
   }),
   makeTask({
     id: 'line-zigzag', category: 'lines', title: 'Zickzack',
-    speech: 'Klettere im Zickzack über die Berge.', label: '〽',
+    speech: 'Folge Fini im Zickzack.', label: 'Zickzack',
     strokes: [poly([0.12, 0.72], [0.28, 0.28], [0.44, 0.72], [0.6, 0.28], [0.76, 0.72], [0.9, 0.34])], complexity: 2,
-    decorations: [{ x: 0.08, y: 0.78, symbol: '🦊' }, { x: 0.94, y: 0.28, symbol: '🚩' }],
   }),
   makeTask({
     id: 'line-loop', category: 'lines', title: 'Eine Schleife',
-    speech: 'Flieg eine große Schleife.', label: '∞',
+    speech: 'Folge Fini durch die große Schleife.', label: '∞',
     strokes: [join(
       bezier(p(0.12, 0.5), p(0.27, 0.12), p(0.42, 0.12), p(0.5, 0.5), 24),
       bezier(p(0.5, 0.5), p(0.58, 0.88), p(0.75, 0.88), p(0.88, 0.5), 24),
       bezier(p(0.88, 0.5), p(0.75, 0.12), p(0.58, 0.12), p(0.5, 0.5), 24),
       bezier(p(0.5, 0.5), p(0.42, 0.88), p(0.27, 0.88), p(0.12, 0.5), 24),
     )], complexity: 3,
-    decorations: [{ x: 0.08, y: 0.45, symbol: '🦋' }, { x: 0.92, y: 0.45, symbol: '🌻' }],
   }),
   makeTask({
     id: 'line-spiral', category: 'lines', title: 'Eine Schnecke',
-    speech: 'Male das Schneckenhaus von außen nach innen.', label: '🌀',
+    speech: 'Folge Fini von außen nach innen.', label: 'Spirale',
     strokes: [[...Array.from({ length: 60 }, (_, i) => {
       const t = i / 59;
       const angle = t * Math.PI * 4.4;
       const r = 0.34 * (1 - t * 0.82);
       return p(0.5 + Math.cos(angle) * r, 0.5 + Math.sin(angle) * r);
     })]], complexity: 3,
-    decorations: [{ x: 0.14, y: 0.82, symbol: '🐌' }],
   }),
 ];
 
@@ -159,7 +148,7 @@ const shapeTasks = [
     strokes: [poly([0.5, 0.14], [0.82, 0.5], [0.5, 0.86], [0.18, 0.5], [0.5, 0.14])], complexity: 2,
   }),
   makeTask({
-    id: 'shape-heart', category: 'shapes', title: 'Herz', speech: 'Male ein Herz.', label: '♡',
+    id: 'shape-heart', category: 'shapes', title: 'Herz', speech: 'Male ein Herz.', label: 'Herz',
     strokes: [join(
       bezier(p(0.5, 0.82), p(0.17, 0.58), p(0.17, 0.25), p(0.39, 0.24), 24),
       bezier(p(0.39, 0.24), p(0.47, 0.24), p(0.5, 0.31), p(0.5, 0.37), 10),

@@ -14,6 +14,14 @@ test('curriculum contains all planned core templates', () => {
   assert.equal(TASKS.filter((task) => task.category === 'numbers').length, 10);
 });
 
+test('curriculum uses text and drawing data instead of emoji decorations', () => {
+  const pictographic = /\p{Extended_Pictographic}/u;
+  TASKS.forEach((task) => {
+    assert.equal('decorations' in task, false, `${task.id} should not include decorations`);
+    assert.equal(pictographic.test(`${task.label} ${task.title} ${task.speech}`), false, `${task.id} includes an emoji`);
+  });
+});
+
 test('every category creates a seven-task session', () => {
   const cases = [
     { category: 'lines', difficulty: 'easy' },
