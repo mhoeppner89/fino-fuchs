@@ -7,6 +7,7 @@ import {
   inkColorAt,
   INK_COLORS,
   nextGuideStrokeIndex,
+  passesDrawingCriteria,
   pointAlongGuidePath,
 } from '../js/drawing.js';
 
@@ -67,6 +68,7 @@ test('a complete cross can be recognised even when drawn as one continuous strok
   const result = evaluateDrawing(cross, continuousCross, { width: 900, height: 600, tolerance: 600 * 0.068 });
   assert.ok(result.score > 0.7, `score was ${result.score}`);
   assert.equal(result.strokeCount < 1, true);
+  assert.equal(passesDrawingCriteria(result, 'easy'), true);
 });
 
 test('a repeated number does not finish while one copy is still missing', () => {
@@ -108,6 +110,39 @@ test('Fino selects the first guide stroke that is still uncovered', () => {
     [{ x: 0.5, y: 0.5 }, { x: 0.5, y: 0.82 }],
   ];
   assert.equal(nextGuideStrokeIndex(cross, splitVertical, { width: 900, height: 600, tolerance: 600 * 0.068 }), 1);
+});
+
+test('a missing required path cannot be forgiven by a quality retry', () => {
+  const capitalA = [
+    [{ x: 0.25, y: 0.82 }, { x: 0.5, y: 0.16 }],
+    [{ x: 0.5, y: 0.16 }, { x: 0.75, y: 0.82 }],
+    [{ x: 0.34, y: 0.55 }, { x: 0.66, y: 0.55 }],
+  ];
+  const result = evaluateDrawing(capitalA, capitalA.slice(0, 2), {
+    width: 900,
+    height: 620,
+    tolerance: 620 * 0.068,
+    completionGroups: [[0, 1, 2]],
+  });
+  assert.equal(result.pathCoverage[2], 0);
+  assert.equal(result.completion, 0);
+  assert.equal(passesDrawingCriteria(result, 'easy'), false);
+  assert.equal(passesDrawingCriteria(result, 'easy', { slack: 0.04 }), false);
+});
+
+test('Fino scans the guide in writing order instead of jumping to the emptiest later path', () => {
+  const paths = [
+    [{ x: 0.16, y: 0.18 }, { x: 0.16, y: 0.82 }],
+    [{ x: 0.16, y: 0.18 }, { x: 0.38, y: 0.5 }],
+    [{ x: 0.16, y: 0.82 }, { x: 0.38, y: 0.5 }],
+    [{ x: 0.68, y: 0.18 }, { x: 0.68, y: 0.82 }],
+  ];
+  assert.equal(nextGuideStrokeIndex(paths, [paths[0]], {
+    width: 900,
+    height: 620,
+    tolerance: 620 * 0.068,
+    completionGroups: [[0, 1, 2], [3]],
+  }), 1);
 });
 
 test('the helper follows the same rounded curve as the dotted guide', () => {

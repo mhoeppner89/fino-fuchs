@@ -8,6 +8,7 @@ import {
   DrawingBoard,
   evaluateDrawing,
   feedbackForEvaluation,
+  passesDrawingCriteria,
 } from './drawing.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -326,17 +327,8 @@ function beginSession() {
 }
 
 function passCriteria(result, assist, task, slack = 0) {
-  const criteria = {
-    easy: { score: 0.52, coverage: 0.45, precision: 0.35, completion: 0.55 },
-    medium: { score: 0.56, coverage: 0.49, precision: 0.40, completion: 0.60 },
-    hard: { score: 0.60, coverage: 0.53, precision: 0.46, completion: 0.65 },
-  }[assist];
   const wordAdjustment = task.category === 'name' && task.id.startsWith('word-') ? 0.07 : 0;
-  return result.hasInk
-    && result.score >= criteria.score - wordAdjustment - slack
-    && result.coverage >= criteria.coverage - wordAdjustment - slack
-    && result.precision >= criteria.precision - wordAdjustment - slack
-    && result.completion >= criteria.completion - wordAdjustment - slack;
+  return passesDrawingCriteria(result, assist, { qualityAdjustment: wordAdjustment, slack });
 }
 
 const praise = ['Prima!', 'Super!', 'Toll gemacht!', 'Klasse!', 'Sehr gut!'];
@@ -379,7 +371,7 @@ function celebrate(message, { gentle = false } = {}) {
 }
 
 function checkDrawing({ quietIncomplete = false } = {}) {
-  if (state.transitioning || !state.session[state.index]) return;
+  if (state.transitioning || !state.session[state.index]) return null;
   const task = state.session[state.index];
   const userStrokes = board.getUserStrokes();
   const result = evaluateDrawing(task.strokes, userStrokes, {
@@ -392,13 +384,8 @@ function checkDrawing({ quietIncomplete = false } = {}) {
     elements.clearButton.disabled = true;
     elements.showButton.disabled = true;
     celebrate(praise[Math.floor(Math.random() * praise.length)]);
-    return;
+    return { passed: true, result };
   }
-
-  // A partial multi-stroke drawing is normal. It is still evaluated after
-  // every pen lift, but stays quiet until the child has had a chance to add
-  // the expected parts. A complete drawing in fewer strokes can pass above.
-  if (quietIncomplete && userStrokes.length < task.strokes.length) return;
 
   state.attempts += 1;
   const nearPass = state.attempts >= 3 && passCriteria(result, task.assist, task, 0.04);
@@ -406,12 +393,13 @@ function checkDrawing({ quietIncomplete = false } = {}) {
     elements.clearButton.disabled = true;
     elements.showButton.disabled = true;
     celebrate('Gut probiert!', { gentle: true });
-    return;
+    return { passed: true, result, gentle: true };
   }
 
   const feedback = feedbackForEvaluation(result);
   setMentorMessage(feedback, { announce: true });
   board.flashGuide();
+  return { passed: false, result, quietIncomplete };
 }
 
 function finishSession() {
@@ -581,6 +569,14 @@ if (new URLSearchParams(location.search).has('test')) {
       assist: state.session[state.index]?.assist ?? null,
       screen: state.screen,
     }),
+    getCurrentTask: () => {
+      const task = state.session[state.index];
+      return task ? {
+        id: task.id,
+        strokes: task.strokes,
+        completionGroups: task.completionGroups,
+      } : null;
+    },
     solveCurrent() {
       const task = state.session[state.index];
       if (!task) return false;
@@ -590,7 +586,26 @@ if (new URLSearchParams(location.search).has('test')) {
     },
     failCurrent() {
       board.setUserStrokes([[{ x: 0.05, y: 0.05 }, { x: 0.95, y: 0.95 }, { x: 0.05, y: 0.95 }]]);
-      checkDrawing();
+      return checkDrawing();
+    },
+    submitCurrent(strokes, { quietIncomplete = true } = {}) {
+      board.setUserStrokes(strokes);
+      return checkDrawing({ quietIncomplete });
+    },
+    evaluationSnapshot() {
+      const task = state.session[state.index];
+      if (!task) return null;
+      const result = evaluateDrawing(task.strokes, board.getUserStrokes(), {
+        ...board.evaluationOptions(),
+        completionGroups: task.completionGroups,
+      });
+      return {
+        task: task.id,
+        index: state.index,
+        transitioning: state.transitioning,
+        completion: result.completion,
+        pathCoverage: result.pathCoverage,
+      };
     },
     finish: () => finishSession(),
     board,

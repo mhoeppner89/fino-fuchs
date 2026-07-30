@@ -81,6 +81,38 @@ function distanceScore(samples, targetStrokes, tolerance) {
   return total / samples.length;
 }
 
+function pointStrokes(points) {
+  return points.map((point) => [point]);
+}
+
+function pathOwnership(expectedSamplesByStroke, groups, userSamples) {
+  const ownedSamples = expectedSamplesByStroke.map(() => []);
+  userSamples.forEach((sample) => {
+    let closestGroup = [];
+    let closestGroupDistance = Infinity;
+    groups.forEach((indexes) => {
+      const groupStrokes = indexes.map((index) => expectedSamplesByStroke[index]);
+      const d = minDistanceToStrokes(sample, groupStrokes);
+      if (d < closestGroupDistance) {
+        closestGroupDistance = d;
+        closestGroup = indexes;
+      }
+    });
+    let bestIndex = -1;
+    let bestDistance = Infinity;
+    closestGroup.forEach((index) => {
+      const expectedSamples = expectedSamplesByStroke[index];
+      const d = minDistanceToStrokes(sample, [expectedSamples]);
+      if (d < bestDistance) {
+        bestDistance = d;
+        bestIndex = index;
+      }
+    });
+    if (bestIndex >= 0) ownedSamples[bestIndex].push(sample);
+  });
+  return ownedSamples;
+}
+
 function strokeComponents(expectedStrokes, samplesByStroke, tolerance) {
   const parents = expectedStrokes.map((_, index) => index);
   const root = (index) => {
@@ -143,6 +175,9 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
     return {
       score: 0, coverage: 0, precision: 0, start: 0, direction: 0,
       length: 0, strokeCount: 0, expectedLength, userLength, hasInk: false,
+      completion: 0,
+      componentCoverage: [],
+      pathCoverage: expectedStrokes.map(() => 0),
     };
   }
 
@@ -154,8 +189,25 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
   const groups = completionGroups?.length
     ? completionGroups.filter((group) => group.length && group.every((index) => expectedSamplesByStroke[index]))
     : [...strokeComponents(expected, expectedSamplesByStroke, tolerance).values()];
+  // A sample belongs only to its nearest required path. This stops a nearby
+  // letter, number, or the other half of a character from receiving credit
+  // for a path the child never drew. It still permits a child to merge,
+  // split, reverse, or reorder their real pen strokes.
+  const ownedSamplesByPath = pathOwnership(expectedSamplesByStroke, groups, userSamples);
+  // Completion is a little tighter than the overall quality score. A nearby
+  // vertical stroke must not count as most of a missing T bar, while the
+  // mode-specific tolerance still keeps easy/medium/hard appropriately kind.
+  const completionTolerance = tolerance * 0.65;
+  const pathCoverage = expectedSamplesByStroke.map((pathSamples, index) => (
+    distanceScore(pathSamples, pointStrokes(ownedSamplesByPath[index]), completionTolerance)
+      * clamp(ownedSamplesByPath[index].length / Math.max(1, pathSamples.length * 0.55), 0, 1)
+  ));
+  // Every visible part is required: the least-covered path decides its
+  // character's completion, and the least-complete character decides the
+  // exercise. A crossbar, tail, or umlaut dot can no longer disappear into
+  // an otherwise high average.
   const componentCoverage = groups
-    .map((indexes) => distanceScore(indexes.flatMap((index) => expectedSamplesByStroke[index]), user, tolerance));
+    .map((indexes) => Math.min(...indexes.map((index) => pathCoverage[index])));
   const completion = componentCoverage.length ? Math.min(...componentCoverage) : 0;
 
   let startTotal = 0;
@@ -196,22 +248,46 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
   const score = clamp(rawScore * (0.74 + 0.26 * length), 0, 1);
 
   return {
-    score, coverage, precision, completion, componentCoverage, start, direction, length, strokeCount,
+    score, coverage, precision, completion, componentCoverage, pathCoverage, start, direction, length, strokeCount,
     expectedLength, userLength, hasInk: true,
   };
+}
+
+const PASS_CRITERIA = Object.freeze({
+  easy: Object.freeze({ score: 0.52, coverage: 0.45, precision: 0.35, completion: 0.55 }),
+  medium: Object.freeze({ score: 0.56, coverage: 0.49, precision: 0.40, completion: 0.60 }),
+  hard: Object.freeze({ score: 0.60, coverage: 0.53, precision: 0.46, completion: 0.65 }),
+});
+
+/**
+ * The completion gate is intentionally never relaxed. Extra chances may be
+ * forgiving about neatness, but every required part must still be present.
+ */
+export function passesDrawingCriteria(result, assist, { qualityAdjustment = 0, slack = 0 } = {}) {
+  const criteria = PASS_CRITERIA[assist] ?? PASS_CRITERIA.easy;
+  const qualitySlack = qualityAdjustment + slack;
+  return result.hasInk
+    && result.score >= criteria.score - qualitySlack
+    && result.coverage >= criteria.coverage - qualitySlack
+    && result.precision >= criteria.precision - qualitySlack
+    && result.completion >= criteria.completion;
 }
 
 export function nextGuideStrokeIndex(expectedStrokes, userStrokes, {
   width = 900,
   height = 620,
   tolerance = Math.min(width, height) * 0.085,
+  completionGroups = null,
 } = {}) {
   if (!expectedStrokes.length || !userStrokes.some((stroke) => stroke.length)) return 0;
-  const user = userStrokes.filter((stroke) => stroke.length).map((stroke) => stroke.map((point) => toPixels(point, width, height)));
-  return expectedStrokes.reduce((best, stroke, index) => {
-    const coverage = distanceScore(resampleStroke(stroke, width, height), user, tolerance);
-    return coverage < best.coverage ? { index, coverage } : best;
-  }, { index: 0, coverage: Infinity }).index;
+  const { pathCoverage = [] } = evaluateDrawing(expectedStrokes, userStrokes, {
+    width,
+    height,
+    tolerance,
+    completionGroups,
+  });
+  const next = pathCoverage.findIndex((coverage) => coverage < 0.72);
+  return next >= 0 ? next : Math.max(0, expectedStrokes.length - 1);
 }
 
 export function feedbackForEvaluation(result) {
@@ -470,7 +546,10 @@ export class DrawingBoard {
   }
 
   nextGuideStrokeIndex() {
-    return nextGuideStrokeIndex(this.task?.strokes ?? [], this.userStrokes, this.evaluationOptions());
+    return nextGuideStrokeIndex(this.task?.strokes ?? [], this.userStrokes, {
+      ...this.evaluationOptions(),
+      completionGroups: this.task?.completionGroups ?? null,
+    });
   }
 
   flashGuide() {
@@ -723,7 +802,9 @@ export class DrawingBoard {
 
     const nextStroke = this.task.strokes[this.nextGuideStrokeIndex()];
     const angular = ['letters', 'numbers', 'name'].includes(this.task.category);
-    const next = pointAlongGuidePath(nextStroke ?? [], 0, this.width, this.height, angular);
+    // Fino waits just after the green starting point, still exactly on the
+    // dotted path. This leaves the child a clear, visible place to begin.
+    const next = pointAlongGuidePath(nextStroke ?? [], 0.07, this.width, this.height, angular);
     if (next) this.drawGuideFox(context, next.point, next.angle);
   }
 
@@ -816,8 +897,8 @@ export class DrawingBoard {
         angular: angularGuide,
       });
 
-      this.drawStartPoint(context);
       this.drawFoxForCurrentStroke(context);
+      this.drawStartPoint(context);
       this.drawDemo(context);
     }
 

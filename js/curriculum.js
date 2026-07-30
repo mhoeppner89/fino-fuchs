@@ -763,12 +763,16 @@ export function createNameExerciseBank(rawName) {
   }
   for (let index = 0; index < 20; index += 1) {
     const prefix = characters.slice(0, 1 + (index % characters.length)).join('');
-    exercises.push(makeTask({ id: `name-prefix-${name}-${index}`, category: 'name', title: `Anfang ${prefix}`, speech: `Schreib den Anfang ${prefix}.`, label: prefix, value: prefix, strokes: textStrokes(prefix, nameRect(index, -0.024)), complexity: prefix.length > 2 ? 3 : 2, group: 'name', family: 'name', layout: `prefix-${index}` }));
+    const prefixData = textTaskData(prefix, nameRect(index, -0.024));
+    exercises.push(makeTask({ id: `name-prefix-${name}-${index}`, category: 'name', title: `Anfang ${prefix}`, speech: `Schreib den Anfang ${prefix}.`, label: prefix, value: prefix, strokes: prefixData.strokes, completionGroups: prefixData.completionGroups, complexity: prefix.length > 2 ? 3 : 2, group: 'name', family: 'name', layout: `prefix-${index}` }));
     const suffix = characters.slice(Math.max(0, characters.length - 1 - (index % characters.length))).join('');
-    exercises.push(makeTask({ id: `name-suffix-${name}-${index}`, category: 'name', title: `Ende ${suffix}`, speech: `Schreib das Ende ${suffix}.`, label: suffix, value: suffix, strokes: textStrokes(suffix, nameRect(index + 20, 0.024)), complexity: suffix.length > 2 ? 3 : 2, group: 'name', family: 'name', layout: `suffix-${index}` }));
+    const suffixData = textTaskData(suffix, nameRect(index + 20, 0.024));
+    exercises.push(makeTask({ id: `name-suffix-${name}-${index}`, category: 'name', title: `Ende ${suffix}`, speech: `Schreib das Ende ${suffix}.`, label: suffix, value: suffix, strokes: suffixData.strokes, completionGroups: suffixData.completionGroups, complexity: suffix.length > 2 ? 3 : 2, group: 'name', family: 'name', layout: `suffix-${index}` }));
     const chunk = chunks[index];
-    exercises.push(makeTask({ id: `name-chunk-${name}-${index}`, category: 'name', title: `Namensstück ${chunk}`, speech: `Schreib ${chunk}.`, label: chunk, value: chunk, strokes: textStrokes(chunk, nameRect(index + 40, -0.012)), complexity: chunk.length > 2 ? 3 : 2, group: 'name', family: 'name', layout: `chunk-${index}` }));
-    exercises.push(makeTask({ id: `name-full-${name}-${index}`, category: 'name', title: `Dein Name ${name}`, speech: `Schreib deinen Namen ${name}.`, label: name, value: name, strokes: textStrokes(name, nameRect(index + 60, 0.012)), complexity: 3, group: 'name', family: 'name', layout: `full-${index}` }));
+    const chunkData = textTaskData(chunk, nameRect(index + 40, -0.012));
+    exercises.push(makeTask({ id: `name-chunk-${name}-${index}`, category: 'name', title: `Namensstück ${chunk}`, speech: `Schreib ${chunk}.`, label: chunk, value: chunk, strokes: chunkData.strokes, completionGroups: chunkData.completionGroups, complexity: chunk.length > 2 ? 3 : 2, group: 'name', family: 'name', layout: `chunk-${index}` }));
+    const fullData = textTaskData(name, nameRect(index + 60, 0.012));
+    exercises.push(makeTask({ id: `name-full-${name}-${index}`, category: 'name', title: `Dein Name ${name}`, speech: `Schreib deinen Namen ${name}.`, label: name, value: name, strokes: fullData.strokes, completionGroups: fullData.completionGroups, complexity: 3, group: 'name', family: 'name', layout: `full-${index}` }));
   }
   return Object.freeze(exercises);
 }

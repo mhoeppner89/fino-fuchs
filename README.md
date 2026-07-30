@@ -107,7 +107,9 @@ js/app.js
 npm test
 ```
 
-Diese Tests benötigen keine zusätzlichen Pakete.
+Diese Tests benötigen keine zusätzlichen Pakete. Sie prüfen auch, dass jede
+Zahl, jeder Buchstabe und jedes Teil einer mehrteiligen Aufgabe wirklich
+gezeichnet wurde, ohne natürliche alternative Stiftbewegungen zu verbieten.
 
 ### Browser-Smoke-Test
 
