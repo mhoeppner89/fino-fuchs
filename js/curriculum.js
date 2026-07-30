@@ -440,6 +440,11 @@ export function buildSession({ category, difficulty = 'easy', option = '', name 
   const current = primary.filter((task) => task.complexity <= (difficulty === 'easy' ? 2 : 3));
   const challenge = primary.filter((task) => task.complexity >= (difficulty === 'hard' ? 2 : 2));
   const warmups = category === 'lines' ? lineTasks.filter((task) => task.complexity === 1) : lineTasks.slice(0, 4);
+  const starterPool = category === 'lines'
+    ? warmups
+    : category === 'mixed'
+      ? primary.filter((task) => task.category !== 'lines')
+      : simple.length ? simple : primary;
   // Very small selections (for example a one-letter name) are interleaved
   // with motor warm-ups so a child never sees the same task twice in a row.
   const variedCurrent = current.length >= 2 ? current : [...current, ...warmups];
@@ -448,7 +453,7 @@ export function buildSession({ category, difficulty = 'easy', option = '', name 
   const counts = new Map();
   const recent = [];
   const roles = [
-    warmups,
+    starterPool.length ? starterPool : primary,
     easyPool,
     variedCurrent,
     variedCurrent,

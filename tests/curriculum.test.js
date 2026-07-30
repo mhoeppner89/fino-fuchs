@@ -49,6 +49,20 @@ test('controlled randomization avoids immediate repetition and caps repeats', ()
   assert.ok([...counts.values()].every((count) => count <= 2));
 });
 
+test('a non-line round does not begin with a forced line warm-up', () => {
+  const cases = [
+    { category: 'shapes', difficulty: 'easy' },
+    { category: 'numbers', difficulty: 'medium', option: '1-3' },
+    { category: 'letters', difficulty: 'hard', option: 'straight' },
+    { category: 'name', difficulty: 'easy', name: 'I' },
+    { category: 'mixed', difficulty: 'medium' },
+  ];
+  cases.forEach((config, index) => {
+    const session = buildSession({ ...config, rng: seededRandom(index + 17) });
+    assert.notEqual(session[0].category, 'lines', `${config.category} started with ${session[0].id}`);
+  });
+});
+
 test('name normalization remains local and accepts German uppercase letters', () => {
   assert.equal(normalizeName('  käthe  '), 'KÄTHE');
   assert.equal(normalizeName('Zoë 7!'), 'ZOE');

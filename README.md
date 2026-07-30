@@ -9,7 +9,7 @@ Fino schreibt ist eine statische, deutschsprachige Schreiblern-App für kurze Ü
 - sieben kontrolliert zufällig ausgewählte Aufgaben pro Runde
 - automatisches Ende nach sieben Aufgaben oder fünf Minuten
 - 56 Zeichenvorlagen: neun Linien, acht Formen, zehn Zahlen und 29 Großbuchstaben einschließlich Ä, Ö und Ü
-- Fino führt die Schreibspur vor; beim Absetzen springt er zum nächsten Strich
+- Fino läuft die Schreibspur als Start-Hilfe ab, ohne sie vorzuzeichnen; beim Absetzen springt er zum nächsten Strich
 - lokale, bewusst großzügige Auswertung von Form, Abdeckung, Startpunkt, Richtung und Strichlänge
 - freundliche Wiederholungen ohne sichtbare Fehlerpunkte oder Ranglisten
 - Hinweise als gut lesbarer Text; die Sprachfunktion ist derzeit ausgeschaltet

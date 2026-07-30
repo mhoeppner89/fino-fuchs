@@ -196,13 +196,6 @@ function angularPath(context, points, width, height) {
   }
 }
 
-function partialStroke(stroke, progress) {
-  if (progress <= 0) return [];
-  if (progress >= 1) return stroke;
-  const count = Math.max(2, Math.ceil(stroke.length * progress));
-  return stroke.slice(0, count);
-}
-
 function pointAlongStroke(stroke, progress, width, height) {
   if (!stroke.length) return null;
   if (stroke.length === 1) return { point: toPixels(stroke[0], width, height), angle: 0 };
@@ -328,7 +321,9 @@ export class DrawingBoard {
     if (!this.task || this.demoProgress !== null) return Promise.resolve();
     this.demoProgress = 0;
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const duration = reducedMotion ? 350 : clamp(this.task.strokes.length * 350 + 950, 1100, 2300);
+    // Fino moves at 1.5× the previous pace. The path stays invisible so it
+    // demonstrates the movement without drawing the child's orange trace.
+    const duration = reducedMotion ? 240 : clamp((this.task.strokes.length * 350 + 950) / 1.5, 733, 1533);
     const startedAt = performance.now();
 
     return new Promise((resolve) => {
@@ -526,18 +521,6 @@ export class DrawingBoard {
     if (this.demoProgress === null || !this.task) return;
     const total = this.task.strokes.length;
     const scaled = this.demoProgress * total;
-    const demoStrokes = [];
-    this.task.strokes.forEach((stroke, index) => {
-      const local = clamp(scaled - index, 0, 1);
-      if (local > 0) demoStrokes.push(partialStroke(stroke, local));
-    });
-    this.drawStrokeSet(context, demoStrokes, {
-      color: '#F58B45',
-      width: clamp(Math.min(this.width, this.height) * 0.026, 12, 22),
-      alpha: 0.96,
-      angular: ['letters', 'numbers', 'name'].includes(this.task.category),
-    });
-
     const activeIndex = Math.min(total - 1, Math.floor(scaled));
     const local = clamp(scaled - activeIndex, 0, 1);
     const activeStroke = this.task.strokes[activeIndex];
