@@ -347,15 +347,12 @@ export const DIFFICULTIES = Object.freeze({
 
 export const OPTION_SETS = Object.freeze({
   numbers: [
-    { value: '1-3', label: '1–3' },
-    { value: '1-6', label: '1–6' },
-    { value: '0-9', label: '0–9' },
+    { value: 'all', label: 'Alles' },
+    { value: 'custom', label: 'Eigene Zahlen' },
   ],
   letters: [
-    { value: 'straight', label: 'Gerade' },
-    { value: 'diagonal', label: 'Schräg' },
-    { value: 'round', label: 'Rund' },
-    { value: 'all', label: 'Alle' },
+    { value: 'all', label: 'Alles' },
+    { value: 'custom', label: 'Eigene Buchstaben' },
   ],
 });
 
@@ -486,8 +483,52 @@ const NUMBER_LAYOUTS = [
   ['schlange', 'Zahlenschlange', [{ x: 0.1, y: 0.5, width: 0.2, height: 0.3 }, { x: 0.34, y: 0.2, width: 0.2, height: 0.3 }, { x: 0.58, y: 0.5, width: 0.2, height: 0.3 }]],
 ];
 
+function compactCells(cells) {
+  return cells.map((cell) => ({
+    x: 0.5 + (cell.x - 0.5) * 0.84,
+    y: 0.5 + (cell.y - 0.5) * 0.84,
+    width: cell.width * 0.84,
+    height: cell.height * 0.84,
+  }));
+}
+
+const CUSTOM_SET_LAYOUTS = NUMBER_LAYOUTS.flatMap(([key, title, cells]) => [
+  [`${key}-gross`, title, cells],
+  [`${key}-kompakt`, `${title} – kompakt`, compactCells(cells)],
+]);
+
 function repeatedStrokes(strokes, cells) {
   return cells.flatMap((cell) => fitStrokes(strokes, cell));
+}
+
+function selectedSymbols(category, rawSet) {
+  if (category === 'numbers') return [...new Set(String(rawSet ?? '').match(/[0-9]/g) ?? [])];
+  return [...new Set([...normalizeName(rawSet).replace(/[- ]/g, '')].filter((character) => letterStrokes[character]))];
+}
+
+function createCustomSetBank(category, rawSet) {
+  const symbols = selectedSymbols(category, rawSet);
+  if (!symbols.length) return [];
+  const source = category === 'numbers' ? digitStrokes : letterStrokes;
+  const titleFor = category === 'numbers'
+    ? (symbol) => numberWords[Number(symbol)]
+    : (symbol) => letterMeta[symbol]?.[0] ?? symbol;
+  return Object.freeze(CUSTOM_SET_LAYOUTS.map(([key, layoutTitle, cells], layoutIndex) => {
+    const exerciseSymbols = cells.map((_, cellIndex) => symbols[(layoutIndex + cellIndex) % symbols.length]);
+    return makeTask({
+      id: `${category}-custom-${symbols.join('')}-${key}`,
+      category,
+      title: `${category === 'numbers' ? 'Deine Zahlen' : 'Deine Buchstaben'} – ${layoutTitle}`,
+      speech: `${category === 'numbers' ? 'Schreib deine Zahlen' : 'Schreib deine Buchstaben'}. ${exerciseSymbols.map(titleFor).join(', ')}.`,
+      label: exerciseSymbols.join(' '),
+      value: symbols.join(''),
+      strokes: cells.flatMap((cell, cellIndex) => fitStrokes(source[exerciseSymbols[cellIndex]], cell)),
+      complexity: cells.length === 1 ? 1 : cells.length < 4 ? 2 : 3,
+      group: 'custom',
+      family: category,
+      layout: `custom-${key}`,
+    });
+  }));
 }
 
 const lineBank = variantBank('lines', lineTemplates, ROUTE_LAYOUTS);
@@ -613,14 +654,7 @@ export function getExerciseBank(category, { name = '', option = '' } = {}) {
   if (category === 'name') return createNameExerciseBank(name);
   const bank = EXERCISE_BANKS[category];
   if (!bank) throw new Error(`Unknown category: ${category}`);
-  if (category === 'numbers') {
-    const max = option === '1-3' ? 3 : option === '1-6' ? 6 : 9;
-    return bank.filter((task) => Number(task.value) <= max && (task.value !== '0' || option === '0-9'));
-  }
-  if (category === 'letters') {
-    const group = option || 'all';
-    return bank.filter((task) => group === 'all' || task.group === group);
-  }
+  if (['numbers', 'letters'].includes(category)) return option && option !== 'all' ? createCustomSetBank(category, option) : bank;
   return bank;
 }
 

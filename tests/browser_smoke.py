@@ -104,7 +104,8 @@ def main() -> None:
             page.screenshot(path=str(ARTIFACTS / "phone-home.png"), full_page=True)
 
             page.locator('[data-category="letters"]').click()
-            page.locator('input[name="letter-group"][value="all"] + span').click()
+            page.locator('input[name="letter-selection"][value="custom"] + span').click()
+            page.locator("#letter-set").fill("MARTIN")
             page.locator('input[name="difficulty"][value="medium"]').click(force=True)
             page.locator("#start-button").click()
             page.wait_for_selector("#practice-screen:not([hidden])")

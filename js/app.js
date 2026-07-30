@@ -26,6 +26,12 @@ const elements = {
   activityCards: $$('.activity-card'),
   optionPanels: $$('.option-panel'),
   childName: $('#child-name'),
+  numberSet: $('#number-set'),
+  numberSetField: $('#number-set-field'),
+  numberSetHelp: $('#number-set-help'),
+  letterSet: $('#letter-set'),
+  letterSetField: $('#letter-set-field'),
+  letterSetHelp: $('#letter-set-help'),
   startButton: $('#start-button'),
   soundButtons: $$('.sound-button'),
   exitButton: $('#exit-button'),
@@ -163,9 +169,33 @@ function selectCategory(category, { announce = true } = {}) {
   if (announce) speak(CATEGORY_CONFIG[category].speech);
 }
 
+function selectedSetMode(category) {
+  const name = category === 'numbers' ? 'number-selection' : 'letter-selection';
+  return $(`input[name="${name}"]:checked`)?.value ?? 'all';
+}
+
+function normalizeNumberSet(value) {
+  return [...new Set(String(value ?? '').match(/[0-9]/g) ?? [])].join('');
+}
+
+function normalizeLetterSet(value) {
+  return [...new Set([...normalizeName(value).replace(/[- ]/g, '')].filter((character) => /[A-ZÄÖÜ]/.test(character)))].join('');
+}
+
+function updateCustomSetField(category, { focus = false } = {}) {
+  const custom = selectedSetMode(category) === 'custom';
+  const field = category === 'numbers' ? elements.numberSetField : elements.letterSetField;
+  const input = category === 'numbers' ? elements.numberSet : elements.letterSet;
+  const help = category === 'numbers' ? elements.numberSetHelp : elements.letterSetHelp;
+  field.hidden = !custom;
+  input.disabled = !custom;
+  help.hidden = !custom;
+  if (custom && focus) window.setTimeout(() => input.focus({ preventScroll: true }), 0);
+}
+
 function selectedOption() {
-  if (state.category === 'numbers') return $('input[name="number-range"]:checked')?.value ?? '1-3';
-  if (state.category === 'letters') return $('input[name="letter-group"]:checked')?.value ?? 'straight';
+  if (state.category === 'numbers') return selectedSetMode('numbers') === 'custom' ? normalizeNumberSet(elements.numberSet.value) : 'all';
+  if (state.category === 'letters') return selectedSetMode('letters') === 'custom' ? normalizeLetterSet(elements.letterSet.value) : 'all';
   return '';
 }
 
@@ -272,6 +302,12 @@ function beginSession() {
       elements.childName.focus();
       return;
     }
+  }
+
+  if (['numbers', 'letters'].includes(state.category) && selectedSetMode(state.category) === 'custom' && !selectedOption()) {
+    showToast(state.category === 'numbers' ? 'Bitte zuerst Zahlen eingeben.' : 'Bitte zuerst Buchstaben eingeben.');
+    (state.category === 'numbers' ? elements.numberSet : elements.letterSet).focus();
+    return;
   }
 
   try {
@@ -447,8 +483,22 @@ $$('input[name="difficulty"]').forEach((input) => {
   });
 });
 
-$$('input[name="number-range"], input[name="letter-group"]').forEach((input) => {
-  input.addEventListener('change', () => speak(input.nextElementSibling?.textContent ?? ''));
+$$('input[name="number-selection"], input[name="letter-selection"]').forEach((input) => {
+  input.addEventListener('change', () => {
+    const category = input.name === 'number-selection' ? 'numbers' : 'letters';
+    updateCustomSetField(category, { focus: input.value === 'custom' });
+    speak(input.nextElementSibling?.textContent ?? '');
+  });
+});
+
+elements.numberSet.addEventListener('input', () => {
+  const clean = normalizeNumberSet(elements.numberSet.value);
+  if (elements.numberSet.value !== clean) elements.numberSet.value = clean;
+});
+
+elements.letterSet.addEventListener('input', () => {
+  const clean = normalizeLetterSet(elements.letterSet.value);
+  if (elements.letterSet.value !== clean) elements.letterSet.value = clean;
 });
 
 elements.clearButton.addEventListener('click', () => {
@@ -493,18 +543,22 @@ document.addEventListener('visibilitychange', () => {
 });
 
 updateSoundButtons();
+updateCustomSetField('numbers');
+updateCustomSetField('letters');
 selectCategory('lines', { announce: false });
 
 window.render_game_to_text = () => JSON.stringify({
   coordinateSystem: 'drawing canvas uses normalized coordinates: origin top-left, x right, y down',
   screen: state.screen,
   category: state.category,
+  selection: selectedOption(),
   progress: { completed: state.completed, current: state.index + 1, total: state.session.length },
   task: state.session[state.index]
     ? { id: state.session[state.index].id, title: state.session[state.index].title, expectedStrokes: state.session[state.index].strokes.length }
     : null,
   assist: state.session[state.index]?.assist ?? null,
   userStrokes: board.getUserStrokes().length,
+  inkColors: board.getUserStrokeColors(),
 });
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {

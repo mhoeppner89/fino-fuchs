@@ -97,20 +97,27 @@
             </fieldset>
             <fieldset class="selection-group option-panel" data-options-for="numbers" hidden>
               <legend>Welche Zahlen?</legend>
-              <div class="choice-row" role="radiogroup" aria-label="Zahlenbereich">
-                <label class="choice-chip"><input type="radio" name="number-range" value="1-3" checked><span>1–3</span></label>
-                <label class="choice-chip"><input type="radio" name="number-range" value="1-6"><span>1–6</span></label>
-                <label class="choice-chip"><input type="radio" name="number-range" value="0-9"><span>0–9</span></label>
+              <div class="choice-row" role="radiogroup" aria-label="Zahlenauswahl">
+                <label class="choice-chip"><input type="radio" name="number-selection" value="all" checked><span>Alles</span></label>
+                <label class="choice-chip"><input type="radio" name="number-selection" value="custom"><span>Eigene Zahlen</span></label>
               </div>
+              <label class="name-field custom-set-field" id="number-set-field" hidden>
+                <span class="sr-only">Eigene Zahlen</span>
+                <input id="number-set" type="text" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="z. B. 2 5 7" aria-describedby="number-set-help" disabled>
+              </label>
+              <p class="field-help" id="number-set-help" hidden>Tippe die Zahlen, die du üben möchtest. Doppelte Zahlen zählen nur einmal.</p>
             </fieldset>
             <fieldset class="selection-group option-panel" data-options-for="letters" hidden>
               <legend>Welche Buchstaben?</legend>
-              <div class="choice-row" role="radiogroup" aria-label="Buchstabengruppe">
-                <label class="choice-chip"><input type="radio" name="letter-group" value="straight" checked><span>Gerade</span></label>
-                <label class="choice-chip"><input type="radio" name="letter-group" value="diagonal"><span>Schräg</span></label>
-                <label class="choice-chip"><input type="radio" name="letter-group" value="round"><span>Rund</span></label>
-                <label class="choice-chip"><input type="radio" name="letter-group" value="all"><span>Alle</span></label>
+              <div class="choice-row" role="radiogroup" aria-label="Buchstabenauswahl">
+                <label class="choice-chip"><input type="radio" name="letter-selection" value="all" checked><span>Alles</span></label>
+                <label class="choice-chip"><input type="radio" name="letter-selection" value="custom"><span>Eigene Buchstaben</span></label>
               </div>
+              <label class="name-field custom-set-field" id="letter-set-field" hidden>
+                <span class="sr-only">Eigene Buchstaben</span>
+                <input id="letter-set" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" maxlength="20" placeholder="z. B. M A R T I N" aria-describedby="letter-set-help" disabled>
+              </label>
+              <p class="field-help" id="letter-set-help" hidden>Tippe die Buchstaben, die du üben möchtest. Ä, Ö und Ü gehen auch.</p>
             </fieldset>
             <fieldset class="selection-group option-panel" data-options-for="name" hidden>
               <legend>Wie heißt du?</legend>

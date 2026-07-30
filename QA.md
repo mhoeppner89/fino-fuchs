@@ -4,7 +4,7 @@ Stand: 30. Juli 2026
 
 ## Automatisierte Logiktests
 
-Ergebnis: **18 von 18 Tests bestanden**.
+Ergebnis: **19 von 19 Tests bestanden**.
 
 Geprüft wurden:
 
@@ -20,6 +20,8 @@ Geprüft wurden:
 - getrennte Erkennung der Schreibrichtung
 - vollständiges Kreuz in einem statt in zwei Strichen
 - wiederholte Zahl bleibt offen, bis jede Kopie gezeichnet wurde
+- eigene Zahlen- und Buchstabenauswahl erzeugt immer eine vollständige 20er-Runde
+- verschiedene, aufeinanderfolgende Stiftstriche erhalten unterschiedliche Farben
 - Fino-Hilfe auf der gepunkteten Spur und Sprung zwischen getrennten Strichen
 
 Die Bänke und Runden werden deterministisch geprüft: Alle 100er-Bänke haben eindeutige Kennungen und Zeichenspuren; jede Runde enthält 20 verschiedene Aufgaben.

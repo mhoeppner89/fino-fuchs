@@ -4,6 +4,8 @@ import {
   demoStageAtProgress,
   evaluateDrawing,
   feedbackForEvaluation,
+  inkColorAt,
+  INK_COLORS,
   pointAlongGuidePath,
 } from '../js/drawing.js';
 
@@ -94,4 +96,11 @@ test('the starting helper includes a jump between distinct strokes', () => {
   assert.equal(stage.fromStroke, 0);
   assert.equal(stage.toStroke, 1);
   assert.ok(Math.abs(stage.progress - 0.5) < 0.0001);
+});
+
+test('each new pen stroke receives a different friendly ink color', () => {
+  assert.ok(INK_COLORS.length >= 4);
+  for (let index = 0; index < INK_COLORS.length * 2; index += 1) {
+    assert.notEqual(inkColorAt(index), inkColorAt(index + 1));
+  }
 });

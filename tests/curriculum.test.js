@@ -26,9 +26,13 @@ test('every activity has a 100-exercise bank with unique IDs and paths', () => {
   assert.equal(TASKS.length, 500);
 });
 
-test('number and letter choices retain enough unique exercises for a full round', () => {
-  assert.equal(getExerciseBank('numbers', { option: '1-3' }).length, 30);
-  assert.ok(getExerciseBank('letters', { option: 'straight' }).length >= SESSION_SIZE);
+test('custom number and letter sets retain enough unique exercises for a full round', () => {
+  const numbers = getExerciseBank('numbers', { option: '257' });
+  const letters = getExerciseBank('letters', { option: 'MARTIN' });
+  assert.equal(numbers.length, SESSION_SIZE);
+  assert.equal(letters.length, SESSION_SIZE);
+  assert.ok(numbers.every((task) => /^[257 ]+$/.test(task.label)));
+  assert.ok(letters.every((task) => /^[MARTIN ]+$/.test(task.label)));
 });
 
 test('curriculum uses text and drawing data instead of emoji decorations', () => {
@@ -43,7 +47,7 @@ test('every category creates a 20-task session', () => {
   const cases = [
     { category: 'lines', difficulty: 'easy' },
     { category: 'shapes', difficulty: 'medium' },
-    { category: 'numbers', difficulty: 'hard', option: '0-9' },
+    { category: 'numbers', difficulty: 'hard', option: 'all' },
     { category: 'letters', difficulty: 'medium', option: 'all' },
     { category: 'name', difficulty: 'easy', name: 'Martin' },
     { category: 'mixed', difficulty: 'hard' },
@@ -64,8 +68,8 @@ test('a playthrough samples 20 distinct exercises without repetition', () => {
 test('a non-line round does not begin with a forced line warm-up', () => {
   const cases = [
     { category: 'shapes', difficulty: 'easy' },
-    { category: 'numbers', difficulty: 'medium', option: '1-3' },
-    { category: 'letters', difficulty: 'hard', option: 'straight' },
+    { category: 'numbers', difficulty: 'medium', option: '257' },
+    { category: 'letters', difficulty: 'hard', option: 'MARTIN' },
     { category: 'name', difficulty: 'easy', name: 'I' },
     { category: 'mixed', difficulty: 'medium' },
   ];
@@ -94,7 +98,7 @@ test('word task composes supported letters into the board', () => {
 
 test('restricted choices still form a repetition-free round', () => {
   const cases = [
-    { category: 'numbers', difficulty: 'easy', option: '1-3' },
+    { category: 'numbers', difficulty: 'easy', option: '5' },
     { category: 'name', difficulty: 'easy', name: 'I' },
   ];
   cases.forEach((config, caseIndex) => {

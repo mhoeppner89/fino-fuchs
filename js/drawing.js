@@ -3,6 +3,11 @@
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const DEMO_JUMP_UNITS = 0.42;
+export const INK_COLORS = Object.freeze(['#284B73', '#C75C7B', '#2A9D8F', '#9A63BA', '#DD8530']);
+
+export function inkColorAt(strokeIndex) {
+  return INK_COLORS[strokeIndex % INK_COLORS.length];
+}
 
 function toPixels(point, width, height) {
   return { x: point.x * width, y: point.y * height };
@@ -341,6 +346,7 @@ export class DrawingBoard {
     this.task = null;
     this.assist = 'easy';
     this.userStrokes = [];
+    this.strokeColors = [];
     this.activeStroke = null;
     this.activePointerId = null;
     this.lastPenAt = 0;
@@ -396,6 +402,7 @@ export class DrawingBoard {
     this.task = task;
     this.assist = assist;
     this.userStrokes = [];
+    this.strokeColors = [];
     this.activeStroke = null;
     this.demoProgress = null;
     this.jumpAnimation = null;
@@ -408,6 +415,7 @@ export class DrawingBoard {
 
   clear() {
     this.userStrokes = [];
+    this.strokeColors = [];
     this.activeStroke = null;
     this.jumpAnimation = null;
     cancelAnimationFrame(this.jumpFrame);
@@ -424,8 +432,13 @@ export class DrawingBoard {
     return this.userStrokes.map((stroke) => stroke.map((point) => ({ ...point })));
   }
 
+  getUserStrokeColors() {
+    return [...this.strokeColors];
+  }
+
   setUserStrokes(strokes) {
     this.userStrokes = strokes.map((stroke) => stroke.map((point) => ({ x: point.x, y: point.y, pressure: point.pressure ?? 0.5 })));
+    this.strokeColors = this.userStrokes.map((_, index) => inkColorAt(index));
     this.render();
     this.hooks.onInkChange?.(this.hasInk());
   }
@@ -497,6 +510,7 @@ export class DrawingBoard {
     this.activePointerId = event.pointerId;
     this.activeStroke = [this.pointFromEvent(event)];
     this.userStrokes.push(this.activeStroke);
+    this.strokeColors.push(inkColorAt(this.userStrokes.length - 1));
     this.canvas.setPointerCapture?.(event.pointerId);
     this.hooks.onStrokeStart?.();
     this.hooks.onInkChange?.(true);
@@ -766,10 +780,12 @@ export class DrawingBoard {
       this.drawDemo(context);
     }
 
-    this.drawStrokeSet(context, this.userStrokes, {
-      color: '#284B73',
-      width: clamp(Math.min(this.width, this.height) * 0.025, 11, 20),
-      alpha: 0.98,
+    this.userStrokes.forEach((stroke, index) => {
+      this.drawStrokeSet(context, [stroke], {
+        color: this.strokeColors[index] ?? inkColorAt(index),
+        width: clamp(Math.min(this.width, this.height) * 0.025, 11, 20),
+        alpha: 0.98,
+      });
     });
   }
 }
