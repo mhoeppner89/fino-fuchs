@@ -134,21 +134,21 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
   });
   const start = expected.length ? startTotal / expected.length : 0;
   const direction = expected.length ? directionTotal / expected.length : 0;
-  const strokeCount = Math.exp(-Math.abs(expected.length - user.length) * 0.38);
+  const strokeCount = Math.exp(-Math.abs(expected.length - user.length) * 0.16);
   const lengthRatio = expectedLength > 0 ? userLength / expectedLength : 0;
   const length = lengthRatio > 0 ? Math.exp(-Math.abs(Math.log(lengthRatio)) * 0.75) : 0;
   const shape = Math.sqrt(Math.max(0, coverage * precision));
   const rawScore =
-    0.5 * shape
-      + 0.15 * coverage
-      + 0.15 * precision
-      + 0.08 * start
-      + 0.05 * direction
-      + 0.04 * length
-      + 0.03 * strokeCount;
-  // Excessive scribbling may cover the target by chance. The length factor
-  // discounts that pattern while remaining forgiving of short child strokes.
-  const score = clamp(rawScore * (0.65 + 0.35 * length), 0, 1);
+    0.54 * shape
+      + 0.2 * coverage
+      + 0.2 * precision
+      + 0.025 * start
+      + 0.015 * direction
+      + 0.015 * length
+      + 0.005 * strokeCount;
+  // Shape match matters most. Start, direction, and pen lifts are deliberately
+  // light-touch checks so a child may use a natural alternative stroke order.
+  const score = clamp(rawScore * (0.74 + 0.26 * length), 0, 1);
 
   return {
     score, coverage, precision, start, direction, length, strokeCount,
@@ -394,7 +394,12 @@ export class DrawingBoard {
   }
 
   evaluationOptions() {
-    return { width: this.width, height: this.height, tolerance: Math.min(this.width, this.height) * 0.085 };
+    const toleranceByAssist = { easy: 0.068, medium: 0.058, hard: 0.048 };
+    return {
+      width: this.width,
+      height: this.height,
+      tolerance: Math.min(this.width, this.height) * toleranceByAssist[this.assist],
+    };
   }
 
   flashGuide() {
@@ -707,31 +712,18 @@ export class DrawingBoard {
     if (this.task) {
       const isHighlight = performance.now() < this.highlightUntil;
       const angularGuide = ['letters', 'numbers', 'name'].includes(this.task.category);
-      if (this.assist === 'easy') {
-        this.drawStrokeSet(context, this.task.strokes, {
-          color: isHighlight ? '#F3B348' : '#B9D8DE',
-          width: clamp(Math.min(this.width, this.height) * 0.034, 16, 28),
-          dash: [2, clamp(Math.min(this.width, this.height) * 0.045, 20, 34)],
-          alpha: isHighlight ? 0.9 : 0.72,
-          angular: angularGuide,
-        });
-      } else if (this.assist === 'medium') {
-        this.drawStrokeSet(context, this.task.strokes, {
-          color: isHighlight ? '#F3B348' : '#C9D6E2',
-          width: clamp(Math.min(this.width, this.height) * 0.016, 7, 13),
-          dash: [10, 10],
-          alpha: isHighlight ? 0.92 : 0.64,
-          angular: angularGuide,
-        });
-      } else if (isHighlight) {
-        this.drawStrokeSet(context, this.task.strokes, {
-          color: '#F3B348',
-          width: clamp(Math.min(this.width, this.height) * 0.014, 7, 12),
-          dash: [9, 10],
-          alpha: 0.8,
-          angular: angularGuide,
-        });
-      }
+      const guideStyle = {
+        easy: { width: 0.021, min: 10, max: 17, dash: [2, 22], alpha: 0.45, color: '#B9D8DE' },
+        medium: { width: 0.015, min: 7, max: 12, dash: [9, 12], alpha: 0.34, color: '#C9D6E2' },
+        hard: { width: 0.01, min: 5, max: 8, dash: [5, 13], alpha: 0.25, color: '#D0DAE5' },
+      }[this.assist];
+      this.drawStrokeSet(context, this.task.strokes, {
+        color: isHighlight ? '#F3B348' : guideStyle.color,
+        width: clamp(Math.min(this.width, this.height) * guideStyle.width, guideStyle.min, guideStyle.max),
+        dash: guideStyle.dash,
+        alpha: isHighlight ? 0.72 : guideStyle.alpha,
+        angular: angularGuide,
+      });
 
       this.drawFoxForCurrentStroke(context);
       this.drawDemo(context);

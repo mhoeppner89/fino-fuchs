@@ -1,18 +1,34 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  createNameExerciseBank,
   TASKS,
   buildSession,
   createWordTask,
+  EXERCISE_BANKS,
+  getExerciseBank,
   normalizeName,
   SESSION_SIZE,
   seededRandom,
 } from '../js/curriculum.js';
 
-test('curriculum contains all planned core templates', () => {
-  assert.equal(TASKS.length, 56);
-  assert.equal(TASKS.filter((task) => task.category === 'letters').length, 29);
-  assert.equal(TASKS.filter((task) => task.category === 'numbers').length, 10);
+const geometryKey = (task) => JSON.stringify(task.strokes.map((stroke) => stroke.map((point) => [
+  Number(point.x.toFixed(5)), Number(point.y.toFixed(5)),
+])));
+
+test('every activity has a 100-exercise bank with unique IDs and paths', () => {
+  const banks = { ...EXERCISE_BANKS, name: createNameExerciseBank('Käthe') };
+  Object.entries(banks).forEach(([category, bank]) => {
+    assert.equal(bank.length, 100, `${category} bank size`);
+    assert.equal(new Set(bank.map((task) => task.id)).size, 100, `${category} IDs`);
+    assert.equal(new Set(bank.map(geometryKey)).size, 100, `${category} paths`);
+  });
+  assert.equal(TASKS.length, 500);
+});
+
+test('number and letter choices retain enough unique exercises for a full round', () => {
+  assert.equal(getExerciseBank('numbers', { option: '1-3' }).length, 30);
+  assert.ok(getExerciseBank('letters', { option: 'straight' }).length >= SESSION_SIZE);
 });
 
 test('curriculum uses text and drawing data instead of emoji decorations', () => {
@@ -40,14 +56,9 @@ test('every category creates a 20-task session', () => {
   });
 });
 
-test('controlled randomization avoids immediate repetition and caps repeats', () => {
+test('a playthrough samples 20 distinct exercises without repetition', () => {
   const session = buildSession({ category: 'letters', difficulty: 'hard', option: 'all', rng: seededRandom(42) });
-  for (let index = 1; index < session.length; index += 1) {
-    assert.notEqual(session[index].id, session[index - 1].id);
-  }
-  const counts = new Map();
-  session.forEach((task) => counts.set(task.id, (counts.get(task.id) ?? 0) + 1));
-  assert.ok([...counts.values()].every((count) => count <= 2));
+  assert.equal(new Set(session.map((task) => task.id)).size, SESSION_SIZE);
 });
 
 test('a non-line round does not begin with a forced line warm-up', () => {
@@ -81,7 +92,7 @@ test('word task composes supported letters into the board', () => {
   });
 });
 
-test('small selections are interleaved instead of repeating immediately', () => {
+test('restricted choices still form a repetition-free round', () => {
   const cases = [
     { category: 'numbers', difficulty: 'easy', option: '1-3' },
     { category: 'name', difficulty: 'easy', name: 'I' },
@@ -89,9 +100,7 @@ test('small selections are interleaved instead of repeating immediately', () => 
   cases.forEach((config, caseIndex) => {
     for (let seed = 1; seed <= 100; seed += 1) {
       const session = buildSession({ ...config, rng: seededRandom(seed + caseIndex * 1000) });
-      for (let index = 1; index < session.length; index += 1) {
-        assert.notEqual(session[index].id, session[index - 1].id);
-      }
+      assert.equal(new Set(session.map((task) => task.id)).size, SESSION_SIZE);
     }
   });
 });

@@ -185,9 +185,9 @@ function updateProgress() {
 }
 
 function modeLabel(assist) {
-  if (assist === 'easy') return 'Mit dicker Spur';
+  if (assist === 'easy') return 'Mit klarer Spur';
   if (assist === 'medium') return 'Mit feiner Spur';
-  return 'Jetzt allein';
+  return 'Mit zarter Spur';
 }
 
 function setMentorMessage(message, { announce = false } = {}) {
@@ -205,14 +205,14 @@ function scheduleAutoCheck() {
   const task = state.session[state.index];
   const strokes = board.getUserStrokes();
   const lastStroke = strokes.at(-1);
-  if (state.transitioning || !task || strokes.length < task.strokes.length || !lastStroke || lastStroke.length < 2) return;
+  if (state.transitioning || !task || !lastStroke || lastStroke.length < 2) return;
 
   clearAutoCheck();
   const taskToken = state.taskToken;
   state.autoCheckTimer = window.setTimeout(() => {
     state.autoCheckTimer = 0;
-    if (state.taskToken === taskToken && state.screen === 'practice' && !state.transitioning) checkDrawing();
-  }, 360);
+    if (state.taskToken === taskToken && state.screen === 'practice' && !state.transitioning) checkDrawing({ quietIncomplete: true });
+  }, 260);
 }
 
 async function renderTask() {
@@ -234,7 +234,7 @@ async function renderTask() {
   elements.referenceChip.setAttribute('aria-label', `Vorlage ${task.label}`);
   elements.clearButton.disabled = false;
   elements.showButton.disabled = false;
-  elements.canvasHint.classList.toggle('is-hidden', task.assist !== 'hard');
+  elements.canvasHint.classList.add('is-hidden');
   board.setTask(task, task.assist);
   setMentorMessage(task.speech);
   speak(task.speech);
@@ -289,17 +289,17 @@ function beginSession() {
   requestAnimationFrame(() => renderTask());
 }
 
-function passCriteria(result, assist, task) {
+function passCriteria(result, assist, task, slack = 0) {
   const criteria = {
-    easy: { score: 0.50, coverage: 0.40, precision: 0.28 },
-    medium: { score: 0.44, coverage: 0.34, precision: 0.24 },
-    hard: { score: 0.38, coverage: 0.27, precision: 0.20 },
+    easy: { score: 0.52, coverage: 0.45, precision: 0.35 },
+    medium: { score: 0.56, coverage: 0.49, precision: 0.40 },
+    hard: { score: 0.60, coverage: 0.53, precision: 0.46 },
   }[assist];
   const wordAdjustment = task.category === 'name' && task.id.startsWith('word-') ? 0.07 : 0;
   return result.hasInk
-    && result.score >= criteria.score - wordAdjustment
-    && result.coverage >= criteria.coverage - wordAdjustment
-    && result.precision >= criteria.precision - wordAdjustment;
+    && result.score >= criteria.score - wordAdjustment - slack
+    && result.coverage >= criteria.coverage - wordAdjustment - slack
+    && result.precision >= criteria.precision - wordAdjustment - slack;
 }
 
 const praise = ['Prima!', 'Super!', 'Toll gemacht!', 'Klasse!', 'Sehr gut!'];
@@ -341,19 +341,31 @@ function celebrate(message, { gentle = false } = {}) {
   }, delay);
 }
 
-function checkDrawing() {
+function checkDrawing({ quietIncomplete = false } = {}) {
   if (state.transitioning || !state.session[state.index]) return;
   const task = state.session[state.index];
-  const result = evaluateDrawing(task.strokes, board.getUserStrokes(), board.evaluationOptions());
-  state.attempts += 1;
+  const userStrokes = board.getUserStrokes();
+  const result = evaluateDrawing(task.strokes, userStrokes, board.evaluationOptions());
   const passed = passCriteria(result, task.assist, task);
-  const generousPass = state.attempts >= 3 && result.hasInk && result.coverage > 0.16 && result.precision > 0.12;
 
-  if (passed || generousPass) {
+  if (passed) {
     elements.clearButton.disabled = true;
     elements.showButton.disabled = true;
-    const message = generousPass && !passed ? 'Gut probiert!' : praise[Math.floor(Math.random() * praise.length)];
-    celebrate(message, { gentle: generousPass && !passed });
+    celebrate(praise[Math.floor(Math.random() * praise.length)]);
+    return;
+  }
+
+  // A partial multi-stroke drawing is normal. It is still evaluated after
+  // every pen lift, but stays quiet until the child has had a chance to add
+  // the expected parts. A complete drawing in fewer strokes can pass above.
+  if (quietIncomplete && userStrokes.length < task.strokes.length) return;
+
+  state.attempts += 1;
+  const nearPass = state.attempts >= 3 && passCriteria(result, task.assist, task, 0.04);
+  if (nearPass) {
+    elements.clearButton.disabled = true;
+    elements.showButton.disabled = true;
+    celebrate('Gut probiert!', { gentle: true });
     return;
   }
 
@@ -399,7 +411,7 @@ function closeExitModal() {
 
 const board = new DrawingBoard(elements.drawingCanvas, {
   onInkChange(hasInk) {
-    elements.canvasHint.classList.toggle('is-hidden', hasInk || state.session[state.index]?.assist !== 'hard');
+    elements.canvasHint.classList.add('is-hidden');
   },
   onStrokeStart() {
     clearAutoCheck();
@@ -481,6 +493,19 @@ document.addEventListener('visibilitychange', () => {
 
 updateSoundButtons();
 selectCategory('lines', { announce: false });
+
+window.render_game_to_text = () => JSON.stringify({
+  coordinateSystem: 'drawing canvas uses normalized coordinates: origin top-left, x right, y down',
+  screen: state.screen,
+  category: state.category,
+  progress: { completed: state.completed, current: state.index + 1, total: state.session.length },
+  task: state.session[state.index]
+    ? { id: state.session[state.index].id, title: state.session[state.index].title, expectedStrokes: state.session[state.index].strokes.length }
+    : null,
+  assist: state.session[state.index]?.assist ?? null,
+  userStrokes: board.getUserStrokes().length,
+});
+
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch((error) => console.warn('Service worker registration failed:', error));

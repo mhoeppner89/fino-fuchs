@@ -7,10 +7,11 @@ Fino schreibt ist eine statische, deutschsprachige Schreiblern-App für kurze Ü
 - sechs Bereiche: **Linien**, **Formen**, **Zahlen**, **Buchstaben**, **Mein Name** und **Bunte Mischung**
 - drei Hilfestufen: **Leicht**, **Mittel** und **Knifflig**
 - 20 kontrolliert zufällig ausgewählte Aufgaben pro Runde
-- automatischer Wechsel zur nächsten Aufgabe, sobald alle nötigen Striche erkannt sind
-- 56 Zeichenvorlagen: neun Linien, acht Formen, zehn Zahlen und 29 Großbuchstaben einschließlich Ä, Ö und Ü
-- Fino läuft die Schreibspur als Start-Hilfe ab, ohne sie vorzuzeichnen; beim Absetzen springt er zum nächsten Strich
-- lokale, bewusst großzügige Auswertung von Form, Abdeckung, Startpunkt, Richtung und Strichlänge
+- automatischer, kurzer Abschluss-Check nach jedem abgesetzten Strich
+- 100 unterschiedliche Übungen pro Bereich: Wege, Formen, Zahlen, Buchstaben, Namen und bunte Mischung
+- Fino läuft die Schreibspur als Start-Hilfe auf der gepunkteten Linie ab; beim Absetzen springt er zum nächsten Strich
+- eine dünne, je nach Hilfestufe unterschiedlich dezente Schreibspur; die erlaubte Abweichung wird dabei strenger
+- lokale, kindgerechte Auswertung von Form, Abdeckung und Genauigkeit, die auch eine sinnvolle andere Strichaufteilung akzeptiert
 - freundliche Wiederholungen ohne sichtbare Fehlerpunkte oder Ranglisten
 - Hinweise als gut lesbarer Text; die Sprachfunktion ist derzeit ausgeschaltet
 - responsive Darstellung für Telefone, Tablets sowie Hoch- und Querformat
@@ -72,10 +73,12 @@ js/curriculum.js
 
 Wichtige Bereiche:
 
-- `lineTasks`: Linien und ihre Schreibspuren
-- `shapeTasks`: Formen
+- `lineTemplates`: Linien und ihre Schreibspuren
+- `shapeTemplates`: Formen
 - `digitStrokes`: Zahlen 0–9
 - `letterStrokes`: Großbuchstaben und Umlaute
+- `EXERCISE_BANKS`: die 100er-Bänke für Linien, Formen, Zahlen, Buchstaben und Mischung
+- `createNameExerciseBank()`: 100 Übungen, die aus dem eingegebenen Namen entstehen
 - `buildSession()`: kontrollierte Zufallsauswahl und Reihenfolge
 - `assistancePlans`: Hilfestufen innerhalb einer Runde
 

@@ -52,6 +52,20 @@ test('stroke direction is measured independently', () => {
   assert.ok(result.coverage > 0.95);
 });
 
+test('a complete cross can be recognised even when drawn as one continuous stroke', () => {
+  const cross = [
+    [{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.82 }],
+    [{ x: 0.18, y: 0.5 }, { x: 0.82, y: 0.5 }],
+  ];
+  const continuousCross = [[
+    { x: 0.5, y: 0.18 }, { x: 0.5, y: 0.5 }, { x: 0.18, y: 0.5 },
+    { x: 0.82, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.5, y: 0.82 },
+  ]];
+  const result = evaluateDrawing(cross, continuousCross, { width: 900, height: 600, tolerance: 600 * 0.068 });
+  assert.ok(result.score > 0.7, `score was ${result.score}`);
+  assert.equal(result.strokeCount < 1, true);
+});
+
 test('the helper follows the same rounded curve as the dotted guide', () => {
   const stroke = [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }];
   const guide = pointAlongGuidePath(stroke, 0.2, 100, 100);

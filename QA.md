@@ -4,27 +4,28 @@ Stand: 30. Juli 2026
 
 ## Automatisierte Logiktests
 
-Ergebnis: **15 von 15 Tests bestanden**.
+Ergebnis: **17 von 17 Tests bestanden**.
 
 Geprüft wurden:
 
-- Vollständigkeit der 56 Vorlagen
+- genau 100 eindeutige Übungen pro Bereich, einschließlich der aus dem Namen erzeugten Übungen
 - Sitzungen mit exakt 20 Aufgaben in allen sechs Bereichen
 - kontrollierte Zufallsauswahl ohne direkte Wiederholung
-- Höchstgrenze von zwei Wiederholungen derselben Aufgabe pro Runde
-- Interleaving bei kleinen Auswahlmengen, etwa 1–3 oder einem einbuchstabigen Namen
+- zufällige 20er-Runden ohne Wiederholung
 - Normalisierung deutscher Namen und Akzente
 - Zusammensetzung einer vollständigen Namensvorlage
 - exakte und kindlich ungenaue Linien
 - Zurückweisung eines langen, unpassenden Gekritzels
 - leere Eingabe und passende Rückmeldung
 - getrennte Erkennung der Schreibrichtung
+- vollständiges Kreuz in einem statt in zwei Strichen
+- Fino-Hilfe auf der gepunkteten Spur und Sprung zwischen getrennten Strichen
 
-Zusätzlich wurden **10.800 deterministische Sitzungen** über Kategorien, Hilfestufen, Unterauswahlen und Namen erzeugt. Dabei trat keine direkte Wiederholung und keine Überschreitung der Wiederholungsgrenze auf.
+Die Bänke und Runden werden deterministisch geprüft: Alle 100er-Bänke haben eindeutige Kennungen und Zeichenspuren; jede Runde enthält 20 verschiedene Aufgaben.
 
 ## Browser-Smoke-Test
 
-Ergebnis: **bestanden, keine JavaScript- oder Konsolenfehler**.
+Der lokale Playwright-Canvas-Check startet die App, lädt alle App-Dateien und zeigt die erste Schreibaufgabe ohne JavaScript- oder Konsolenfehler. Der ausführlichere Python-Smoke-Test unten kann vor einer Veröffentlichung erneut ausgeführt werden.
 
 Getestete Ansichten:
 

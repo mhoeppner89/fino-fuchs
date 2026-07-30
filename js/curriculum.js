@@ -46,6 +46,9 @@ function makeTask({
   complexity = 1,
   group = 'all',
   example = '',
+  family = category,
+  value = label,
+  layout = '',
 }) {
   return Object.freeze({
     id,
@@ -57,10 +60,13 @@ function makeTask({
     complexity,
     group,
     example,
+    family,
+    value,
+    layout,
   });
 }
 
-const lineTasks = [
+const lineTemplates = [
   makeTask({
     id: 'line-vertical', category: 'lines', title: 'Von oben nach unten',
     speech: 'Folge Fino von oben nach unten.', label: '│',
@@ -120,9 +126,17 @@ const lineTasks = [
       return p(0.5 + Math.cos(angle) * r, 0.5 + Math.sin(angle) * r);
     })]], complexity: 3,
   }),
+  makeTask({
+    id: 'line-s-curve', category: 'lines', title: 'S-Kurve',
+    speech: 'Folge Fino durch die S-Kurve.', label: 'S-Kurve',
+    strokes: [join(
+      bezier(p(0.2, 0.24), p(0.62, 0.05), p(0.78, 0.38), p(0.5, 0.5), 26),
+      bezier(p(0.5, 0.5), p(0.22, 0.62), p(0.38, 0.95), p(0.8, 0.76), 26),
+    )], complexity: 3,
+  }),
 ];
 
-const shapeTasks = [
+const shapeTemplates = [
   makeTask({
     id: 'shape-circle', category: 'shapes', title: 'Kreis', speech: 'Male einen Kreis. Starte oben.', label: '○',
     strokes: [arc(0.5, 0.5, 0.3, 0.36, -90, 270, 44)], complexity: 1,
@@ -159,6 +173,54 @@ const shapeTasks = [
   makeTask({
     id: 'shape-star', category: 'shapes', title: 'Stern', speech: 'Male einen Stern.', label: '☆',
     strokes: [poly([0.5, 0.12], [0.59, 0.4], [0.88, 0.4], [0.64, 0.57], [0.73, 0.86], [0.5, 0.68], [0.27, 0.86], [0.36, 0.57], [0.12, 0.4], [0.41, 0.4], [0.5, 0.12])], complexity: 3,
+  }),
+  makeTask({
+    id: 'shape-rectangle', category: 'shapes', title: 'Rechteck', speech: 'Male ein breites Rechteck.', label: '▭',
+    strokes: [poly([0.16, 0.3], [0.84, 0.3], [0.84, 0.7], [0.16, 0.7], [0.16, 0.3])], complexity: 1,
+  }),
+  makeTask({
+    id: 'shape-pentagon', category: 'shapes', title: 'Fünfeck', speech: 'Male ein Fünfeck.', label: 'Fünfeck',
+    strokes: [poly([0.5, 0.15], [0.82, 0.39], [0.7, 0.82], [0.3, 0.82], [0.18, 0.39], [0.5, 0.15])], complexity: 2,
+  }),
+  makeTask({
+    id: 'shape-hexagon', category: 'shapes', title: 'Sechseck', speech: 'Male ein Sechseck.', label: 'Sechseck',
+    strokes: [poly([0.33, 0.18], [0.67, 0.18], [0.84, 0.5], [0.67, 0.82], [0.33, 0.82], [0.16, 0.5], [0.33, 0.18])], complexity: 2,
+  }),
+  makeTask({
+    id: 'shape-arrow', category: 'shapes', title: 'Pfeil', speech: 'Male einen Pfeil nach rechts.', label: 'Pfeil',
+    strokes: [poly([0.16, 0.5], [0.7, 0.5], [0.53, 0.32]), poly([0.7, 0.5], [0.53, 0.68])], complexity: 2,
+  }),
+  makeTask({
+    id: 'shape-house', category: 'shapes', title: 'Haus', speech: 'Male ein kleines Haus.', label: 'Haus',
+    strokes: [poly([0.22, 0.5], [0.5, 0.2], [0.78, 0.5]), poly([0.28, 0.47], [0.28, 0.8], [0.72, 0.8], [0.72, 0.47])], complexity: 2,
+  }),
+  makeTask({
+    id: 'shape-kite', category: 'shapes', title: 'Drachen', speech: 'Male einen Drachen mit Schwanz.', label: 'Drachen',
+    strokes: [poly([0.5, 0.16], [0.77, 0.46], [0.5, 0.75], [0.23, 0.46], [0.5, 0.16]), poly([0.5, 0.75], [0.58, 0.84], [0.5, 0.9], [0.42, 0.84])], complexity: 2,
+  }),
+  makeTask({
+    id: 'shape-balloon', category: 'shapes', title: 'Ballon', speech: 'Male einen Ballon mit Schnur.', label: 'Ballon',
+    strokes: [arc(0.5, 0.4, 0.22, 0.27, -90, 270, 36), poly([0.5, 0.67], [0.46, 0.8], [0.52, 0.88])], complexity: 2,
+  }),
+  makeTask({
+    id: 'shape-fish', category: 'shapes', title: 'Fisch', speech: 'Male einen Fisch.', label: 'Fisch',
+    strokes: [arc(0.45, 0.5, 0.28, 0.18, -90, 270, 32), poly([0.72, 0.5], [0.88, 0.3], [0.88, 0.7], [0.72, 0.5])], complexity: 2,
+  }),
+  makeTask({
+    id: 'shape-flower', category: 'shapes', title: 'Blume', speech: 'Male eine Blume mit Stiel.', label: 'Blume',
+    strokes: [arc(0.5, 0.36, 0.2, 0.16, -90, 270, 28), arc(0.5, 0.36, 0.1, 0.26, 0, 360, 28), poly([0.5, 0.55], [0.5, 0.86]), poly([0.5, 0.72], [0.35, 0.64]), poly([0.5, 0.78], [0.65, 0.7])], complexity: 3,
+  }),
+  makeTask({
+    id: 'shape-sun', category: 'shapes', title: 'Sonne', speech: 'Male eine Sonne mit Strahlen.', label: 'Sonne',
+    strokes: [arc(0.5, 0.5, 0.2, 0.2, -90, 270, 30), poly([0.5, 0.08], [0.5, 0.2]), poly([0.5, 0.8], [0.5, 0.92]), poly([0.08, 0.5], [0.2, 0.5]), poly([0.8, 0.5], [0.92, 0.5]), poly([0.2, 0.2], [0.29, 0.29]), poly([0.71, 0.71], [0.8, 0.8])], complexity: 3,
+  }),
+  makeTask({
+    id: 'shape-sailboat', category: 'shapes', title: 'Segelboot', speech: 'Male ein Segelboot.', label: 'Segelboot',
+    strokes: [poly([0.18, 0.72], [0.82, 0.72], [0.68, 0.84], [0.32, 0.84], [0.18, 0.72]), poly([0.5, 0.72], [0.5, 0.2], [0.76, 0.64], [0.5, 0.64]), poly([0.46, 0.28], [0.24, 0.64], [0.46, 0.64])], complexity: 3,
+  }),
+  makeTask({
+    id: 'shape-rocket', category: 'shapes', title: 'Rakete', speech: 'Male eine Rakete.', label: 'Rakete',
+    strokes: [poly([0.5, 0.12], [0.7, 0.38], [0.66, 0.72], [0.5, 0.86], [0.34, 0.72], [0.3, 0.38], [0.5, 0.12]), arc(0.5, 0.46, 0.07, 0.07, -90, 270, 20), poly([0.42, 0.76], [0.34, 0.88]), poly([0.58, 0.76], [0.66, 0.88])], complexity: 3,
   }),
 ];
 
@@ -201,7 +263,7 @@ const digitStrokes = {
 };
 
 const numberWords = ['Null', 'Eins', 'Zwei', 'Drei', 'Vier', 'Fünf', 'Sechs', 'Sieben', 'Acht', 'Neun'];
-const numberTasks = Object.entries(digitStrokes).map(([digit, strokes]) => makeTask({
+const numberTemplates = Object.entries(digitStrokes).map(([digit, strokes]) => makeTask({
   id: `number-${digit}`,
   category: 'numbers',
   title: `Die ${numberWords[Number(digit)]}`,
@@ -253,7 +315,7 @@ const letterMeta = {
   Y: ['Yak', 'diagonal', 2], Z: ['Zebra', 'diagonal', 2], Ä: ['Äpfel', 'diagonal', 3], Ö: ['Öl', 'round', 3], Ü: ['Überraschung', 'round', 3],
 };
 
-const letterTasks = Object.entries(letterStrokes).map(([letter, strokes]) => {
+const letterTemplates = Object.entries(letterStrokes).map(([letter, strokes]) => {
   const [example, group, complexity] = letterMeta[letter];
   return makeTask({
     id: `letter-${letter}`,
@@ -268,8 +330,6 @@ const letterTasks = Object.entries(letterStrokes).map(([letter, strokes]) => {
   });
 });
 
-export const TASKS = Object.freeze([...lineTasks, ...shapeTasks, ...numberTasks, ...letterTasks]);
-
 export const CATEGORY_CONFIG = Object.freeze({
   lines: { label: 'Linien', speech: 'Linien üben', icon: 'line' },
   shapes: { label: 'Formen', speech: 'Formen üben', icon: 'shapes' },
@@ -280,9 +340,9 @@ export const CATEGORY_CONFIG = Object.freeze({
 });
 
 export const DIFFICULTIES = Object.freeze({
-  easy: { label: 'Leicht', speech: 'Leicht', description: 'Dicke Spur und Pfeile' },
-  medium: { label: 'Mittel', speech: 'Mittel', description: 'Feine Spur und Startpunkte' },
-  hard: { label: 'Knifflig', speech: 'Knifflig', description: 'Nur Startpunkte' },
+  easy: { label: 'Leicht', speech: 'Leicht', description: 'Klare, dünne Spur' },
+  medium: { label: 'Mittel', speech: 'Mittel', description: 'Feine, transparente Spur' },
+  hard: { label: 'Knifflig', speech: 'Knifflig', description: 'Zarte, transparente Spur' },
 });
 
 export const OPTION_SETS = Object.freeze({
@@ -337,89 +397,249 @@ function fitStrokes(strokes, rect) {
   )));
 }
 
+function transformStrokes(strokes, { scale = 1, dx = 0, dy = 0, mirrorX = false, mirrorY = false } = {}) {
+  return strokes.map((stroke) => stroke.map((point) => p(
+    0.5 + (point.x - 0.5) * scale * (mirrorX ? -1 : 1) + dx,
+    0.5 + (point.y - 0.5) * scale * (mirrorY ? -1 : 1) + dy,
+  )));
+}
+
+function textCharacters(rawText) {
+  return [...normalizeName(rawText).replace(/[- ]/g, '')].filter((character) => letterStrokes[character]);
+}
+
+function textStrokes(rawText, rect = { x: 0.06, y: 0.2, width: 0.88, height: 0.62 }) {
+  const characters = textCharacters(rawText);
+  if (!characters.length) return [];
+  const gap = Math.min(0.025, rect.width * 0.04);
+  const usable = rect.width - gap * (characters.length - 1);
+  const slotWidth = usable / characters.length;
+  return characters.flatMap((character, index) => fitStrokes(letterStrokes[character], {
+    x: rect.x + index * (slotWidth + gap), y: rect.y, width: slotWidth, height: rect.height,
+  }));
+}
+
 export function createWordTask(rawName) {
   const name = normalizeName(rawName).replace(/[- ]/g, '').slice(0, 8);
-  const characters = [...name].filter((character) => letterStrokes[character]);
-  if (!characters.length) return null;
-
-  const margin = 0.06;
-  const gap = 0.015;
-  const usable = 1 - margin * 2 - gap * (characters.length - 1);
-  const slotWidth = usable / characters.length;
-  const strokes = [];
-  characters.forEach((character, index) => {
-    const rect = {
-      x: margin + index * (slotWidth + gap),
-      y: 0.2,
-      width: slotWidth,
-      height: 0.62,
-    };
-    strokes.push(...fitStrokes(letterStrokes[character], rect));
-  });
-
+  const strokes = textStrokes(name);
+  if (!strokes.length) return null;
   return makeTask({
-    id: `word-${characters.join('')}`,
+    id: `word-${name}`,
     category: 'name',
     title: 'Dein Name',
-    speech: `Schreib deinen Namen. ${characters.join('')}.`,
-    label: characters.join(''),
+    speech: `Schreib deinen Namen. ${name}.`,
+    label: name,
     strokes,
     complexity: 3,
     group: 'name',
   });
 }
 
-function randomFrom(pool, rng) {
-  return pool[Math.floor(rng() * pool.length)];
+const ROUTE_LAYOUTS = [
+  ['gross', 'groß', { scale: 1 }],
+  ['kompakt', 'kompakt', { scale: 0.76 }],
+  ['hoch', 'hoch', { scale: 0.86, dy: -0.08 }],
+  ['tief', 'tief', { scale: 0.86, dy: 0.08 }],
+  ['links', 'links', { scale: 0.82, dx: -0.09 }],
+  ['rechts', 'rechts', { scale: 0.82, dx: 0.09 }],
+  ['spiegel', 'spiegelverkehrt', { scale: 0.92, mirrorX: true }],
+  ['kopfüber', 'andersherum', { scale: 0.92, mirrorY: true }],
+  ['klein-links', 'klein links', { scale: 0.68, dx: -0.1, dy: 0.08 }],
+  ['klein-rechts', 'klein rechts', { scale: 0.68, dx: 0.1, dy: -0.08 }],
+];
+
+const SHAPE_LAYOUTS = [
+  ['gross', 'groß', { scale: 1 }],
+  ['kompakt', 'kompakt', { scale: 0.76 }],
+  ['oben', 'oben', { scale: 0.78, dy: -0.1 }],
+  ['unten', 'unten', { scale: 0.78, dy: 0.1 }],
+  ['spiegel', 'andersherum', { scale: 0.9, mirrorX: true }],
+];
+
+function variantBank(category, templates, layouts) {
+  return Object.freeze(templates.flatMap((template) => layouts.map(([key, title, transform]) => makeTask({
+    id: `${category}-${template.id}-${key}`,
+    category,
+    title: `${template.title} – ${title}`,
+    speech: `${template.speech} ${title}.`,
+    label: template.label,
+    value: template.value,
+    strokes: transformStrokes(template.strokes, transform),
+    complexity: template.complexity,
+    group: template.group,
+    example: template.example,
+    family: category,
+    layout: key,
+  }))));
 }
 
-function choose(pool, rng, counts, recent) {
-  if (!pool.length) throw new Error('Cannot choose from an empty task pool.');
-  const last = recent.at(-1);
-  const tiers = [
-    pool.filter((task) => (counts.get(task.id) ?? 0) < 2 && !recent.includes(task.id)),
-    pool.filter((task) => (counts.get(task.id) ?? 0) < 2 && task.id !== last),
-    pool.filter((task) => task.id !== last),
-    pool.filter((task) => (counts.get(task.id) ?? 0) < 2),
-    pool,
-  ];
-  const candidates = tiers.find((tier) => tier.length);
-  const selected = randomFrom(candidates, rng);
-  counts.set(selected.id, (counts.get(selected.id) ?? 0) + 1);
-  recent.push(selected.id);
-  while (recent.length > 2) recent.shift();
-  return selected;
+const NUMBER_LAYOUTS = [
+  ['gross', 'einmal groß', [{ x: 0.3, y: 0.12, width: 0.4, height: 0.76 }]],
+  ['paar', 'zwei nebeneinander', [{ x: 0.12, y: 0.22, width: 0.3, height: 0.56 }, { x: 0.58, y: 0.22, width: 0.3, height: 0.56 }]],
+  ['reihe', 'Dreierreihe', [{ x: 0.08, y: 0.26, width: 0.22, height: 0.48 }, { x: 0.39, y: 0.26, width: 0.22, height: 0.48 }, { x: 0.7, y: 0.26, width: 0.22, height: 0.48 }]],
+  ['turm', 'Zahlenturm', [{ x: 0.36, y: 0.08, width: 0.28, height: 0.25 }, { x: 0.36, y: 0.38, width: 0.28, height: 0.25 }, { x: 0.36, y: 0.68, width: 0.28, height: 0.25 }]],
+  ['treppe', 'Zahlentreppe', [{ x: 0.1, y: 0.12, width: 0.24, height: 0.34 }, { x: 0.38, y: 0.33, width: 0.24, height: 0.34 }, { x: 0.66, y: 0.54, width: 0.24, height: 0.34 }]],
+  ['vierer', 'Viererfeld', [{ x: 0.16, y: 0.12, width: 0.25, height: 0.32 }, { x: 0.59, y: 0.12, width: 0.25, height: 0.32 }, { x: 0.16, y: 0.56, width: 0.25, height: 0.32 }, { x: 0.59, y: 0.56, width: 0.25, height: 0.32 }]],
+  ['diagonal', 'Diagonale', [{ x: 0.1, y: 0.1, width: 0.24, height: 0.28 }, { x: 0.38, y: 0.36, width: 0.24, height: 0.28 }, { x: 0.66, y: 0.62, width: 0.24, height: 0.28 }]],
+  ['gross-klein', 'groß und klein', [{ x: 0.1, y: 0.16, width: 0.47, height: 0.68 }, { x: 0.68, y: 0.54, width: 0.2, height: 0.28 }]],
+  ['oben-unten', 'oben und unten', [{ x: 0.26, y: 0.1, width: 0.48, height: 0.32 }, { x: 0.26, y: 0.58, width: 0.48, height: 0.32 }]],
+  ['schlange', 'Zahlenschlange', [{ x: 0.1, y: 0.5, width: 0.2, height: 0.3 }, { x: 0.34, y: 0.2, width: 0.2, height: 0.3 }, { x: 0.58, y: 0.5, width: 0.2, height: 0.3 }]],
+];
+
+function repeatedStrokes(strokes, cells) {
+  return cells.flatMap((cell) => fitStrokes(strokes, cell));
 }
 
-function taskPool(category, difficulty, option, name) {
-  const maxComplexity = difficulty === 'easy' ? 2 : 3;
-  switch (category) {
-    case 'lines': return lineTasks.filter((task) => task.complexity <= maxComplexity);
-    case 'shapes': return shapeTasks.filter((task) => task.complexity <= maxComplexity);
-    case 'numbers': {
-      const max = option === '1-3' ? 3 : option === '1-6' ? 6 : 9;
-      return numberTasks.filter((task) => Number(task.label) <= max && (task.label !== '0' || option === '0-9'));
-    }
-    case 'letters': {
-      const group = option || 'all';
-      return letterTasks.filter((task) => task.complexity <= maxComplexity && (group === 'all' || task.group === group));
-    }
-    case 'name': {
-      const normalized = normalizeName(name).replace(/[- ]/g, '');
-      const letters = [...new Set([...normalized])]
-        .map((character) => letterTasks.find((task) => task.label === character))
-        .filter(Boolean);
-      return letters.length ? letters : letterTasks.filter((task) => ['M', 'A', 'X'].includes(task.label));
-    }
-    case 'mixed':
-      return [
-        ...lineTasks.filter((task) => task.complexity <= maxComplexity),
-        ...shapeTasks.filter((task) => task.complexity <= maxComplexity),
-        ...numberTasks.filter((task) => task.complexity <= maxComplexity),
-        ...letterTasks.filter((task) => task.complexity <= maxComplexity),
-      ];
-    default: throw new Error(`Unknown category: ${category}`);
+const lineBank = variantBank('lines', lineTemplates, ROUTE_LAYOUTS);
+const shapeBank = variantBank('shapes', shapeTemplates, SHAPE_LAYOUTS);
+const numberBank = Object.freeze(numberTemplates.flatMap((template) => NUMBER_LAYOUTS.map(([key, title, cells]) => makeTask({
+  id: `number-${template.label}-${key}`,
+  category: 'numbers',
+  title: `${template.title} – ${title}`,
+  speech: `${template.speech} ${title}.`,
+  label: cells.length === 1 ? template.label : Array(cells.length).fill(template.label).join(' '),
+  value: template.label,
+  strokes: repeatedStrokes(template.strokes, cells),
+  complexity: template.complexity,
+  family: 'numbers',
+  layout: key,
+}))));
+
+const LETTER_LAYOUTS = [
+  ['gross', 'einmal groß', [{ x: 0.3, y: 0.12, width: 0.4, height: 0.76 }]],
+  ['paar', 'zweimal', [{ x: 0.14, y: 0.2, width: 0.3, height: 0.6 }, { x: 0.56, y: 0.2, width: 0.3, height: 0.6 }]],
+  ['reihe', 'dreimal', [{ x: 0.08, y: 0.26, width: 0.22, height: 0.48 }, { x: 0.39, y: 0.26, width: 0.22, height: 0.48 }, { x: 0.7, y: 0.26, width: 0.22, height: 0.48 }]],
+];
+
+const letterDrills = letterTemplates.flatMap((template) => LETTER_LAYOUTS.map(([key, title, cells]) => makeTask({
+  id: `letter-${template.label}-${key}`,
+  category: 'letters',
+  title: `${template.title} – ${title}`,
+  speech: `${template.speech} ${title}.`,
+  label: Array(cells.length).fill(template.label).join(' '),
+  value: template.label,
+  strokes: repeatedStrokes(template.strokes, cells),
+  complexity: template.complexity,
+  group: template.group,
+  example: template.example,
+  family: 'letters',
+  layout: key,
+})));
+
+const letterExtraDrills = letterTemplates.filter((template) => ['E', 'F'].includes(template.label)).map((template) => makeTask({
+  id: `letter-${template.label}-turm`,
+  category: 'letters',
+  title: `${template.title} – Buchstabenturm`,
+  speech: `${template.speech} Buchstabenturm.`,
+  label: `${template.label} ${template.label} ${template.label}`,
+  value: template.label,
+  strokes: repeatedStrokes(template.strokes, [{ x: 0.36, y: 0.08, width: 0.28, height: 0.25 }, { x: 0.36, y: 0.38, width: 0.28, height: 0.25 }, { x: 0.36, y: 0.68, width: 0.28, height: 0.25 }]),
+  complexity: template.complexity,
+  group: template.group,
+  example: template.example,
+  family: 'letters',
+  layout: 'turm',
+}));
+
+const letterWords = ['ICH', 'DU', 'JA', 'OMA', 'OPA', 'HAUS', 'BALL', 'MAUS', 'HASE', 'AUTO', 'FUCHS'];
+const letterBank = Object.freeze([
+  ...letterDrills,
+  ...letterExtraDrills,
+  ...letterWords.map((word) => makeTask({
+    id: `letter-word-${word}`,
+    category: 'letters',
+    title: `Wort ${word}`,
+    speech: `Schreib das Wort ${word}.`,
+    label: word,
+    value: word,
+    strokes: textStrokes(word),
+    complexity: 3,
+    group: 'all',
+    family: 'letters',
+    layout: 'word',
+  })),
+]);
+
+function nameRect(index, dx = 0) {
+  const scales = [0.88, 0.76, 0.64, 0.82, 0.7];
+  const scale = scales[index % scales.length];
+  const width = scale;
+  const height = Math.min(0.68, scale * 0.72);
+  const x = 0.5 - width / 2 + ((index % 3) - 1) * 0.035 + dx;
+  const y = 0.5 - height / 2 + ((Math.floor(index / 3) % 3) - 1) * 0.035;
+  return { x, y, width, height };
+}
+
+export function createNameExerciseBank(rawName) {
+  const name = normalizeName(rawName).replace(/[- ]/g, '').slice(0, 8) || 'FINO';
+  const characters = textCharacters(name);
+  const chunks = Array.from({ length: 20 }, (_, index) => {
+    const length = 1 + (index % Math.min(3, characters.length));
+    const start = index % characters.length;
+    return Array.from({ length }, (_, offset) => characters[(start + offset) % characters.length]).join('');
+  });
+  const exercises = [];
+  for (let index = 0; index < 20; index += 1) {
+    const letter = characters[index % characters.length];
+    const copies = 1 + (index % 3);
+    const cells = Array.from({ length: copies }, (_, copy) => ({
+      x: 0.12 + copy * (0.76 / copies), y: 0.2 + (index % 2) * 0.08, width: 0.6 / copies, height: 0.56,
+    }));
+    exercises.push(makeTask({ id: `name-focus-${name}-${index}`, category: 'name', title: `${letter} üben`, speech: `Übe den Buchstaben ${letter}.`, label: Array(copies).fill(letter).join(' '), value: letter, strokes: repeatedStrokes(letterStrokes[letter], cells), complexity: copies === 1 ? 1 : 2, group: 'name', family: 'name', layout: `focus-${index}` }));
   }
+  for (let index = 0; index < 20; index += 1) {
+    const prefix = characters.slice(0, 1 + (index % characters.length)).join('');
+    exercises.push(makeTask({ id: `name-prefix-${name}-${index}`, category: 'name', title: `Anfang ${prefix}`, speech: `Schreib den Anfang ${prefix}.`, label: prefix, value: prefix, strokes: textStrokes(prefix, nameRect(index, -0.024)), complexity: prefix.length > 2 ? 3 : 2, group: 'name', family: 'name', layout: `prefix-${index}` }));
+    const suffix = characters.slice(Math.max(0, characters.length - 1 - (index % characters.length))).join('');
+    exercises.push(makeTask({ id: `name-suffix-${name}-${index}`, category: 'name', title: `Ende ${suffix}`, speech: `Schreib das Ende ${suffix}.`, label: suffix, value: suffix, strokes: textStrokes(suffix, nameRect(index + 20, 0.024)), complexity: suffix.length > 2 ? 3 : 2, group: 'name', family: 'name', layout: `suffix-${index}` }));
+    const chunk = chunks[index];
+    exercises.push(makeTask({ id: `name-chunk-${name}-${index}`, category: 'name', title: `Namensstück ${chunk}`, speech: `Schreib ${chunk}.`, label: chunk, value: chunk, strokes: textStrokes(chunk, nameRect(index + 40, -0.012)), complexity: chunk.length > 2 ? 3 : 2, group: 'name', family: 'name', layout: `chunk-${index}` }));
+    exercises.push(makeTask({ id: `name-full-${name}-${index}`, category: 'name', title: `Dein Name ${name}`, speech: `Schreib deinen Namen ${name}.`, label: name, value: name, strokes: textStrokes(name, nameRect(index + 60, 0.012)), complexity: 3, group: 'name', family: 'name', layout: `full-${index}` }));
+  }
+  return Object.freeze(exercises);
+}
+
+const mixedBank = Object.freeze([
+  ...lineBank.slice(0, 25),
+  ...shapeBank.slice(0, 25),
+  ...numberBank.slice(0, 25),
+  ...letterBank.slice(0, 25),
+].map((task) => makeTask({ ...task, id: `mixed-${task.id}`, family: task.family })));
+
+export const EXERCISE_BANKS = Object.freeze({ lines: lineBank, shapes: shapeBank, numbers: numberBank, letters: letterBank, mixed: mixedBank });
+export const TASKS = Object.freeze(Object.values(EXERCISE_BANKS).flat());
+
+export function getExerciseBank(category, { name = '', option = '' } = {}) {
+  if (category === 'name') return createNameExerciseBank(name);
+  const bank = EXERCISE_BANKS[category];
+  if (!bank) throw new Error(`Unknown category: ${category}`);
+  if (category === 'numbers') {
+    const max = option === '1-3' ? 3 : option === '1-6' ? 6 : 9;
+    return bank.filter((task) => Number(task.value) <= max && (task.value !== '0' || option === '0-9'));
+  }
+  if (category === 'letters') {
+    const group = option || 'all';
+    return bank.filter((task) => group === 'all' || task.group === group);
+  }
+  return bank;
+}
+
+function randomSample(pool, count, rng) {
+  if (pool.length < count) throw new Error(`Need ${count} unique exercises, but only ${pool.length} are available.`);
+  const shuffled = [...pool];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(rng() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled.slice(0, count);
+}
+
+function shuffle(items, rng) {
+  return randomSample(items, items.length, rng);
+}
+
+function taskPool(category, option, name) {
+  return getExerciseBank(category, { option, name });
 }
 
 const assistancePlans = {
@@ -430,76 +650,28 @@ const assistancePlans = {
 export const SESSION_SIZE = 20;
 
 /**
- * Creates a 20-task session with controlled randomization.
+ * Creates a 20-task playthrough sampled without replacement from a bank of 100.
  */
 export function buildSession({ category, difficulty = 'easy', option = '', name = '', rng = Math.random }) {
   if (!CATEGORY_CONFIG[category]) throw new Error(`Unknown category: ${category}`);
   if (!DIFFICULTIES[difficulty]) throw new Error(`Unknown difficulty: ${difficulty}`);
 
-  const primary = taskPool(category, difficulty, option, name);
-  const simple = primary.filter((task) => task.complexity <= 1);
-  const current = primary.filter((task) => task.complexity <= (difficulty === 'easy' ? 2 : 3));
-  const challenge = primary.filter((task) => task.complexity >= (difficulty === 'hard' ? 2 : 2));
-  const warmups = category === 'lines' ? lineTasks.filter((task) => task.complexity === 1) : lineTasks.slice(0, 4);
-  const starterPool = category === 'lines'
-    ? warmups
-    : category === 'mixed'
-      ? primary.filter((task) => task.category !== 'lines')
-      : simple.length ? simple : primary;
-  // Very small selections (for example a one-letter name) are interleaved
-  // with motor warm-ups so a child never sees the same task twice in a row.
-  const variedCurrent = current.length >= 2 ? current : [...current, ...warmups];
-  const easyPool = simple.length >= 2 ? simple : variedCurrent;
-  const challengePool = challenge.length >= 2 ? challenge : variedCurrent;
-  const counts = new Map();
-  const recent = [];
-  const roles = [
-    easyPool,
-    variedCurrent,
-    variedCurrent,
-    challengePool,
-    variedCurrent,
-    easyPool,
-  ];
+  const primary = taskPool(category, option, name);
+  const sampled = category === 'mixed'
+    ? shuffle(['lines', 'shapes', 'numbers', 'letters'].flatMap((family) => randomSample(primary.filter((task) => task.family === family), 5, rng)), rng)
+    : randomSample(primary, SESSION_SIZE, rng);
 
-  const session = Array.from({ length: SESSION_SIZE }, (_, index) => {
-    const pool = index === 0 ? starterPool.length ? starterPool : primary : roles[(index - 1) % roles.length];
-    return {
-      ...choose(pool, rng, counts, recent),
-      uid: `${Date.now()}-${index}-${Math.floor(rng() * 1e8)}`,
-      assist: index === SESSION_SIZE - 1 ? 'easy' : assistancePlans[difficulty][index % assistancePlans[difficulty].length],
-      slot: index,
-    };
-  });
-
-  if (category === 'name') {
-    const wordTask = createWordTask(name);
-    if (wordTask) {
-      const wordSlot = SESSION_SIZE - 5;
-      const finishSlot = SESSION_SIZE - 1;
-      session[wordSlot] = { ...wordTask, uid: `${Date.now()}-word`, assist: difficulty === 'easy' ? 'medium' : difficulty, slot: wordSlot };
-      const letterPool = taskPool('name', difficulty, option, name);
-      const used = new Map();
-      session.slice(0, finishSlot).forEach((task) => used.set(task.id, (used.get(task.id) ?? 0) + 1));
-      const preferred = letterPool.filter((task) => (used.get(task.id) ?? 0) < 2);
-      const fallback = warmups.filter((task) => (used.get(task.id) ?? 0) < 2 && task.id !== session[wordSlot].id);
-      const previousId = session[finishSlot - 1].id;
-      const preferredWithoutPrevious = preferred.filter((task) => task.id !== previousId);
-      const fallbackWithoutPrevious = fallback.filter((task) => task.id !== previousId);
-      const anyWarmupWithoutPrevious = warmups.filter((task) => task.id !== previousId && task.id !== session[wordSlot].id);
-      const candidates = preferredWithoutPrevious.length
-        ? preferredWithoutPrevious
-        : fallbackWithoutPrevious.length
-          ? fallbackWithoutPrevious
-          : anyWarmupWithoutPrevious.length
-            ? anyWarmupWithoutPrevious
-            : preferred.length ? preferred : fallback.length ? fallback : letterPool;
-      const finisher = randomFrom(candidates, rng);
-      session[finishSlot] = { ...finisher, uid: `${Date.now()}-finish`, assist: 'easy', slot: finishSlot };
-    }
+  if (category !== 'lines' && sampled[0]?.family === 'lines') {
+    const firstNonLine = sampled.findIndex((task) => task.family !== 'lines');
+    if (firstNonLine > 0) [sampled[0], sampled[firstNonLine]] = [sampled[firstNonLine], sampled[0]];
   }
 
-  return session;
+  return sampled.map((task, index) => ({
+    ...task,
+    uid: `${task.id}-${index}`,
+    assist: index === SESSION_SIZE - 1 ? 'easy' : assistancePlans[difficulty][index % assistancePlans[difficulty].length],
+    slot: index,
+  }));
 }
 
 /** Small deterministic RNG for tests and repeatable demos. */
