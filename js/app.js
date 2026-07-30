@@ -179,7 +179,7 @@ function normalizeNumberSet(value) {
 }
 
 function normalizeLetterSet(value) {
-  return [...new Set([...normalizeName(value).replace(/[- ]/g, '')].filter((character) => /[A-ZÄÖÜ]/.test(character)))].join('');
+  return [...new Set([...String(value ?? '').normalize('NFC')].filter((character) => /[A-Za-zÄÖÜäöü]/.test(character)))].join('');
 }
 
 function updateCustomSetField(category, { focus = false } = {}) {
@@ -382,7 +382,10 @@ function checkDrawing({ quietIncomplete = false } = {}) {
   if (state.transitioning || !state.session[state.index]) return;
   const task = state.session[state.index];
   const userStrokes = board.getUserStrokes();
-  const result = evaluateDrawing(task.strokes, userStrokes, board.evaluationOptions());
+  const result = evaluateDrawing(task.strokes, userStrokes, {
+    ...board.evaluationOptions(),
+    completionGroups: task.completionGroups,
+  });
   const passed = passCriteria(result, task.assist, task);
 
   if (passed) {

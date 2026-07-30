@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   createNameExerciseBank,
   TASKS,
@@ -8,6 +9,7 @@ import {
   EXERCISE_BANKS,
   getExerciseBank,
   normalizeName,
+  OPTION_SETS,
   SESSION_SIZE,
   seededRandom,
 } from '../js/curriculum.js';
@@ -29,10 +31,27 @@ test('every activity has a 100-exercise bank with unique IDs and paths', () => {
 test('custom number and letter sets retain enough unique exercises for a full round', () => {
   const numbers = getExerciseBank('numbers', { option: '257' });
   const letters = getExerciseBank('letters', { option: 'MARTIN' });
+  const lowerCaseLetters = getExerciseBank('letters', { option: 'aä' });
   assert.equal(numbers.length, SESSION_SIZE);
   assert.equal(letters.length, SESSION_SIZE);
   assert.ok(numbers.every((task) => /^[257 ]+$/.test(task.label)));
   assert.ok(letters.every((task) => /^[MARTIN ]+$/.test(task.label)));
+  assert.ok(lowerCaseLetters.every((task) => /^[aä ]+$/.test(task.label)));
+});
+
+test('the number and letter selector consistently says Alle and has spaced custom inputs', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  assert.ok(OPTION_SETS.numbers.some((option) => option.value === 'all' && option.label === 'Alle'));
+  assert.ok(OPTION_SETS.letters.some((option) => option.value === 'all' && option.label === 'Alle'));
+  assert.equal((html.match(/>Alle<\/span>/g) ?? []).length, 2);
+  assert.match(styles, /\.custom-set-field\s*\{[^}]*margin-top:\s*15px/s);
+});
+
+test('lowercase letters are included in the regular 100-exercise letter bank', () => {
+  const labels = new Set(EXERCISE_BANKS.letters.map((task) => task.label.replace(/\s/g, '')));
+  ['a', 'm', 'z', 'ä', 'ö', 'ü'].forEach((letter) => assert.ok(labels.has(letter), `missing ${letter}`));
+  assert.equal(EXERCISE_BANKS.letters.length, 100);
 });
 
 test('curriculum uses text and drawing data instead of emoji decorations', () => {
@@ -63,6 +82,22 @@ test('every category creates a 20-task session', () => {
 test('a playthrough samples 20 distinct exercises without repetition', () => {
   const session = buildSession({ category: 'letters', difficulty: 'hard', option: 'all', rng: seededRandom(42) });
   assert.equal(new Set(session.map((task) => task.id)).size, SESSION_SIZE);
+});
+
+test('easy number and letter rounds show exactly one symbol per task', () => {
+  const cases = [
+    { category: 'numbers', option: 'all' },
+    { category: 'numbers', option: '5' },
+    { category: 'letters', option: 'all' },
+    { category: 'letters', option: 'aä' },
+  ];
+  cases.forEach((config, index) => {
+    const session = buildSession({ ...config, difficulty: 'easy', rng: seededRandom(index + 70) });
+    session.forEach((task) => {
+      assert.equal([...task.label].length, 1, `${task.id} should show one symbol`);
+      assert.equal(task.completionGroups.length, 1, `${task.id} should require one symbol`);
+    });
+  });
 });
 
 test('a non-line round does not begin with a forced line warm-up', () => {

@@ -132,6 +132,7 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
   width = 900,
   height = 620,
   tolerance = Math.min(width, height) * 0.085,
+  completionGroups = null,
 } = {}) {
   const expected = expectedStrokes.filter((stroke) => stroke.length).map((stroke) => stroke.map((point) => toPixels(point, width, height)));
   const user = userStrokes.filter((stroke) => stroke.length).map((stroke) => stroke.map((point) => toPixels(point, width, height)));
@@ -150,7 +151,10 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
   const userSamples = userStrokes.flatMap((stroke) => resampleStroke(stroke, width, height));
   const coverage = distanceScore(expectedSamples, user, tolerance);
   const precision = distanceScore(userSamples, expected, tolerance);
-  const componentCoverage = [...strokeComponents(expected, expectedSamplesByStroke, tolerance).values()]
+  const groups = completionGroups?.length
+    ? completionGroups.filter((group) => group.length && group.every((index) => expectedSamplesByStroke[index]))
+    : [...strokeComponents(expected, expectedSamplesByStroke, tolerance).values()];
+  const componentCoverage = groups
     .map((indexes) => distanceScore(indexes.flatMap((index) => expectedSamplesByStroke[index]), user, tolerance));
   const completion = componentCoverage.length ? Math.min(...componentCoverage) : 0;
 
@@ -195,6 +199,19 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
     score, coverage, precision, completion, componentCoverage, start, direction, length, strokeCount,
     expectedLength, userLength, hasInk: true,
   };
+}
+
+export function nextGuideStrokeIndex(expectedStrokes, userStrokes, {
+  width = 900,
+  height = 620,
+  tolerance = Math.min(width, height) * 0.085,
+} = {}) {
+  if (!expectedStrokes.length || !userStrokes.some((stroke) => stroke.length)) return 0;
+  const user = userStrokes.filter((stroke) => stroke.length).map((stroke) => stroke.map((point) => toPixels(point, width, height)));
+  return expectedStrokes.reduce((best, stroke, index) => {
+    const coverage = distanceScore(resampleStroke(stroke, width, height), user, tolerance);
+    return coverage < best.coverage ? { index, coverage } : best;
+  }, { index: 0, coverage: Infinity }).index;
 }
 
 export function feedbackForEvaluation(result) {
@@ -452,6 +469,10 @@ export class DrawingBoard {
     };
   }
 
+  nextGuideStrokeIndex() {
+    return nextGuideStrokeIndex(this.task?.strokes ?? [], this.userStrokes, this.evaluationOptions());
+  }
+
   flashGuide() {
     this.highlightUntil = performance.now() + 1700;
     const tick = () => {
@@ -554,7 +575,7 @@ export class DrawingBoard {
   }
 
   startJumpToNextStroke(finishedStroke) {
-    const nextStroke = this.task?.strokes[this.userStrokes.length];
+    const nextStroke = this.task?.strokes[this.nextGuideStrokeIndex()];
     const lastPoint = finishedStroke?.at(-1);
     const nextPoint = nextStroke?.[0];
     if (!lastPoint || !nextPoint) return;
@@ -700,7 +721,7 @@ export class DrawingBoard {
       return;
     }
 
-    const nextStroke = this.task.strokes[this.userStrokes.length];
+    const nextStroke = this.task.strokes[this.nextGuideStrokeIndex()];
     const angular = ['letters', 'numbers', 'name'].includes(this.task.category);
     const next = pointAlongGuidePath(nextStroke ?? [], 0, this.width, this.height, angular);
     if (next) this.drawGuideFox(context, next.point, next.angle);
@@ -754,6 +775,25 @@ export class DrawingBoard {
     }
   }
 
+  drawStartPoint(context) {
+    if (!this.task || this.demoProgress !== null || this.activeStroke?.length || this.jumpAnimation) return;
+    const stroke = this.task.strokes[this.nextGuideStrokeIndex()];
+    const angular = ['letters', 'numbers', 'name'].includes(this.task.category);
+    const guide = pointAlongGuidePath(stroke ?? [], 0, this.width, this.height, angular);
+    if (!guide) return;
+    const radius = clamp(Math.min(this.width, this.height) * 0.016, 6, 10);
+    context.save();
+    context.fillStyle = '#ffffff';
+    context.beginPath();
+    context.arc(guide.point.x, guide.point.y, radius + 2, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = '#62C892';
+    context.beginPath();
+    context.arc(guide.point.x, guide.point.y, radius, 0, Math.PI * 2);
+    context.fill();
+    context.restore();
+  }
+
   render() {
     const context = this.context;
     if (!context) return;
@@ -776,6 +816,7 @@ export class DrawingBoard {
         angular: angularGuide,
       });
 
+      this.drawStartPoint(context);
       this.drawFoxForCurrentStroke(context);
       this.drawDemo(context);
     }

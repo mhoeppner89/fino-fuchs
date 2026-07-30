@@ -49,6 +49,7 @@ function makeTask({
   family = category,
   value = label,
   layout = '',
+  completionGroups = [strokes.map((_, index) => index)],
 }) {
   return Object.freeze({
     id,
@@ -63,6 +64,7 @@ function makeTask({
     family,
     value,
     layout,
+    completionGroups: Object.freeze(completionGroups.map((group) => Object.freeze([...group]))),
   });
 }
 
@@ -238,7 +240,7 @@ const digitStrokes = {
     bezier(p(0.49, 0.5), p(0.67, 0.49), p(0.77, 0.58), p(0.73, 0.74), 18),
     bezier(p(0.73, 0.74), p(0.68, 0.92), p(0.38, 0.91), p(0.25, 0.77), 22),
   )],
-  '4': [poly([0.67, 0.84], [0.67, 0.16]), poly([0.67, 0.16], [0.23, 0.65], [0.82, 0.65])],
+  '4': [poly([0.67, 0.16], [0.67, 0.84]), poly([0.67, 0.16], [0.23, 0.65], [0.82, 0.65])],
   '5': [poly([0.73, 0.17], [0.31, 0.17], [0.28, 0.5]), join(
     bezier(p(0.28, 0.5), p(0.47, 0.42), p(0.73, 0.46), p(0.75, 0.66), 22),
     bezier(p(0.75, 0.66), p(0.77, 0.9), p(0.39, 0.94), p(0.24, 0.78), 22),
@@ -275,23 +277,23 @@ const numberTemplates = Object.entries(digitStrokes).map(([digit, strokes]) => m
 
 const letterStrokes = {
   A: [poly([0.2, 0.84], [0.5, 0.15]), poly([0.5, 0.15], [0.8, 0.84]), poly([0.32, 0.58], [0.68, 0.58])],
-  B: [poly([0.27, 0.84], [0.27, 0.16]), join(bezier(p(0.27, 0.16), p(0.74, 0.12), p(0.78, 0.48), p(0.28, 0.49), 26), bezier(p(0.28, 0.49), p(0.83, 0.47), p(0.82, 0.88), p(0.27, 0.84), 28))],
+  B: [poly([0.27, 0.16], [0.27, 0.84]), join(bezier(p(0.27, 0.16), p(0.74, 0.12), p(0.78, 0.48), p(0.28, 0.49), 26), bezier(p(0.28, 0.49), p(0.83, 0.47), p(0.82, 0.88), p(0.27, 0.84), 28))],
   C: [arc(0.53, 0.5, 0.32, 0.37, -45, -315, 44)],
-  D: [poly([0.27, 0.84], [0.27, 0.16]), bezier(p(0.27, 0.16), p(0.84, 0.13), p(0.84, 0.86), p(0.27, 0.84), 40)],
-  E: [poly([0.72, 0.16], [0.27, 0.16], [0.27, 0.84], [0.74, 0.84]), poly([0.27, 0.5], [0.65, 0.5])],
-  F: [poly([0.27, 0.84], [0.27, 0.16], [0.74, 0.16]), poly([0.27, 0.5], [0.65, 0.5])],
+  D: [poly([0.27, 0.16], [0.27, 0.84]), bezier(p(0.27, 0.16), p(0.84, 0.13), p(0.84, 0.86), p(0.27, 0.84), 40)],
+  E: [poly([0.27, 0.16], [0.74, 0.16]), poly([0.27, 0.16], [0.27, 0.84], [0.74, 0.84]), poly([0.27, 0.5], [0.65, 0.5])],
+  F: [poly([0.27, 0.16], [0.74, 0.16]), poly([0.27, 0.16], [0.27, 0.84]), poly([0.27, 0.5], [0.65, 0.5])],
   G: [arc(0.53, 0.5, 0.32, 0.37, -45, -315, 44), poly([0.55, 0.55], [0.8, 0.55], [0.8, 0.75])],
   H: [poly([0.25, 0.16], [0.25, 0.84]), poly([0.75, 0.16], [0.75, 0.84]), poly([0.25, 0.5], [0.75, 0.5])],
   I: [poly([0.5, 0.16], [0.5, 0.84])],
   J: [poly([0.25, 0.16], [0.75, 0.16]), join(poly([0.67, 0.16], [0.67, 0.68]), bezier(p(0.67, 0.68), p(0.66, 0.9), p(0.31, 0.92), p(0.24, 0.72), 24))],
   K: [poly([0.25, 0.16], [0.25, 0.84]), poly([0.75, 0.16], [0.25, 0.53]), poly([0.36, 0.45], [0.78, 0.84])],
   L: [poly([0.27, 0.16], [0.27, 0.84], [0.77, 0.84])],
-  M: [poly([0.18, 0.84], [0.18, 0.16], [0.5, 0.58], [0.82, 0.16], [0.82, 0.84])],
-  N: [poly([0.22, 0.84], [0.22, 0.16], [0.78, 0.84], [0.78, 0.16])],
+  M: [poly([0.18, 0.16], [0.18, 0.84], [0.5, 0.42], [0.82, 0.84], [0.82, 0.16])],
+  N: [poly([0.22, 0.16], [0.22, 0.84], [0.78, 0.16], [0.78, 0.84])],
   O: [arc(0.5, 0.5, 0.3, 0.37, -90, 270, 46)],
-  P: [poly([0.27, 0.84], [0.27, 0.16]), bezier(p(0.27, 0.16), p(0.82, 0.12), p(0.83, 0.54), p(0.27, 0.51), 34)],
+  P: [poly([0.27, 0.16], [0.27, 0.84]), bezier(p(0.27, 0.16), p(0.82, 0.12), p(0.83, 0.54), p(0.27, 0.51), 34)],
   Q: [arc(0.5, 0.48, 0.3, 0.35, -90, 270, 46), poly([0.57, 0.65], [0.8, 0.88])],
-  R: [poly([0.27, 0.84], [0.27, 0.16]), bezier(p(0.27, 0.16), p(0.82, 0.12), p(0.83, 0.54), p(0.27, 0.51), 34), poly([0.5, 0.5], [0.8, 0.84])],
+  R: [poly([0.27, 0.16], [0.27, 0.84]), bezier(p(0.27, 0.16), p(0.82, 0.12), p(0.83, 0.54), p(0.27, 0.51), 34), poly([0.5, 0.5], [0.8, 0.84])],
   S: [join(bezier(p(0.76, 0.24), p(0.59, 0.08), p(0.28, 0.14), p(0.28, 0.36), 24), bezier(p(0.28, 0.36), p(0.28, 0.54), p(0.72, 0.48), p(0.74, 0.69), 24), bezier(p(0.74, 0.69), p(0.75, 0.91), p(0.4, 0.94), p(0.23, 0.78), 24))],
   T: [poly([0.18, 0.16], [0.82, 0.16]), poly([0.5, 0.16], [0.5, 0.84])],
   U: [join(poly([0.23, 0.16], [0.23, 0.64]), bezier(p(0.23, 0.64), p(0.23, 0.9), p(0.77, 0.9), p(0.77, 0.64), 30), poly([0.77, 0.64], [0.77, 0.16]))],
@@ -305,6 +307,41 @@ letterStrokes['Ä'] = [...letterStrokes.A, poly([0.36, 0.07], [0.4, 0.07]), poly
 letterStrokes['Ö'] = [...letterStrokes.O, poly([0.36, 0.07], [0.4, 0.07]), poly([0.6, 0.07], [0.64, 0.07])];
 letterStrokes['Ü'] = [...letterStrokes.U, poly([0.36, 0.07], [0.4, 0.07]), poly([0.6, 0.07], [0.64, 0.07])];
 
+// Lowercase letters share one x-height (0.32–0.72), with ascenders and
+// descenders reaching the same top and baseline as their neighbours.
+const lowerLetterStrokes = {
+  a: [arc(0.48, 0.55, 0.18, 0.18, -90, 270, 28), poly([0.66, 0.37], [0.66, 0.73])],
+  b: [poly([0.32, 0.16], [0.32, 0.73]), arc(0.5, 0.56, 0.18, 0.18, -90, 270, 28)],
+  c: [arc(0.53, 0.55, 0.2, 0.18, -45, -315, 28)],
+  d: [arc(0.46, 0.56, 0.18, 0.18, -90, 270, 28), poly([0.64, 0.16], [0.64, 0.73])],
+  e: [join(bezier(p(0.29, 0.56), p(0.36, 0.33), p(0.7, 0.34), p(0.7, 0.54), 20), bezier(p(0.7, 0.54), p(0.56, 0.58), p(0.4, 0.58), p(0.29, 0.56), 12), bezier(p(0.29, 0.56), p(0.32, 0.8), p(0.67, 0.78), p(0.73, 0.63), 20))],
+  f: [poly([0.56, 0.18], [0.45, 0.16], [0.4, 0.32], [0.4, 0.8]), poly([0.25, 0.45], [0.62, 0.45])],
+  g: [arc(0.48, 0.54, 0.18, 0.18, -90, 270, 28), join(bezier(p(0.66, 0.55), p(0.73, 0.83), p(0.66, 0.96), p(0.47, 0.94), 22), bezier(p(0.47, 0.94), p(0.31, 0.93), p(0.31, 0.83), p(0.39, 0.79), 14))],
+  h: [poly([0.32, 0.16], [0.32, 0.73]), join(bezier(p(0.32, 0.53), p(0.47, 0.31), p(0.68, 0.39), p(0.68, 0.73), 26))],
+  i: [poly([0.5, 0.4], [0.5, 0.73]), poly([0.48, 0.25], [0.52, 0.25])],
+  j: [poly([0.54, 0.4], [0.54, 0.84]), join(bezier(p(0.54, 0.84), p(0.53, 0.96), p(0.32, 0.96), p(0.32, 0.84), 16)), poly([0.52, 0.25], [0.56, 0.25])],
+  k: [poly([0.32, 0.16], [0.32, 0.73]), poly([0.67, 0.4], [0.32, 0.57], [0.69, 0.73])],
+  l: [poly([0.5, 0.16], [0.5, 0.73])],
+  m: [poly([0.27, 0.73], [0.27, 0.4]), join(bezier(p(0.27, 0.48), p(0.42, 0.31), p(0.52, 0.49), p(0.52, 0.73), 20), bezier(p(0.52, 0.49), p(0.68, 0.31), p(0.78, 0.49), p(0.78, 0.73), 20))],
+  n: [poly([0.32, 0.73], [0.32, 0.4]), bezier(p(0.32, 0.48), p(0.48, 0.31), p(0.68, 0.39), p(0.68, 0.73), 26)],
+  o: [arc(0.5, 0.55, 0.2, 0.18, -90, 270, 30)],
+  p: [poly([0.32, 0.4], [0.32, 0.94]), arc(0.5, 0.56, 0.18, 0.18, -90, 270, 28)],
+  q: [arc(0.48, 0.55, 0.18, 0.18, -90, 270, 28), poly([0.66, 0.4], [0.66, 0.94])],
+  r: [poly([0.34, 0.73], [0.34, 0.4]), bezier(p(0.34, 0.48), p(0.48, 0.34), p(0.62, 0.39), p(0.67, 0.47), 16)],
+  s: [join(bezier(p(0.7, 0.43), p(0.58, 0.31), p(0.32, 0.36), p(0.34, 0.53), 18), bezier(p(0.34, 0.53), p(0.38, 0.66), p(0.72, 0.55), p(0.69, 0.7), 18), bezier(p(0.69, 0.7), p(0.66, 0.82), p(0.39, 0.8), p(0.31, 0.71), 16))],
+  t: [poly([0.5, 0.22], [0.5, 0.7]), poly([0.33, 0.42], [0.66, 0.42])],
+  u: [join(poly([0.32, 0.4], [0.32, 0.66]), bezier(p(0.32, 0.66), p(0.34, 0.82), p(0.66, 0.82), p(0.68, 0.66), 20), poly([0.68, 0.66], [0.68, 0.4]))],
+  v: [poly([0.3, 0.4], [0.5, 0.73], [0.7, 0.4])],
+  w: [poly([0.22, 0.4], [0.37, 0.73], [0.5, 0.51], [0.63, 0.73], [0.78, 0.4])],
+  x: [poly([0.32, 0.4], [0.68, 0.73]), poly([0.68, 0.4], [0.32, 0.73])],
+  y: [poly([0.3, 0.4], [0.5, 0.73], [0.7, 0.4]), poly([0.5, 0.73], [0.38, 0.95])],
+  z: [poly([0.3, 0.4], [0.7, 0.4], [0.3, 0.73], [0.7, 0.73])],
+};
+lowerLetterStrokes.ä = [...lowerLetterStrokes.a, poly([0.4, 0.23], [0.44, 0.23]), poly([0.58, 0.23], [0.62, 0.23])];
+lowerLetterStrokes.ö = [...lowerLetterStrokes.o, poly([0.4, 0.23], [0.44, 0.23]), poly([0.58, 0.23], [0.62, 0.23])];
+lowerLetterStrokes.ü = [...lowerLetterStrokes.u, poly([0.4, 0.23], [0.44, 0.23]), poly([0.58, 0.23], [0.62, 0.23])];
+Object.assign(letterStrokes, lowerLetterStrokes);
+
 const letterMeta = {
   A: ['Affe', 'diagonal', 2], B: ['Ball', 'mixed', 3], C: ['Clown', 'round', 2], D: ['Dino', 'mixed', 2],
   E: ['Ente', 'straight', 1], F: ['Fisch', 'straight', 1], G: ['Gans', 'round', 3], H: ['Haus', 'straight', 1],
@@ -313,15 +350,17 @@ const letterMeta = {
   Q: ['Qualle', 'round', 3], R: ['Regen', 'mixed', 3], S: ['Sonne', 'round', 3], T: ['Tiger', 'straight', 1],
   U: ['Uhu', 'round', 2], V: ['Vogel', 'diagonal', 1], W: ['Wolke', 'diagonal', 3], X: ['Xylofon', 'diagonal', 2],
   Y: ['Yak', 'diagonal', 2], Z: ['Zebra', 'diagonal', 2], Ä: ['Äpfel', 'diagonal', 3], Ö: ['Öl', 'round', 3], Ü: ['Überraschung', 'round', 3],
+  ...Object.fromEntries(Object.keys(lowerLetterStrokes).map((letter) => [letter, [`kleines ${letter}`, 'lowercase', 2]])),
 };
 
 const letterTemplates = Object.entries(letterStrokes).map(([letter, strokes]) => {
   const [example, group, complexity] = letterMeta[letter];
+  const lowerCase = group === 'lowercase';
   return makeTask({
     id: `letter-${letter}`,
     category: 'letters',
-    title: `${letter} wie ${example}`,
-    speech: `Schreib ein ${letter}. ${letter} wie ${example}.`,
+    title: lowerCase ? `kleines ${letter}` : `${letter} wie ${example}`,
+    speech: lowerCase ? `Schreib ein kleines ${letter}.` : `Schreib ein ${letter}. ${letter} wie ${example}.`,
     label: letter,
     strokes,
     complexity,
@@ -347,11 +386,11 @@ export const DIFFICULTIES = Object.freeze({
 
 export const OPTION_SETS = Object.freeze({
   numbers: [
-    { value: 'all', label: 'Alles' },
+    { value: 'all', label: 'Alle' },
     { value: 'custom', label: 'Eigene Zahlen' },
   ],
   letters: [
-    { value: 'all', label: 'Alles' },
+    { value: 'all', label: 'Alle' },
     { value: 'custom', label: 'Eigene Buchstaben' },
   ],
 });
@@ -384,14 +423,24 @@ function boundsOf(strokes) {
   }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
 }
 
-function fitStrokes(strokes, rect) {
-  const bounds = boundsOf(strokes);
+function fitStrokesToBounds(strokes, rect, bounds) {
   const spanX = Math.max(0.001, bounds.maxX - bounds.minX);
   const spanY = Math.max(0.001, bounds.maxY - bounds.minY);
   return strokes.map((stroke) => stroke.map((point) => p(
     rect.x + ((point.x - bounds.minX) / spanX) * rect.width,
     rect.y + ((point.y - bounds.minY) / spanY) * rect.height,
   )));
+}
+
+function fitStrokes(strokes, rect) {
+  return fitStrokesToBounds(strokes, rect, boundsOf(strokes));
+}
+
+const LOWERCASE_EM_BOX = Object.freeze({ minX: 0.18, maxX: 0.82, minY: 0.12, maxY: 0.96 });
+
+function fitLetterStrokes(letter, rect) {
+  const lowerCase = letter === letter.toLocaleLowerCase('de-DE');
+  return fitStrokesToBounds(letterStrokes[letter], rect, lowerCase ? LOWERCASE_EM_BOX : boundsOf(letterStrokes[letter]));
 }
 
 function transformStrokes(strokes, { scale = 1, dx = 0, dy = 0, mirrorX = false, mirrorY = false } = {}) {
@@ -405,28 +454,41 @@ function textCharacters(rawText) {
   return [...normalizeName(rawText).replace(/[- ]/g, '')].filter((character) => letterStrokes[character]);
 }
 
-function textStrokes(rawText, rect = { x: 0.06, y: 0.2, width: 0.88, height: 0.62 }) {
+function textTaskData(rawText, rect = { x: 0.06, y: 0.2, width: 0.88, height: 0.62 }) {
   const characters = textCharacters(rawText);
-  if (!characters.length) return [];
+  if (!characters.length) return { strokes: [], completionGroups: [] };
   const gap = Math.min(0.025, rect.width * 0.04);
   const usable = rect.width - gap * (characters.length - 1);
   const slotWidth = usable / characters.length;
-  return characters.flatMap((character, index) => fitStrokes(letterStrokes[character], {
-    x: rect.x + index * (slotWidth + gap), y: rect.y, width: slotWidth, height: rect.height,
-  }));
+  const strokes = [];
+  const completionGroups = [];
+  characters.forEach((character, index) => {
+    const fitted = fitLetterStrokes(character, {
+      x: rect.x + index * (slotWidth + gap), y: rect.y, width: slotWidth, height: rect.height,
+    });
+    const firstStroke = strokes.length;
+    strokes.push(...fitted);
+    completionGroups.push(fitted.map((_, strokeIndex) => firstStroke + strokeIndex));
+  });
+  return { strokes, completionGroups };
+}
+
+function textStrokes(rawText, rect) {
+  return textTaskData(rawText, rect).strokes;
 }
 
 export function createWordTask(rawName) {
   const name = normalizeName(rawName).replace(/[- ]/g, '').slice(0, 8);
-  const strokes = textStrokes(name);
-  if (!strokes.length) return null;
+  const data = textTaskData(name);
+  if (!data.strokes.length) return null;
   return makeTask({
     id: `word-${name}`,
     category: 'name',
     title: 'Dein Name',
     speech: `Schreib deinen Namen. ${name}.`,
     label: name,
-    strokes,
+    strokes: data.strokes,
+    completionGroups: data.completionGroups,
     complexity: 3,
     group: 'name',
   });
@@ -497,13 +559,32 @@ const CUSTOM_SET_LAYOUTS = NUMBER_LAYOUTS.flatMap(([key, title, cells]) => [
   [`${key}-kompakt`, `${title} – kompakt`, compactCells(cells)],
 ]);
 
-function repeatedStrokes(strokes, cells) {
-  return cells.flatMap((cell) => fitStrokes(strokes, cell));
+function strokesInCells(source, symbols, cells) {
+  const strokes = [];
+  const completionGroups = [];
+  cells.forEach((cell, index) => {
+    const symbol = symbols[index];
+    const fitted = source === letterStrokes
+      ? fitLetterStrokes(symbol, cell)
+      : fitStrokes(source[symbol], cell);
+    const firstStroke = strokes.length;
+    strokes.push(...fitted);
+    completionGroups.push(fitted.map((_, strokeIndex) => firstStroke + strokeIndex));
+  });
+  return { strokes, completionGroups };
+}
+
+function repeatedTaskData(strokes, cells) {
+  return strokesInCells({ symbol: strokes }, Array(cells.length).fill('symbol'), cells);
+}
+
+function repeatedLetterTaskData(letter, cells) {
+  return strokesInCells(letterStrokes, Array(cells.length).fill(letter), cells);
 }
 
 function selectedSymbols(category, rawSet) {
   if (category === 'numbers') return [...new Set(String(rawSet ?? '').match(/[0-9]/g) ?? [])];
-  return [...new Set([...normalizeName(rawSet).replace(/[- ]/g, '')].filter((character) => letterStrokes[character]))];
+  return [...new Set([...String(rawSet ?? '').normalize('NFC')].filter((character) => letterStrokes[character]))];
 }
 
 function createCustomSetBank(category, rawSet) {
@@ -515,6 +596,7 @@ function createCustomSetBank(category, rawSet) {
     : (symbol) => letterMeta[symbol]?.[0] ?? symbol;
   return Object.freeze(CUSTOM_SET_LAYOUTS.map(([key, layoutTitle, cells], layoutIndex) => {
     const exerciseSymbols = cells.map((_, cellIndex) => symbols[(layoutIndex + cellIndex) % symbols.length]);
+    const data = strokesInCells(source, exerciseSymbols, cells);
     return makeTask({
       id: `${category}-custom-${symbols.join('')}-${key}`,
       category,
@@ -522,7 +604,8 @@ function createCustomSetBank(category, rawSet) {
       speech: `${category === 'numbers' ? 'Schreib deine Zahlen' : 'Schreib deine Buchstaben'}. ${exerciseSymbols.map(titleFor).join(', ')}.`,
       label: exerciseSymbols.join(' '),
       value: symbols.join(''),
-      strokes: cells.flatMap((cell, cellIndex) => fitStrokes(source[exerciseSymbols[cellIndex]], cell)),
+      strokes: data.strokes,
+      completionGroups: data.completionGroups,
       complexity: cells.length === 1 ? 1 : cells.length < 4 ? 2 : 3,
       group: 'custom',
       family: category,
@@ -531,74 +614,123 @@ function createCustomSetBank(category, rawSet) {
   }));
 }
 
+function symbolsForMode(category, option) {
+  if (option && option !== 'all') return selectedSymbols(category, option);
+  return category === 'numbers' ? Object.keys(digitStrokes) : Object.keys(letterStrokes);
+}
+
+function easySymbolCell(index) {
+  const width = 0.34 + (index % 5) * 0.04;
+  const height = 0.58 + (Math.floor(index / 5) % 5) * 0.04;
+  const xShift = [-0.08, -0.026, 0.026, 0.08][Math.floor(index / 25) % 4];
+  const yShift = [-0.05, 0.05][Math.floor(index / 50) % 2];
+  return { x: 0.5 - width / 2 + xShift, y: 0.5 - height / 2 + yShift, width, height };
+}
+
+function createEasySymbolBank(category, option) {
+  const symbols = symbolsForMode(category, option);
+  if (!symbols.length) return [];
+  const source = category === 'numbers' ? digitStrokes : letterStrokes;
+  const titleFor = category === 'numbers'
+    ? (symbol) => numberWords[Number(symbol)]
+    : (symbol) => letterMeta[symbol]?.[0] ?? symbol;
+  return Object.freeze(Array.from({ length: 100 }, (_, index) => {
+    const symbol = symbols[index % symbols.length];
+    const fitted = category === 'letters'
+      ? fitLetterStrokes(symbol, easySymbolCell(index))
+      : fitStrokes(source[symbol], easySymbolCell(index));
+    return makeTask({
+      id: `${category}-easy-${symbols.join('')}-${index}`,
+      category,
+      title: `${category === 'numbers' ? 'Die' : ''} ${symbol} – einmal`.trim(),
+      speech: category === 'numbers' ? `Schreib die ${titleFor(symbol)}.` : `Schreib ${titleFor(symbol)}.`,
+      label: symbol,
+      value: symbol,
+      strokes: fitted,
+      completionGroups: [fitted.map((_, strokeIndex) => strokeIndex)],
+      complexity: 1,
+      group: category === 'letters' ? letterMeta[symbol]?.[1] ?? 'all' : 'all',
+      family: category,
+      layout: `easy-${index}`,
+    });
+  }));
+}
+
 const lineBank = variantBank('lines', lineTemplates, ROUTE_LAYOUTS);
 const shapeBank = variantBank('shapes', shapeTemplates, SHAPE_LAYOUTS);
-const numberBank = Object.freeze(numberTemplates.flatMap((template) => NUMBER_LAYOUTS.map(([key, title, cells]) => makeTask({
-  id: `number-${template.label}-${key}`,
-  category: 'numbers',
-  title: `${template.title} – ${title}`,
-  speech: `${template.speech} ${title}.`,
-  label: cells.length === 1 ? template.label : Array(cells.length).fill(template.label).join(' '),
-  value: template.label,
-  strokes: repeatedStrokes(template.strokes, cells),
-  complexity: template.complexity,
-  family: 'numbers',
-  layout: key,
-}))));
+const numberBank = Object.freeze(numberTemplates.flatMap((template) => NUMBER_LAYOUTS.map(([key, title, cells]) => {
+  const data = repeatedTaskData(template.strokes, cells);
+  return makeTask({
+    id: `number-${template.label}-${key}`,
+    category: 'numbers',
+    title: `${template.title} – ${title}`,
+    speech: `${template.speech} ${title}.`,
+    label: cells.length === 1 ? template.label : Array(cells.length).fill(template.label).join(' '),
+    value: template.label,
+    strokes: data.strokes,
+    completionGroups: data.completionGroups,
+    complexity: template.complexity,
+    family: 'numbers',
+    layout: key,
+  });
+})));
 
 const LETTER_LAYOUTS = [
   ['gross', 'einmal groß', [{ x: 0.3, y: 0.12, width: 0.4, height: 0.76 }]],
   ['paar', 'zweimal', [{ x: 0.14, y: 0.2, width: 0.3, height: 0.6 }, { x: 0.56, y: 0.2, width: 0.3, height: 0.6 }]],
-  ['reihe', 'dreimal', [{ x: 0.08, y: 0.26, width: 0.22, height: 0.48 }, { x: 0.39, y: 0.26, width: 0.22, height: 0.48 }, { x: 0.7, y: 0.26, width: 0.22, height: 0.48 }]],
 ];
 
-const letterDrills = letterTemplates.flatMap((template) => LETTER_LAYOUTS.map(([key, title, cells]) => makeTask({
-  id: `letter-${template.label}-${key}`,
-  category: 'letters',
-  title: `${template.title} – ${title}`,
-  speech: `${template.speech} ${title}.`,
-  label: Array(cells.length).fill(template.label).join(' '),
-  value: template.label,
-  strokes: repeatedStrokes(template.strokes, cells),
-  complexity: template.complexity,
-  group: template.group,
-  example: template.example,
-  family: 'letters',
-  layout: key,
-})));
+function letterExercise(template, key, title, cells) {
+  const data = repeatedLetterTaskData(template.label, cells);
+  return makeTask({
+    id: `letter-${template.label}-${key}`,
+    category: 'letters',
+    title: `${template.title} – ${title}`,
+    speech: `${template.speech} ${title}.`,
+    label: Array(cells.length).fill(template.label).join(' '),
+    value: template.label,
+    strokes: data.strokes,
+    completionGroups: data.completionGroups,
+    complexity: template.complexity,
+    group: template.group,
+    example: template.example,
+    family: 'letters',
+    layout: key,
+  });
+}
 
-const letterExtraDrills = letterTemplates.filter((template) => ['E', 'F'].includes(template.label)).map((template) => makeTask({
-  id: `letter-${template.label}-turm`,
-  category: 'letters',
-  title: `${template.title} – Buchstabenturm`,
-  speech: `${template.speech} Buchstabenturm.`,
-  label: `${template.label} ${template.label} ${template.label}`,
-  value: template.label,
-  strokes: repeatedStrokes(template.strokes, [{ x: 0.36, y: 0.08, width: 0.28, height: 0.25 }, { x: 0.36, y: 0.38, width: 0.28, height: 0.25 }, { x: 0.36, y: 0.68, width: 0.28, height: 0.25 }]),
-  complexity: template.complexity,
-  group: template.group,
-  example: template.example,
-  family: 'letters',
-  layout: 'turm',
-}));
+const letterSingles = letterTemplates.map((template) => {
+  const lowerCase = template.group === 'lowercase';
+  return letterExercise(
+    template,
+    'gross',
+    'einmal groß',
+    [lowerCase ? { x: 0.33, y: 0.16, width: 0.34, height: 0.68 } : LETTER_LAYOUTS[0][2][0]],
+  );
+});
+const letterPairDrills = letterTemplates.slice(0, 31).map((template) => letterExercise(template, 'paar', 'zweimal', LETTER_LAYOUTS[1][2]));
 
 const letterWords = ['ICH', 'DU', 'JA', 'OMA', 'OPA', 'HAUS', 'BALL', 'MAUS', 'HASE', 'AUTO', 'FUCHS'];
 const letterBank = Object.freeze([
-  ...letterDrills,
-  ...letterExtraDrills,
-  ...letterWords.map((word) => makeTask({
-    id: `letter-word-${word}`,
-    category: 'letters',
-    title: `Wort ${word}`,
-    speech: `Schreib das Wort ${word}.`,
-    label: word,
-    value: word,
-    strokes: textStrokes(word),
-    complexity: 3,
-    group: 'all',
-    family: 'letters',
-    layout: 'word',
-  })),
+  ...letterSingles,
+  ...letterPairDrills,
+  ...letterWords.map((word) => {
+    const data = textTaskData(word);
+    return makeTask({
+      id: `letter-word-${word}`,
+      category: 'letters',
+      title: `Wort ${word}`,
+      speech: `Schreib das Wort ${word}.`,
+      label: word,
+      value: word,
+      strokes: data.strokes,
+      completionGroups: data.completionGroups,
+      complexity: 3,
+      group: 'all',
+      family: 'letters',
+      layout: 'word',
+    });
+  }),
 ]);
 
 function nameRect(index, dx = 0) {
@@ -626,7 +758,8 @@ export function createNameExerciseBank(rawName) {
     const cells = Array.from({ length: copies }, (_, copy) => ({
       x: 0.12 + copy * (0.76 / copies), y: 0.2 + (index % 2) * 0.08, width: 0.6 / copies, height: 0.56,
     }));
-    exercises.push(makeTask({ id: `name-focus-${name}-${index}`, category: 'name', title: `${letter} üben`, speech: `Übe den Buchstaben ${letter}.`, label: Array(copies).fill(letter).join(' '), value: letter, strokes: repeatedStrokes(letterStrokes[letter], cells), complexity: copies === 1 ? 1 : 2, group: 'name', family: 'name', layout: `focus-${index}` }));
+    const data = repeatedLetterTaskData(letter, cells);
+    exercises.push(makeTask({ id: `name-focus-${name}-${index}`, category: 'name', title: `${letter} üben`, speech: `Übe den Buchstaben ${letter}.`, label: Array(copies).fill(letter).join(' '), value: letter, strokes: data.strokes, completionGroups: data.completionGroups, complexity: copies === 1 ? 1 : 2, group: 'name', family: 'name', layout: `focus-${index}` }));
   }
   for (let index = 0; index < 20; index += 1) {
     const prefix = characters.slice(0, 1 + (index % characters.length)).join('');
@@ -690,7 +823,9 @@ export function buildSession({ category, difficulty = 'easy', option = '', name 
   if (!CATEGORY_CONFIG[category]) throw new Error(`Unknown category: ${category}`);
   if (!DIFFICULTIES[difficulty]) throw new Error(`Unknown difficulty: ${difficulty}`);
 
-  const primary = taskPool(category, option, name);
+  const primary = ['numbers', 'letters'].includes(category) && difficulty === 'easy'
+    ? createEasySymbolBank(category, option)
+    : taskPool(category, option, name);
   const sampled = category === 'mixed'
     ? shuffle(['lines', 'shapes', 'numbers', 'letters'].flatMap((family) => randomSample(primary.filter((task) => task.family === family), 5, rng)), rng)
     : randomSample(primary, SESSION_SIZE, rng);

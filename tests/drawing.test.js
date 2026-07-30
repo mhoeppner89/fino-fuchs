@@ -6,6 +6,7 @@ import {
   feedbackForEvaluation,
   inkColorAt,
   INK_COLORS,
+  nextGuideStrokeIndex,
   pointAlongGuidePath,
 } from '../js/drawing.js';
 
@@ -79,6 +80,34 @@ test('a repeated number does not finish while one copy is still missing', () => 
   assert.ok(result.coverage > 0.6, `global coverage was ${result.coverage}`);
   assert.ok(result.completion < 0.05, `missing-copy completion was ${result.completion}`);
   assert.equal(result.componentCoverage.length, 3);
+});
+
+test('explicit character groups keep close copies incomplete until every copy is traced', () => {
+  const stackedOnes = [
+    [{ x: 0.5, y: 0.08 }, { x: 0.5, y: 0.31 }],
+    [{ x: 0.5, y: 0.37 }, { x: 0.5, y: 0.6 }],
+    [{ x: 0.5, y: 0.66 }, { x: 0.5, y: 0.89 }],
+  ];
+  const result = evaluateDrawing(stackedOnes, stackedOnes.slice(0, 2), {
+    width: 900,
+    height: 600,
+    tolerance: 600 * 0.068,
+    completionGroups: [[0], [1], [2]],
+  });
+  assert.ok(result.coverage > 0.6, `global coverage was ${result.coverage}`);
+  assert.ok(result.completion < 0.55, `missing-copy completion was ${result.completion}`);
+});
+
+test('Fino selects the first guide stroke that is still uncovered', () => {
+  const cross = [
+    [{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.82 }],
+    [{ x: 0.18, y: 0.5 }, { x: 0.82, y: 0.5 }],
+  ];
+  const splitVertical = [
+    [{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.5 }],
+    [{ x: 0.5, y: 0.5 }, { x: 0.5, y: 0.82 }],
+  ];
+  assert.equal(nextGuideStrokeIndex(cross, splitVertical, { width: 900, height: 600, tolerance: 600 * 0.068 }), 1);
 });
 
 test('the helper follows the same rounded curve as the dotted guide', () => {

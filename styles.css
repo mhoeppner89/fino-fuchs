@@ -518,6 +518,14 @@ p {
   margin-bottom: 8px;
 }
 
+.custom-set-field {
+  margin-top: 15px;
+}
+
+.custom-set-field input {
+  text-transform: none;
+}
+
 .name-field input {
   width: 100%;
   min-height: 56px;

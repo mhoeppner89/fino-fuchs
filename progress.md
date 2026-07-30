@@ -12,3 +12,5 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Verification: 18 of 18 logic tests pass; Playwright canvas smoke test passes after the completion fix.
 - Current work: number and letter setup now uses Alles or an entered custom set; custom sets generate a full 20-task round. Separate pen strokes cycle through a five-color ink palette.
 - Verification: 19 of 19 logic tests pass. The Node Playwright canvas runner visually confirmed two separate pen strokes in blue and berry; the optional Python smoke test cannot run here because the Python Playwright module is unavailable.
+- Sol high quality review applied: changed selector copy to Alle, added spacing above custom fields, explicit per-symbol completion groups, a green start point, coverage-based Fino jumps, canonicalized awkward starts, lowercase glyphs with a shared em-box, and easy-only single-symbol banks.
+- Verification: 24 of 24 tests pass; an omission sweep over static/custom multi-symbol banks keeps every missing copy below the easy completion threshold.

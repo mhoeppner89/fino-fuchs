@@ -4,7 +4,7 @@ Stand: 30. Juli 2026
 
 ## Automatisierte Logiktests
 
-Ergebnis: **19 von 19 Tests bestanden**.
+Ergebnis: **24 von 24 Tests bestanden**.
 
 Geprüft wurden:
 
@@ -22,6 +22,10 @@ Geprüft wurden:
 - wiederholte Zahl bleibt offen, bis jede Kopie gezeichnet wurde
 - eigene Zahlen- und Buchstabenauswahl erzeugt immer eine vollständige 20er-Runde
 - verschiedene, aufeinanderfolgende Stiftstriche erhalten unterschiedliche Farben
+- Groß- und Kleinbuchstaben sind im 100er-Buchstabenbereich enthalten
+- leichte Zahlen- und Buchstabenrunden zeigen genau ein Symbol pro Aufgabe
+- jede sichtbare Kopie in einem Mehrfach-Symbol muss unabhängig vollständig sein
+- Fino zeigt nach geteilten Stiften den ersten noch offenen Startpunkt
 - Fino-Hilfe auf der gepunkteten Spur und Sprung zwischen getrennten Strichen
 
 Die Bänke und Runden werden deterministisch geprüft: Alle 100er-Bänke haben eindeutige Kennungen und Zeichenspuren; jede Runde enthält 20 verschiedene Aufgaben.
