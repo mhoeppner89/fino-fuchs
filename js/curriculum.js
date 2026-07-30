@@ -316,7 +316,10 @@ letterStrokes['Ü'] = [...letterStrokes.U, poly([0.36, 0.07], [0.4, 0.07]), poly
 // Lowercase letters share one x-height (0.32–0.72), with ascenders and
 // descenders reaching the same top and baseline as their neighbours.
 const lowerLetterStrokes = {
-  a: [arc(0.48, 0.55, 0.18, 0.18, -90, 270, 28), poly([0.66, 0.37], [0.66, 0.73])],
+  // Keep the loop and tail physically connected. The old version started the
+  // oval at its top but the downstroke at its right edge, which read like an
+  // "o" beside a line instead of a clear handwritten a.
+  a: [join(arc(0.48, 0.55, 0.18, 0.18, 0, 360, 28), poly([0.66, 0.55], [0.66, 0.73]))],
   b: [poly([0.32, 0.16], [0.32, 0.73]), arc(0.5, 0.56, 0.18, 0.18, -90, 270, 28)],
   c: [arc(0.53, 0.55, 0.2, 0.18, -45, -315, 28)],
   d: [arc(0.46, 0.56, 0.18, 0.18, -90, 270, 28), poly([0.64, 0.16], [0.64, 0.73])],
@@ -335,9 +338,16 @@ const lowerLetterStrokes = {
   o: [arc(0.5, 0.55, 0.2, 0.18, -90, 270, 30)],
   p: [poly([0.32, 0.4], [0.32, 0.94]), arc(0.5, 0.56, 0.18, 0.18, -90, 270, 28)],
   q: [arc(0.48, 0.55, 0.18, 0.18, -90, 270, 28), poly([0.66, 0.4], [0.66, 0.94])],
-  r: [poly([0.34, 0.73], [0.34, 0.4]), bezier(p(0.34, 0.48), p(0.48, 0.34), p(0.62, 0.39), p(0.67, 0.47), 16)],
+  // The shoulder starts exactly where the upright ends; leaving a gap here
+  // made the small r look broken at normal writing-board size.
+  r: [join(poly([0.34, 0.73], [0.34, 0.43]), bezier(p(0.34, 0.43), p(0.45, 0.35), p(0.58, 0.36), p(0.66, 0.47), 16))],
   s: [join(bezier(p(0.7, 0.43), p(0.58, 0.31), p(0.32, 0.36), p(0.34, 0.53), 18), bezier(p(0.34, 0.53), p(0.38, 0.66), p(0.72, 0.55), p(0.69, 0.7), 18), bezier(p(0.69, 0.7), p(0.66, 0.82), p(0.39, 0.8), p(0.31, 0.71), 16))],
-  t: [poly([0.5, 0.22], [0.5, 0.7]), poly([0.33, 0.42], [0.66, 0.42])],
+  // A small exit hook stops the lower-case t from looking like a plus sign.
+  t: [join(
+    bezier(p(0.52, 0.18), p(0.47, 0.19), p(0.45, 0.27), p(0.45, 0.38), 10),
+    poly([0.45, 0.38], [0.45, 0.66]),
+    bezier(p(0.45, 0.66), p(0.45, 0.76), p(0.56, 0.78), p(0.62, 0.69), 12),
+  ), poly([0.3, 0.4], [0.62, 0.4])],
   u: [join(poly([0.32, 0.4], [0.32, 0.66]), bezier(p(0.32, 0.66), p(0.34, 0.82), p(0.66, 0.82), p(0.68, 0.66), 20), poly([0.68, 0.66], [0.68, 0.4]))],
   v: [poly([0.3, 0.4], [0.5, 0.73], [0.7, 0.4])],
   w: [poly([0.22, 0.4], [0.37, 0.73], [0.5, 0.51], [0.63, 0.73], [0.78, 0.4])],

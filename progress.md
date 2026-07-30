@@ -47,3 +47,8 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Long names now reduce their letter height as a single centred word once they exceed four characters. Names are no longer clipped at eight letters; all 12 allowed characters fit on the board with gaps that compact only when needed.
 - Added an iPad-landscape layout (1024×768): an exact-proportion 900:620 writing board sits beside a compact Fino/control rail instead of becoming a tall card with empty space inside it.
 - Verification: `npm test` passes 43 of 43 checks, including new N-direction/pen-lift and long-name-height/full-name regressions. The required final Playwright canvas run recorded no errors, and an iPad landscape visual check measured a 678×467 board (900:620) with Fino and both controls alongside it.
+
+## 2026-07-30 fifth follow-up
+
+- Reworked the lowercase `a`, `r`, and `t`: `a` is now a connected loop and tail, `r` has no break before its shoulder, and `t` gains a small end hook so it no longer resembles a plus sign.
+- Verification: `npm test` passes 44 of 44 checks, including connected-path regressions for all three letters. The final Playwright canvas smoke test recorded no errors.

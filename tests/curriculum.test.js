@@ -70,6 +70,19 @@ test('M is upright and the lowercase i dot is centred above its stem', () => {
   assert.ok(Math.max(...i.strokes[1].map((point) => point.y)) < Math.min(...i.strokes[0].map((point) => point.y)), 'i dot should sit above its stem');
 });
 
+test('lowercase a, r, and t use connected, recognisable handwriting paths', () => {
+  const a = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-a-gross');
+  const r = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-r-gross');
+  const t = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-t-gross');
+  assert.equal(a.strokes.length, 1, 'a loop and tail should be one continuous trace');
+  assert.ok(a.strokes[0].at(-1).y > a.strokes[0][0].y + 0.1, 'a should end with a clear right-hand tail');
+  assert.equal(r.strokes.length, 1, 'r upright and shoulder should be continuous');
+  const rJoin = r.strokes[0].findIndex((point) => point.y < 0.42);
+  assert.ok(rJoin > 0 && r.strokes[0][rJoin - 1].x <= r.strokes[0][rJoin].x, 'r shoulder should leave its upright without a gap');
+  assert.equal(t.strokes.length, 2, 't needs a stem and one crossbar');
+  assert.ok(t.strokes[0].at(-1).x > t.strokes[0][0].x + 0.04, 't should finish with a friendly exit hook');
+});
+
 test('N uses the normal downward-right diagonal with natural pen lifts', () => {
   const n = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-N-gross');
   assert.equal(n.strokes.length, 3, 'N should have two uprights and one diagonal');
