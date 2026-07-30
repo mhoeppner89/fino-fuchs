@@ -2,6 +2,7 @@
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const DEMO_JUMP_UNITS = 0.42;
 
 function toPixels(point, width, height) {
   return { x: point.x * width, y: point.y * height };
@@ -274,6 +275,24 @@ export function pointAlongGuidePath(stroke, progress, width, height, angular = f
     : previousSample.t;
   const segment = segments[segmentIndex];
   return { point: pointOnGuideSegment(segment, t), angle: guideSegmentAngle(segment, t) };
+}
+
+export function demoStageAtProgress(strokeCount, progress) {
+  if (strokeCount < 1) return null;
+  const totalUnits = strokeCount + Math.max(0, strokeCount - 1) * DEMO_JUMP_UNITS;
+  let remaining = clamp(progress, 0, 1) * totalUnits;
+
+  for (let index = 0; index < strokeCount; index += 1) {
+    if (remaining <= 1 || index === strokeCount - 1) {
+      return { type: 'run', strokeIndex: index, progress: clamp(remaining, 0, 1) };
+    }
+    remaining -= 1;
+    if (remaining <= DEMO_JUMP_UNITS) {
+      return { type: 'jump', fromStroke: index, toStroke: index + 1, progress: remaining / DEMO_JUMP_UNITS };
+    }
+    remaining -= DEMO_JUMP_UNITS;
+  }
+  return { type: 'run', strokeIndex: strokeCount - 1, progress: 1 };
 }
 
 export class DrawingBoard {
@@ -656,14 +675,27 @@ export class DrawingBoard {
 
   drawDemo(context) {
     if (this.demoProgress === null || !this.task) return;
-    const total = this.task.strokes.length;
-    const scaled = this.demoProgress * total;
-    const activeIndex = Math.min(total - 1, Math.floor(scaled));
-    const local = clamp(scaled - activeIndex, 0, 1);
-    const activeStroke = this.task.strokes[activeIndex];
     const angular = ['letters', 'numbers', 'name'].includes(this.task.category);
-    const guide = pointAlongGuidePath(activeStroke ?? [], local, this.width, this.height, angular);
-    if (guide) this.drawGuideFox(context, guide.point, guide.angle, { jumping: activeIndex > 0 && local < 0.08 });
+    const stage = demoStageAtProgress(this.task.strokes.length, this.demoProgress);
+    if (!stage) return;
+
+    if (stage.type === 'run') {
+      const activeStroke = this.task.strokes[stage.strokeIndex];
+      const guide = pointAlongGuidePath(activeStroke ?? [], stage.progress, this.width, this.height, angular);
+      if (guide) this.drawGuideFox(context, guide.point, guide.angle);
+      return;
+    }
+
+    const from = pointAlongGuidePath(this.task.strokes[stage.fromStroke], 1, this.width, this.height, angular);
+    const to = pointAlongGuidePath(this.task.strokes[stage.toStroke], 0, this.width, this.height, angular);
+    if (from && to) {
+      this.drawJumpingFox(context, {
+        from: from.point,
+        to: to.point,
+        progress: stage.progress,
+        travel: distance(from.point, to.point),
+      });
+    }
   }
 
   render() {

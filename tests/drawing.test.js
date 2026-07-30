@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateDrawing, feedbackForEvaluation, pointAlongGuidePath } from '../js/drawing.js';
+import {
+  demoStageAtProgress,
+  evaluateDrawing,
+  feedbackForEvaluation,
+  pointAlongGuidePath,
+} from '../js/drawing.js';
 
 const expected = [[{ x: 0.2, y: 0.2 }, { x: 0.8, y: 0.8 }]];
 
@@ -54,4 +59,12 @@ test('the helper follows the same rounded curve as the dotted guide', () => {
   const expectedY = 200 * curveT - 100 * curveT ** 2;
   assert.ok(guide.point.x > 0 && guide.point.x < 50);
   assert.ok(Math.abs(guide.point.y - expectedY) < 0.001);
+});
+
+test('the starting helper includes a jump between distinct strokes', () => {
+  const stage = demoStageAtProgress(2, 0.5);
+  assert.equal(stage.type, 'jump');
+  assert.equal(stage.fromStroke, 0);
+  assert.equal(stage.toStroke, 1);
+  assert.ok(Math.abs(stage.progress - 0.5) < 0.0001);
 });
