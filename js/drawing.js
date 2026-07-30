@@ -227,6 +227,8 @@ export class DrawingBoard {
     this.lastPenAt = 0;
     this.demoProgress = null;
     this.demoFrame = 0;
+    this.jumpAnimation = null;
+    this.jumpFrame = 0;
     this.highlightUntil = 0;
     this.width = 800;
     this.height = 560;
@@ -248,6 +250,7 @@ export class DrawingBoard {
   destroy() {
     this.resizeObserver.disconnect();
     cancelAnimationFrame(this.demoFrame);
+    cancelAnimationFrame(this.jumpFrame);
     this.canvas.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
@@ -276,8 +279,10 @@ export class DrawingBoard {
     this.userStrokes = [];
     this.activeStroke = null;
     this.demoProgress = null;
+    this.jumpAnimation = null;
     this.highlightUntil = 0;
     cancelAnimationFrame(this.demoFrame);
+    cancelAnimationFrame(this.jumpFrame);
     this.render();
     this.hooks.onInkChange?.(false);
   }
@@ -285,6 +290,8 @@ export class DrawingBoard {
   clear() {
     this.userStrokes = [];
     this.activeStroke = null;
+    this.jumpAnimation = null;
+    cancelAnimationFrame(this.jumpFrame);
     this.highlightUntil = 0;
     this.render();
     this.hooks.onInkChange?.(false);
@@ -319,6 +326,8 @@ export class DrawingBoard {
 
   startDemo() {
     if (!this.task || this.demoProgress !== null) return Promise.resolve();
+    this.jumpAnimation = null;
+    cancelAnimationFrame(this.jumpFrame);
     this.demoProgress = 0;
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     // Fino moves at 1.5× the previous pace. The path stays invisible so it
@@ -359,6 +368,8 @@ export class DrawingBoard {
     if (event.pointerType === 'touch' && (!event.isPrimary || performance.now() - this.lastPenAt < 900)) return;
     if (event.pointerType === 'pen') this.lastPenAt = performance.now();
     event.preventDefault();
+    this.jumpAnimation = null;
+    cancelAnimationFrame(this.jumpFrame);
     this.activePointerId = event.pointerId;
     this.activeStroke = [this.pointFromEvent(event)];
     this.userStrokes.push(this.activeStroke);
@@ -395,11 +406,46 @@ export class DrawingBoard {
       const start = this.activeStroke[0];
       this.activeStroke.push({ ...start, x: clamp(start.x + 0.002, 0, 1) });
     }
+    const finishedStroke = this.activeStroke;
     this.canvas.releasePointerCapture?.(event.pointerId);
     this.activePointerId = null;
     this.activeStroke = null;
+    this.startJumpToNextStroke(finishedStroke);
     this.render();
     this.hooks.onStrokeEnd?.();
+  }
+
+  startJumpToNextStroke(finishedStroke) {
+    const nextStroke = this.task?.strokes[this.userStrokes.length];
+    const lastPoint = finishedStroke?.at(-1);
+    const nextPoint = nextStroke?.[0];
+    if (!lastPoint || !nextPoint) return;
+
+    const from = toPixels(lastPoint, this.width, this.height);
+    const to = toPixels(nextPoint, this.width, this.height);
+    const travel = distance(from, to);
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    this.jumpAnimation = {
+      from,
+      to,
+      progress: 0,
+      travel,
+      startedAt: performance.now(),
+      duration: reducedMotion ? 170 : clamp(230 + travel * 0.45, 300, 520),
+    };
+
+    const frame = (now) => {
+      if (!this.jumpAnimation) return;
+      this.jumpAnimation.progress = clamp((now - this.jumpAnimation.startedAt) / this.jumpAnimation.duration, 0, 1);
+      this.render();
+      if (this.jumpAnimation.progress < 1) {
+        this.jumpFrame = requestAnimationFrame(frame);
+      } else {
+        this.jumpAnimation = null;
+        this.render();
+      }
+    };
+    this.jumpFrame = requestAnimationFrame(frame);
   }
 
   drawGuidelines(context) {
@@ -504,6 +550,10 @@ export class DrawingBoard {
 
   drawFoxForCurrentStroke(context) {
     if (!this.task || this.demoProgress !== null) return;
+    if (this.jumpAnimation) {
+      this.drawJumpingFox(context, this.jumpAnimation);
+      return;
+    }
     if (this.activeStroke?.length) {
       const lastIndex = this.activeStroke.length - 1;
       const point = toPixels(this.activeStroke[lastIndex], this.width, this.height);
@@ -514,7 +564,30 @@ export class DrawingBoard {
 
     const nextStroke = this.task.strokes[this.userStrokes.length];
     const next = pointAlongStroke(nextStroke ?? [], 0, this.width, this.height);
-    if (next) this.drawGuideFox(context, next.point, next.angle, { jumping: this.userStrokes.length > 0 });
+    if (next) this.drawGuideFox(context, next.point, next.angle);
+  }
+
+  drawJumpingFox(context, jump) {
+    const eased = jump.progress < 0.5
+      ? 2 * jump.progress ** 2
+      : 1 - ((-2 * jump.progress + 2) ** 2) / 2;
+    const baseline = {
+      x: jump.from.x + (jump.to.x - jump.from.x) * eased,
+      y: jump.from.y + (jump.to.y - jump.from.y) * eased,
+    };
+    const lift = Math.sin(Math.PI * jump.progress) * clamp(jump.travel * 0.2, 24, 58);
+    const size = clamp(Math.min(this.width, this.height) * 0.08, 26, 46);
+
+    context.save();
+    context.globalAlpha = 0.12 + (1 - Math.sin(Math.PI * jump.progress)) * 0.08;
+    context.fillStyle = '#27314A';
+    context.beginPath();
+    context.ellipse(baseline.x, baseline.y + size * 0.27, size * 0.34, size * 0.1, 0, 0, Math.PI * 2);
+    context.fill();
+    context.restore();
+
+    const angle = Math.atan2(jump.to.y - jump.from.y, jump.to.x - jump.from.x);
+    this.drawGuideFox(context, { x: baseline.x, y: baseline.y - lift }, angle);
   }
 
   drawDemo(context) {
