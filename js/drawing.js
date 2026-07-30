@@ -196,21 +196,84 @@ function angularPath(context, points, width, height) {
   }
 }
 
-function pointAlongStroke(stroke, progress, width, height) {
+function guideSegments(stroke, width, height, angular) {
+  const points = stroke.map((point) => toPixels(point, width, height));
+  if (points.length < 2) return [];
+  if (angular || points.length === 2) {
+    return points.slice(1).map((end, index) => ({ type: 'line', start: points[index], end }));
+  }
+
+  const segments = [];
+  let start = points[0];
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const control = points[index];
+    const next = points[index + 1];
+    const end = { x: (control.x + next.x) / 2, y: (control.y + next.y) / 2 };
+    segments.push({ type: 'quadratic', start, control, end });
+    start = end;
+  }
+  segments.push({ type: 'line', start, end: points.at(-1) });
+  return segments;
+}
+
+function pointOnGuideSegment(segment, progress) {
+  if (segment.type === 'line') {
+    return {
+      x: segment.start.x + (segment.end.x - segment.start.x) * progress,
+      y: segment.start.y + (segment.end.y - segment.start.y) * progress,
+    };
+  }
+  const inverse = 1 - progress;
+  return {
+    x: inverse ** 2 * segment.start.x + 2 * inverse * progress * segment.control.x + progress ** 2 * segment.end.x,
+    y: inverse ** 2 * segment.start.y + 2 * inverse * progress * segment.control.y + progress ** 2 * segment.end.y,
+  };
+}
+
+function guideSegmentAngle(segment, progress) {
+  const dx = segment.type === 'line'
+    ? segment.end.x - segment.start.x
+    : 2 * (1 - progress) * (segment.control.x - segment.start.x) + 2 * progress * (segment.end.x - segment.control.x);
+  const dy = segment.type === 'line'
+    ? segment.end.y - segment.start.y
+    : 2 * (1 - progress) * (segment.control.y - segment.start.y) + 2 * progress * (segment.end.y - segment.control.y);
+  return Math.atan2(dy, dx);
+}
+
+// The helper is sampled from the same line and quadratic segments as
+// roundedPath(), keeping Fino centered on the visible dotted guide.
+export function pointAlongGuidePath(stroke, progress, width, height, angular = false) {
   if (!stroke.length) return null;
   if (stroke.length === 1) return { point: toPixels(stroke[0], width, height), angle: 0 };
-  const scaled = clamp(progress, 0, 1) * (stroke.length - 1);
-  const startIndex = Math.min(stroke.length - 2, Math.floor(scaled));
-  const amount = scaled - startIndex;
-  const start = toPixels(stroke[startIndex], width, height);
-  const end = toPixels(stroke[startIndex + 1], width, height);
-  return {
-    point: {
-      x: start.x + (end.x - start.x) * amount,
-      y: start.y + (end.y - start.y) * amount,
-    },
-    angle: Math.atan2(end.y - start.y, end.x - start.x),
-  };
+
+  const segments = guideSegments(stroke, width, height, angular);
+  const samples = [];
+  let previous = segments[0].start;
+  let travelled = 0;
+  samples.push({ segment: 0, t: 0, point: previous, travelled });
+  segments.forEach((segment, segmentIndex) => {
+    if (segmentIndex > 0) samples.push({ segment: segmentIndex, t: 0, point: previous, travelled });
+    for (let step = 1; step <= 32; step += 1) {
+      const t = step / 32;
+      const point = pointOnGuideSegment(segment, t);
+      travelled += distance(previous, point);
+      samples.push({ segment: segmentIndex, t, point, travelled });
+      previous = point;
+    }
+  });
+
+  const target = clamp(progress, 0, 1) * travelled;
+  const nextIndex = samples.findIndex((sample) => sample.travelled >= target);
+  const next = samples[nextIndex === -1 ? samples.length - 1 : nextIndex];
+  const previousSample = samples[Math.max(0, (nextIndex === -1 ? samples.length - 1 : nextIndex) - 1)];
+  const span = next.travelled - previousSample.travelled;
+  const ratio = span > 0 ? (target - previousSample.travelled) / span : 0;
+  const segmentIndex = previousSample.segment === next.segment ? next.segment : previousSample.segment;
+  const t = previousSample.segment === next.segment
+    ? previousSample.t + (next.t - previousSample.t) * ratio
+    : previousSample.t;
+  const segment = segments[segmentIndex];
+  return { point: pointOnGuideSegment(segment, t), angle: guideSegmentAngle(segment, t) };
 }
 
 export class DrawingBoard {
@@ -563,7 +626,8 @@ export class DrawingBoard {
     }
 
     const nextStroke = this.task.strokes[this.userStrokes.length];
-    const next = pointAlongStroke(nextStroke ?? [], 0, this.width, this.height);
+    const angular = ['letters', 'numbers', 'name'].includes(this.task.category);
+    const next = pointAlongGuidePath(nextStroke ?? [], 0, this.width, this.height, angular);
     if (next) this.drawGuideFox(context, next.point, next.angle);
   }
 
@@ -597,7 +661,8 @@ export class DrawingBoard {
     const activeIndex = Math.min(total - 1, Math.floor(scaled));
     const local = clamp(scaled - activeIndex, 0, 1);
     const activeStroke = this.task.strokes[activeIndex];
-    const guide = pointAlongStroke(activeStroke ?? [], local, this.width, this.height);
+    const angular = ['letters', 'numbers', 'name'].includes(this.task.category);
+    const guide = pointAlongGuidePath(activeStroke ?? [], local, this.width, this.height, angular);
     if (guide) this.drawGuideFox(context, guide.point, guide.angle, { jumping: activeIndex > 0 && local < 0.08 });
   }
 

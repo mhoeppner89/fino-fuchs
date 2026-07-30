@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateDrawing, feedbackForEvaluation } from '../js/drawing.js';
+import { evaluateDrawing, feedbackForEvaluation, pointAlongGuidePath } from '../js/drawing.js';
 
 const expected = [[{ x: 0.2, y: 0.2 }, { x: 0.8, y: 0.8 }]];
 
@@ -45,4 +45,13 @@ test('stroke direction is measured independently', () => {
   const result = evaluateDrawing(expected, reverse, { width: 900, height: 600 });
   assert.ok(result.direction < 0.1, `direction was ${result.direction}`);
   assert.ok(result.coverage > 0.95);
+});
+
+test('the helper follows the same rounded curve as the dotted guide', () => {
+  const stroke = [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }];
+  const guide = pointAlongGuidePath(stroke, 0.2, 100, 100);
+  const curveT = Math.sqrt(guide.point.x / 50);
+  const expectedY = 200 * curveT - 100 * curveT ** 2;
+  assert.ok(guide.point.x > 0 && guide.point.x < 50);
+  assert.ok(Math.abs(guide.point.y - expectedY) < 0.001);
 });
