@@ -290,7 +290,9 @@ const letterStrokes = {
   J: [poly([0.25, 0.16], [0.75, 0.16]), join(poly([0.67, 0.16], [0.67, 0.68]), bezier(p(0.67, 0.68), p(0.66, 0.9), p(0.31, 0.92), p(0.24, 0.72), 24))],
   K: [poly([0.25, 0.16], [0.25, 0.84]), poly([0.75, 0.16], [0.25, 0.53]), poly([0.36, 0.45], [0.78, 0.84])],
   L: [poly([0.27, 0.16], [0.27, 0.84], [0.77, 0.84])],
-  M: [poly([0.18, 0.16], [0.18, 0.84], [0.5, 0.42], [0.82, 0.84], [0.82, 0.16])],
+  // Start at the bottom-left, travel up, dip to the middle, then rise and
+  // finish down the right side. The former order described an upside-down M.
+  M: [poly([0.18, 0.84], [0.18, 0.16], [0.5, 0.55], [0.82, 0.16], [0.82, 0.84])],
   N: [poly([0.22, 0.16], [0.22, 0.84], [0.78, 0.16], [0.78, 0.84])],
   O: [arc(0.5, 0.5, 0.3, 0.37, -90, 270, 46)],
   P: [poly([0.27, 0.16], [0.27, 0.84]), bezier(p(0.27, 0.16), p(0.82, 0.12), p(0.83, 0.54), p(0.27, 0.51), 34)],
@@ -320,7 +322,9 @@ const lowerLetterStrokes = {
   f: [poly([0.56, 0.18], [0.45, 0.16], [0.4, 0.32], [0.4, 0.8]), poly([0.25, 0.45], [0.62, 0.45])],
   g: [arc(0.48, 0.54, 0.18, 0.18, -90, 270, 28), join(bezier(p(0.66, 0.55), p(0.73, 0.83), p(0.66, 0.96), p(0.47, 0.94), 22), bezier(p(0.47, 0.94), p(0.31, 0.93), p(0.31, 0.83), p(0.39, 0.79), 14))],
   h: [poly([0.32, 0.16], [0.32, 0.73]), join(bezier(p(0.32, 0.53), p(0.47, 0.31), p(0.68, 0.39), p(0.68, 0.73), 26))],
-  i: [poly([0.5, 0.4], [0.5, 0.73]), poly([0.48, 0.25], [0.52, 0.25])],
+  // A tiny vertical mark stays centred over the stem and renders as a clear
+  // round dot with the canvas's round line caps.
+  i: [poly([0.5, 0.4], [0.5, 0.73]), poly([0.5, 0.245], [0.5, 0.275])],
   j: [poly([0.54, 0.4], [0.54, 0.84]), join(bezier(p(0.54, 0.84), p(0.53, 0.96), p(0.32, 0.96), p(0.32, 0.84), 16)), poly([0.52, 0.25], [0.56, 0.25])],
   k: [poly([0.32, 0.16], [0.32, 0.73]), poly([0.67, 0.4], [0.32, 0.57], [0.69, 0.73])],
   l: [poly([0.5, 0.16], [0.5, 0.73])],
@@ -477,7 +481,10 @@ function textTaskData(rawText, rect = { x: 0.06, y: 0.2, width: 0.88, height: 0.
   if (!characters.length) return { strokes: [], completionGroups: [] };
   // Equal-width cells leave a conspicuous hole after narrow letters such as
   // I/i. Give every glyph a modest, handwriting-like advance instead.
-  const gap = Math.min(0.026, rect.width * 0.045);
+  // Give neighbouring characters enough physical breathing room for the
+  // generous tracing corridor. This is especially important beside i/l,
+  // whose narrow bodies otherwise make the next letter feel glued on.
+  const gap = Math.min(0.05, rect.width * 0.07);
   const advances = characters.map(letterAdvance);
   const totalAdvance = advances.reduce((sum, advance) => sum + advance, 0);
   const usable = Math.max(0.02, rect.width - gap * (characters.length - 1));
@@ -843,10 +850,42 @@ const assistancePlans = {
   medium: ['easy', 'medium', 'medium', 'medium', 'hard', 'medium', 'easy'],
   hard: ['medium', 'hard', 'hard', 'hard', 'hard', 'medium', 'easy'],
 };
-export const SESSION_SIZE = 20;
 
 /**
- * Creates a 20-task playthrough sampled without replacement from a bank of 100.
+ * Choose distinct task templates first, rotating through each available symbol
+ * before a symbol can appear again. A custom one-symbol set still gets varied
+ * placements, but never the exact same task twice.
+ */
+function sampleVariedTasks(pool, count, rng) {
+  if (pool.length < count) throw new Error(`Need ${count} unique exercises, but only ${pool.length} are available.`);
+  const byValue = new Map();
+  pool.forEach((task) => {
+    const key = task.value || task.label || task.id;
+    if (!byValue.has(key)) byValue.set(key, []);
+    byValue.get(key).push(task);
+  });
+
+  const keys = shuffle([...byValue.keys()], rng);
+  const queues = new Map(keys.map((key) => [key, randomSample(byValue.get(key), byValue.get(key).length, rng)]));
+  const selected = [];
+  while (selected.length < count) {
+    let added = false;
+    keys.forEach((key) => {
+      if (selected.length >= count) return;
+      const task = queues.get(key)?.shift();
+      if (!task) return;
+      selected.push(task);
+      added = true;
+    });
+    if (!added) break;
+  }
+  return selected;
+}
+
+export const SESSION_SIZE = 10;
+
+/**
+ * Creates a 10-task playthrough sampled without repeating a task.
  */
 export function buildSession({ category, difficulty = 'easy', option = '', name = '', rng = Math.random }) {
   if (!CATEGORY_CONFIG[category]) throw new Error(`Unknown category: ${category}`);
@@ -856,8 +895,10 @@ export function buildSession({ category, difficulty = 'easy', option = '', name 
     ? createEasySymbolBank(category, option)
     : taskPool(category, option, name);
   const sampled = category === 'mixed'
-    ? shuffle(['lines', 'shapes', 'numbers', 'letters'].flatMap((family) => randomSample(primary.filter((task) => task.family === family), 5, rng)), rng)
-    : randomSample(primary, SESSION_SIZE, rng);
+    ? shuffle(['lines', 'shapes', 'numbers', 'letters'].flatMap((family, index) => (
+      sampleVariedTasks(primary.filter((task) => task.family === family), index < 2 ? 3 : 2, rng)
+    )), rng)
+    : sampleVariedTasks(primary, SESSION_SIZE, rng);
 
   if (category !== 'lines' && sampled[0]?.family === 'lines') {
     const firstNonLine = sampled.findIndex((task) => task.family !== 'lines');

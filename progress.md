@@ -26,3 +26,11 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Reworked per-path completion to use an invisible, child-friendly acceptance band plus exclusive path ownership and a maximum uncovered-run guard. Exact traces and every omission regression still pass; an omitted short crossbar or neighbouring symbol cannot complete a component.
 - Added semantic narrow-letter advances and centred I/i; polygonal shape strokes now retain hard corners. Complex shapes and multi-symbol exercises reveal one small stage at a time. Automatic checks treat incomplete multi-stroke work as progress instead of a failed attempt.
 - Verification: `npm test` passes 37 of 37 tests, including exhaustive exact and missing-path checks across every bank, responsive artboard checks, narrow-I spacing, hard-corner metadata, staged guidance, and the new acceptable-offset tracing band. The local Playwright canvas run loaded all app assets with no console errors and rendered Fino centred on the dotted guide. The optional Python browser smoke script remains unavailable because its Python Playwright package is not installed.
+
+## 2026-07-30 second follow-up
+
+- Corrected the genuinely inverted capital M path and replaced the lowercase i's off-centre-looking dash with a centred, round dot.
+- Increased the child-friendly tracing corridor (with an even touch-sized dot target), while preserving component/path ownership. Ownership now keeps a pen stroke with its intended nearby letter or path, so a broad corridor cannot let a missing neighbour complete the task.
+- Name characters have wider breathing room, especially around narrow letters such as i. Rounds now contain 10 tasks and rotate through available symbols/templates before repeating one.
+- Portrait layouts no longer leave an invisible flex column under the board; wide desktop layouts put Fino and controls alongside the writing page, keeping the card close to its intended proportions.
+- Verification: `npm test` passes 39 of 39 checks, including the all-bank exact/missing-path regression and the wider acceptance band. The final Playwright canvas smoke check reached the 10-task practice round, rendered Fino on the dotted guide, and recorded no console errors.

@@ -36,9 +36,9 @@ test('a slightly imperfect child-like trace remains acceptable', () => {
 
 test('a child may trace inside a generous band without following the exact centre line', () => {
   const vertical = [[{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.82 }]];
-  const kindOffset = [[{ x: 0.535, y: 0.18 }, { x: 0.535, y: 0.82 }]];
-  const tooFar = [[{ x: 0.58, y: 0.18 }, { x: 0.58, y: 0.82 }]];
-  const options = { width: 900, height: 620, tolerance: 620 * 0.075 };
+  const kindOffset = [[{ x: 0.56, y: 0.18 }, { x: 0.56, y: 0.82 }]];
+  const tooFar = [[{ x: 0.65, y: 0.18 }, { x: 0.65, y: 0.82 }]];
+  const options = { width: 900, height: 620, tolerance: 620 * 0.11, completionTolerance: 620 * 0.11 };
   assert.equal(passesDrawingCriteria(evaluateDrawing(vertical, kindOffset, options), 'easy'), true);
   assert.equal(passesDrawingCriteria(evaluateDrawing(vertical, tooFar, options), 'easy'), false);
 });

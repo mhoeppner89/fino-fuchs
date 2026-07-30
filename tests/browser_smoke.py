@@ -122,7 +122,7 @@ def main() -> None:
             assert page.locator("#mentor-message").inner_text() != ""
             solve_session(page)
             page.wait_for_selector("#finish-screen:not([hidden])")
-            assert "20 Aufgaben" in page.locator("#finish-summary").inner_text()
+            assert "10 Aufgaben" in page.locator("#finish-summary").inner_text()
             page.screenshot(path=str(ARTIFACTS / "phone-finish.png"))
             context.close()
 

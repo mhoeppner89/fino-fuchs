@@ -1472,13 +1472,59 @@ p {
 }
 
 @media (orientation: portrait) {
-  /* Keep the actual writing surface in the same proportions as its drawing
-     coordinates. Tall phones should not turn a letter into a stretched one
-     or leave an oversized empty board around a tiny guide. */
+  /* Keep the writing surface in its natural proportions, but do not reserve
+     an invisible flex column beneath it on tall screens. The surrounding
+     rows share the remaining height instead of creating dead board space. */
+  .practice-layout {
+    justify-content: space-between;
+  }
+
+  .drawing-section {
+    flex: 0 0 auto;
+  }
+
   .drawing-card {
     min-height: 0;
     flex: 0 0 auto;
     aspect-ratio: 900 / 620;
+  }
+}
+
+@media (min-width: 720px) and (min-height: 621px) and (orientation: landscape) {
+  /* A wide desktop has room for Fino and the controls beside the page. That
+     keeps the actual writing card close to its natural aspect ratio instead
+     of turning it into a long, mostly empty strip. */
+  .practice-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(260px, .65fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "drawing mentor"
+      "drawing controls";
+    gap: 12px 20px;
+  }
+
+  .drawing-section {
+    grid-area: drawing;
+  }
+
+  .mentor-row {
+    grid-area: mentor;
+    align-self: start;
+    min-width: 0;
+  }
+
+  .practice-controls {
+    grid-area: controls;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-self: end;
+    gap: 8px;
+  }
+
+  .practice-controls button {
+    width: 100%;
   }
 }
 

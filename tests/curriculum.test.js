@@ -32,8 +32,8 @@ test('custom number and letter sets retain enough unique exercises for a full ro
   const numbers = getExerciseBank('numbers', { option: '257' });
   const letters = getExerciseBank('letters', { option: 'MARTIN' });
   const lowerCaseLetters = getExerciseBank('letters', { option: 'aä' });
-  assert.equal(numbers.length, SESSION_SIZE);
-  assert.equal(letters.length, SESSION_SIZE);
+  assert.ok(numbers.length >= SESSION_SIZE);
+  assert.ok(letters.length >= SESSION_SIZE);
   assert.ok(numbers.every((task) => /^[257 ]+$/.test(task.label)));
   assert.ok(letters.every((task) => /^[MARTIN ]+$/.test(task.label)));
   assert.ok(lowerCaseLetters.every((task) => /^[aä ]+$/.test(task.label)));
@@ -59,6 +59,17 @@ test('lowercase letters are included in the regular 100-exercise letter bank', (
   assert.equal(EXERCISE_BANKS.letters.length, 100);
 });
 
+test('M is upright and the lowercase i dot is centred above its stem', () => {
+  const m = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-M-gross');
+  assert.ok(m.strokes[0][0].y > m.strokes[0][1].y, 'M should begin at the lower-left then travel up');
+  assert.ok(m.strokes[0][2].y > m.strokes[0][1].y, 'M middle should dip below its two top points');
+
+  const i = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-i-gross');
+  const averageX = (stroke) => stroke.reduce((sum, point) => sum + point.x, 0) / stroke.length;
+  assert.ok(Math.abs(averageX(i.strokes[1]) - averageX(i.strokes[0])) < 0.001, 'i dot must align with its stem');
+  assert.ok(Math.max(...i.strokes[1].map((point) => point.y)) < Math.min(...i.strokes[0].map((point) => point.y)), 'i dot should sit above its stem');
+});
+
 test('curriculum uses text and drawing data instead of emoji decorations', () => {
   const pictographic = /\p{Extended_Pictographic}/u;
   TASKS.forEach((task) => {
@@ -67,7 +78,7 @@ test('curriculum uses text and drawing data instead of emoji decorations', () =>
   });
 });
 
-test('every category creates a 20-task session', () => {
+test('every category creates a 10-task session', () => {
   const cases = [
     { category: 'lines', difficulty: 'easy' },
     { category: 'shapes', difficulty: 'medium' },
@@ -84,9 +95,21 @@ test('every category creates a 20-task session', () => {
   });
 });
 
-test('a playthrough samples 20 distinct exercises without repetition', () => {
+test('a playthrough samples 10 distinct exercises without repetition', () => {
   const session = buildSession({ category: 'letters', difficulty: 'hard', option: 'all', rng: seededRandom(42) });
   assert.equal(new Set(session.map((task) => task.id)).size, SESSION_SIZE);
+});
+
+test('rounds rotate through available symbols before repeating one', () => {
+  const cases = [
+    { category: 'numbers', difficulty: 'medium', option: 'all' },
+    { category: 'letters', difficulty: 'hard', option: 'all' },
+    { category: 'shapes', difficulty: 'medium' },
+  ];
+  cases.forEach((config, index) => {
+    const session = buildSession({ ...config, rng: seededRandom(90 + index) });
+    assert.equal(new Set(session.map((task) => task.value)).size, SESSION_SIZE, `${config.category} repeated before needed`);
+  });
 });
 
 test('easy number and letter rounds show exactly one symbol per task', () => {

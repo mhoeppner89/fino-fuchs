@@ -12,9 +12,9 @@ import {
 } from '../js/drawing.js';
 
 const modes = [
-  ['easy', 0.068],
-  ['medium', 0.058],
-  ['hard', 0.048],
+  ['easy', 0.11],
+  ['medium', 0.095],
+  ['hard', 0.08],
 ];
 
 function options(task, assist = 'easy', width = 366, height = 608) {
