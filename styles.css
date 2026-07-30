@@ -728,6 +728,23 @@ p {
   border-radius: 14px;
 }
 
+.practice-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.practice-action-button {
+  background: #fff;
+  color: var(--ink);
+}
+
+.practice-action-button:disabled {
+  cursor: default;
+  opacity: .5;
+}
+
 .session-progress {
   min-width: 0;
   display: flex;
@@ -1660,6 +1677,38 @@ p {
     width: 100%;
     min-height: 44px;
   }
+}
+
+/* The writing board is the game. Keep its two tools in the top bar and let
+   the board use every remaining pixel at every orientation. These rules sit
+   last so the focused layout also replaces the older desktop side rail. */
+.practice-header,
+.practice-layout {
+  width: min(1400px, 100%);
+}
+
+.practice-header {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  margin-bottom: 6px;
+}
+
+.practice-layout {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0;
+}
+
+.drawing-section {
+  grid-area: auto;
+  align-self: stretch;
+  flex: 1 1 auto;
+}
+
+.drawing-card {
+  min-height: 0;
+  flex: 1 1 auto;
+  aspect-ratio: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {

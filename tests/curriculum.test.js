@@ -53,6 +53,17 @@ test('the number and letter selector consistently says Alle and has spaced custo
   assert.match(app, /if \(custom && focus\) input\.focus/);
 });
 
+test('practice view keeps only the board and compact top-bar actions', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  assert.doesNotMatch(html, /id="mentor-message"/);
+  assert.doesNotMatch(html, /id="task-mode"/);
+  assert.doesNotMatch(html, /id="task-title"/);
+  assert.doesNotMatch(html, /id="reference-chip"/);
+  assert.match(html, /class="practice-actions"[\s\S]*id="clear-button"[\s\S]*id="show-button"/);
+  assert.match(styles, /\.practice-layout\s*\{\s*display:\s*flex;\s*flex:\s*1 1 auto;/s);
+});
+
 test('lowercase letters are included in the regular 100-exercise letter bank', () => {
   const labels = new Set(EXERCISE_BANKS.letters.map((task) => task.label.replace(/\s/g, '')));
   ['a', 'm', 'z', 'ä', 'ö', 'ü'].forEach((letter) => assert.ok(labels.has(letter), `missing ${letter}`));

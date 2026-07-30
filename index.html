@@ -166,7 +166,7 @@
       <footer class="privacy-line">Ohne Konto · Ohne Werbung · Keine Datenübertragung</footer>
     </section>
 
-    <section class="screen practice-screen" id="practice-screen" aria-labelledby="task-title" hidden>
+    <section class="screen practice-screen" id="practice-screen" aria-label="Schreibübung" hidden>
       <header class="practice-header">
         <button class="icon-button" id="exit-button" type="button" aria-label="Übung beenden">
           <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>
@@ -175,32 +175,18 @@
           <div class="progress-dots" id="progress-dots" aria-hidden="true"></div>
           <span class="progress-text" id="progress-text">1 von 10</span>
         </div>
-        <button class="icon-button sound-button" id="practice-sound-button" type="button" aria-label="Ton ausschalten" aria-pressed="true" hidden>
-          <svg class="icon icon-sound-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10H4Zm12.5-2.5a6 6 0 0 1 0 9m2.7-11.7a10 10 0 0 1 0 14.4"/></svg>
-          <svg class="icon icon-sound-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10H4Zm12-2 5 5m0-5-5 5"/></svg>
-        </button>
+        <div class="practice-actions" aria-label="Werkzeuge">
+          <button class="icon-button practice-action-button" id="clear-button" type="button" aria-label="Zeichenfläche leeren">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 8-8 6 6-5 5H7l-3-3Zm12-6 2-2 3 3-2 2"/></svg>
+          </button>
+          <button class="icon-button practice-action-button" id="show-button" type="button" aria-label="Fino zeigt die Spur">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+          </button>
+        </div>
       </header>
 
       <main class="practice-layout">
-        <div class="mentor-row" aria-live="polite">
-          <img src="./assets/fox-face.svg" alt="" class="mentor-avatar" width="66" height="66">
-          <div class="mentor-bubble">
-            <span class="bubble-tail" aria-hidden="true"></span>
-            <p id="mentor-message">Schau gut hin.</p>
-          </div>
-          <button class="listen-button" id="listen-button" type="button" aria-label="Aufgabe noch einmal anhören" hidden>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10H4Zm12.5-2.5a6 6 0 0 1 0 9"/></svg>
-          </button>
-        </div>
-
-        <section class="drawing-section" aria-labelledby="task-title">
-          <div class="task-heading">
-            <div>
-              <p class="task-mode" id="task-mode">Mit Spur</p>
-              <h2 id="task-title">Von oben nach unten</h2>
-            </div>
-            <div class="reference-chip" id="reference-chip" aria-label="Vorlage">│</div>
-          </div>
+        <section class="drawing-section" aria-label="Zeichenfläche">
           <div class="drawing-card" id="drawing-card">
             <canvas id="drawing-canvas" aria-label="Zeichenfläche. Zeichne mit Finger oder Stift." role="img"></canvas>
             <div class="canvas-hint" id="canvas-hint" aria-hidden="true">
@@ -209,17 +195,6 @@
             </div>
           </div>
         </section>
-
-        <div class="practice-controls">
-          <button class="secondary-button" id="clear-button" type="button">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 8-8 6 6-5 5H7l-3-3Zm12-6 2-2 3 3-2 2"/></svg>
-            <span>Wegwischen</span>
-          </button>
-          <button class="secondary-button" id="show-button" type="button">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
-            <span>Zeigen</span>
-          </button>
-        </div>
       </main>
     </section>
 

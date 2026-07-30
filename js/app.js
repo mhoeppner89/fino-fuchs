@@ -7,7 +7,6 @@ import {
 import {
   DrawingBoard,
   evaluateDrawing,
-  feedbackForEvaluation,
   passesDrawingCriteria,
 } from './drawing.js';
 
@@ -38,11 +37,6 @@ const elements = {
   exitButton: $('#exit-button'),
   progressDots: $('#progress-dots'),
   progressText: $('#progress-text'),
-  mentorMessage: $('#mentor-message'),
-  listenButton: $('#listen-button'),
-  taskMode: $('#task-mode'),
-  taskTitle: $('#task-title'),
-  referenceChip: $('#reference-chip'),
   drawingCanvas: $('#drawing-canvas'),
   canvasHint: $('#canvas-hint'),
   clearButton: $('#clear-button'),
@@ -115,7 +109,6 @@ function updateSoundButtons() {
     button.setAttribute('aria-pressed', String(state.sound));
     button.setAttribute('aria-label', state.sound ? 'Ton ausschalten' : 'Ton einschalten');
   });
-  elements.listenButton.hidden = !SYNTHETIC_VOICE_ENABLED;
 }
 
 function toggleSound() {
@@ -214,18 +207,6 @@ function updateProgress() {
   elements.progressText.textContent = `${Math.min(state.index + 1, state.session.length)} von ${state.session.length}`;
 }
 
-function modeLabel(assist) {
-  if (assist === 'easy') return 'Mit klarer Spur';
-  if (assist === 'medium') return 'Mit feiner Spur';
-  return 'Mit zarter Spur';
-}
-
-function setMentorMessage(message, { announce = false } = {}) {
-  elements.mentorMessage.textContent = message;
-  state.currentSpeech = message;
-  if (announce) speak(message);
-}
-
 function clearAutoCheck() {
   window.clearTimeout(state.autoCheckTimer);
   state.autoCheckTimer = 0;
@@ -258,26 +239,17 @@ async function renderTask() {
   state.taskToken += 1;
   const token = state.taskToken;
   updateProgress();
-  elements.taskMode.textContent = modeLabel(task.assist);
-  elements.taskTitle.textContent = task.title;
-  elements.referenceChip.textContent = task.label;
-  elements.referenceChip.setAttribute('aria-label', `Vorlage ${task.label}`);
+  elements.drawingCanvas.setAttribute('aria-label', `Zeichenfläche für ${task.title}. Zeichne mit Finger oder Stift.`);
   elements.clearButton.disabled = false;
   elements.showButton.disabled = false;
   elements.canvasHint.classList.add('is-hidden');
   board.setTask(task, task.assist);
-  setMentorMessage(task.speech);
-  speak(task.speech);
 
   const shouldDemo = task.assist === 'easy' || (state.index === 0 && task.assist === 'medium');
   if (shouldDemo) {
     window.setTimeout(async () => {
       if (token !== state.taskToken || state.screen !== 'practice' || board.hasInk()) return;
       await board.startDemo();
-      if (token === state.taskToken && !board.hasInk()) {
-        setMentorMessage('Jetzt du.');
-        speak('Jetzt du.');
-      }
     }, 320);
   }
 }
@@ -399,8 +371,6 @@ function checkDrawing({ quietIncomplete = false } = {}) {
     return { passed: true, result, gentle: true };
   }
 
-  const feedback = feedbackForEvaluation(result);
-  setMentorMessage(feedback, { announce: true });
   board.flashGuide();
   return { passed: false, result, quietIncomplete };
 }
@@ -502,26 +472,14 @@ elements.letterSet.addEventListener('input', () => {
 
 elements.clearButton.addEventListener('click', () => {
   board.clear();
-  setMentorMessage('Noch einmal. Du schaffst das.', { announce: true });
 });
 
 elements.showButton.addEventListener('click', async () => {
   if (state.transitioning) return;
-  setMentorMessage('Schau gut hin.', { announce: true });
   elements.showButton.disabled = true;
   await board.startDemo();
   if (!state.transitioning) elements.showButton.disabled = false;
 });
-
-if (SYNTHETIC_VOICE_ENABLED) {
-  elements.listenButton.addEventListener('click', () => {
-    const task = state.session[state.index];
-    if (task) {
-      setMentorMessage(task.speech);
-      speak(task.speech);
-    }
-  });
-}
 
 elements.exitButton.addEventListener('click', openExitModal);
 elements.continueButton.addEventListener('click', closeExitModal);

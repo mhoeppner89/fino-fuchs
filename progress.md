@@ -52,3 +52,8 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 
 - Reworked the lowercase `a`, `r`, and `t`: `a` is now a connected loop and tail, `r` has no break before its shoulder, and `t` gains a small end hook so it no longer resembles a plus sign.
 - Verification: `npm test` passes 44 of 44 checks, including connected-path regressions for all three letters. The final Playwright canvas smoke test recorded no errors.
+
+## 2026-07-30 sixth follow-up
+
+- Rebuilt the practice screen around the drawing board: removed the level/title/reference box and Fino's speech bubble, moved clear and show into compact top-bar buttons, and made the board fill all remaining screen space in every orientation.
+- Verification: `npm test` passes 45 of 45 checks, including the new board-first practice-view regression. The final Playwright canvas smoke test recorded no errors.
