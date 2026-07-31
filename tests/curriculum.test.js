@@ -21,19 +21,49 @@ const geometryKey = (task) => JSON.stringify(task.strokes.map((stroke) => stroke
 
 test('every activity has distinct exercises, without repeated shape variants', () => {
   const banks = { ...EXERCISE_BANKS, name: createNameExerciseBank('Käthe') };
-  const expectedSizes = { lines: 100, shapes: 20, numbers: 100, letters: 100, mixed: 100, name: 100 };
+  const expectedSizes = { lines: 100, shapes: 36, numbers: 100, letters: 100, mixed: 100, name: 100 };
   Object.entries(banks).forEach(([category, bank]) => {
     assert.equal(bank.length, expectedSizes[category], `${category} bank size`);
     assert.equal(new Set(bank.map((task) => task.id)).size, expectedSizes[category], `${category} IDs`);
     assert.equal(new Set(bank.map(geometryKey)).size, expectedSizes[category], `${category} paths`);
   });
-  assert.equal(TASKS.length, 420);
+  assert.equal(TASKS.length, 436);
   assert.deepEqual(EXERCISE_BANKS.shapes.map((task) => task.id), [
     'shape-circle', 'shape-oval', 'shape-square', 'shape-triangle', 'shape-cross',
     'shape-diamond', 'shape-heart', 'shape-star', 'shape-rectangle', 'shape-pentagon',
     'shape-hexagon', 'shape-arrow', 'shape-house', 'shape-kite', 'shape-balloon',
     'shape-fish', 'shape-flower', 'shape-sun', 'shape-sailboat', 'shape-rocket',
+    'shape-tree', 'shape-ice-cream', 'shape-rainbow', 'shape-car', 'shape-butterfly',
+    'shape-snail', 'shape-umbrella', 'shape-mushroom', 'shape-bird', 'shape-present',
+    'shape-crown', 'shape-castle', 'shape-train', 'shape-planet', 'shape-apple', 'shape-bee',
   ]);
+});
+
+test('new picture shapes are staged and use planned, fitting stroke colours', () => {
+  const pictureIds = [
+    'shape-tree', 'shape-ice-cream', 'shape-rainbow', 'shape-car', 'shape-butterfly',
+    'shape-snail', 'shape-umbrella', 'shape-mushroom', 'shape-bird', 'shape-present',
+    'shape-crown', 'shape-castle', 'shape-train', 'shape-planet', 'shape-apple', 'shape-bee',
+  ];
+  pictureIds.forEach((id) => {
+    const task = EXERCISE_BANKS.shapes.find((candidate) => candidate.id === id);
+    assert.ok(task, `missing ${id}`);
+    assert.ok(task.strokes.length >= 3, `${id} should have several drawing stages`);
+    assert.equal(task.strokeColors.length, task.strokes.length, `${id} needs a colour for every stroke`);
+    assert.ok(task.strokeColors.every((color) => /^#[0-9A-F]{6}$/i.test(color)), `${id} has an invalid colour`);
+  });
+  const rainbow = EXERCISE_BANKS.shapes.find((task) => task.id === 'shape-rainbow');
+  assert.equal(new Set(rainbow.strokeColors).size, 3, 'rainbow arcs should switch colour');
+});
+
+test('picture-shape colours remain aligned with their paths after responsive reflow', () => {
+  const apple = EXERCISE_BANKS.shapes.find((task) => task.id === 'shape-apple');
+  [[390, 844], [1180, 680]].forEach(([width, height]) => {
+    const fitted = adaptTaskToViewport(apple, { width, height });
+    assert.equal(fitted.strokes.length, fitted.strokeColors.length);
+    assert.deepEqual(fitted.strokeColors, apple.strokeColors);
+    assert.deepEqual(fitted.completionGroups.flat(), fitted.strokes.map((_, index) => index));
+  });
 });
 
 test('custom number and letter sets retain enough unique exercises for a full round', () => {
@@ -68,8 +98,18 @@ test('practice view keeps only the board and compact top-bar actions', () => {
   assert.doesNotMatch(html, /id="task-mode"/);
   assert.doesNotMatch(html, /id="task-title"/);
   assert.doesNotMatch(html, /id="reference-chip"/);
-  assert.match(html, /class="practice-actions"[\s\S]*id="clear-button"[\s\S]*id="show-button"/);
+  assert.match(html, /id="previous-task-button"[\s\S]*id="progress-dots"[\s\S]*id="next-task-button"/);
+  assert.match(html, /class="practice-actions"[\s\S]*id="clear-button"[\s\S]*id="undo-button"[\s\S]*id="show-button"/);
+  assert.match(html, /id="show-button"[\s\S]*assets\/fox-face\.svg/);
   assert.match(styles, /\.practice-layout\s*\{\s*display:\s*flex;\s*flex:\s*1 1 auto;/s);
+});
+
+test('the home screen shows the current app version discreetly', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  const packageVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
+  assert.ok(html.includes(`class="app-version" aria-label="App-Version ${packageVersion}">v${packageVersion}</small>`));
+  assert.match(styles, /\.app-version\s*\{[^}]*opacity:\s*\.5/s);
 });
 
 test('lowercase letters are included in the regular 100-exercise letter bank', () => {

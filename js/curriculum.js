@@ -51,7 +51,11 @@ function makeTask({
   layout = '',
   completionGroups = [strokes.map((_, index) => index)],
   angularStrokes = [],
+  strokeColors = [],
 }) {
+  const plannedStrokeColors = strokeColors.length
+    ? strokes.map((_, index) => strokeColors[index] ?? null)
+    : [];
   return Object.freeze({
     id,
     category,
@@ -67,6 +71,7 @@ function makeTask({
     layout,
     completionGroups: Object.freeze(completionGroups.map((group) => Object.freeze([...group]))),
     angularStrokes: Object.freeze([...angularStrokes]),
+    strokeColors: Object.freeze(plannedStrokeColors),
   });
 }
 
@@ -139,6 +144,19 @@ const lineTemplates = [
     )], complexity: 3,
   }),
 ];
+
+const PICTURE_INK = Object.freeze({
+  blue: '#3F8FC2',
+  brown: '#A86C43',
+  charcoal: '#475467',
+  cream: '#E9C982',
+  green: '#58A765',
+  orange: '#E88942',
+  pink: '#D65E94',
+  purple: '#8D68B8',
+  red: '#D96450',
+  yellow: '#E4AE21',
+});
 
 const shapeTemplates = [
   makeTask({
@@ -225,6 +243,86 @@ const shapeTemplates = [
   makeTask({
     id: 'shape-rocket', category: 'shapes', title: 'Rakete', speech: 'Male eine Rakete.', label: 'Rakete',
     strokes: [poly([0.5, 0.12], [0.7, 0.38], [0.66, 0.72], [0.5, 0.86], [0.34, 0.72], [0.3, 0.38], [0.5, 0.12]), arc(0.5, 0.46, 0.07, 0.07, -90, 270, 20), poly([0.42, 0.76], [0.34, 0.88]), poly([0.58, 0.76], [0.66, 0.88])], complexity: 3, angularStrokes: [0, 2, 3],
+  }),
+  makeTask({
+    id: 'shape-tree', category: 'shapes', title: 'Baum', speech: 'Male einen Baum mit Stamm und Krone.', label: 'Baum',
+    strokes: [poly([0.5, 0.84], [0.5, 0.55]), poly([0.5, 0.16], [0.27, 0.58], [0.73, 0.58], [0.5, 0.16]), poly([0.2, 0.84], [0.8, 0.84])],
+    complexity: 3, angularStrokes: [0, 1, 2], strokeColors: [PICTURE_INK.brown, PICTURE_INK.green, PICTURE_INK.green],
+  }),
+  makeTask({
+    id: 'shape-ice-cream', category: 'shapes', title: 'Eis', speech: 'Male eine Kugel Eis in einer Waffel.', label: 'Eis',
+    strokes: [arc(0.5, 0.36, 0.22, 0.2, 180, 360, 28), poly([0.28, 0.36], [0.72, 0.36], [0.5, 0.84], [0.28, 0.36]), poly([0.36, 0.45], [0.64, 0.68]), poly([0.64, 0.45], [0.36, 0.68])],
+    complexity: 3, angularStrokes: [1, 2, 3], strokeColors: [PICTURE_INK.pink, PICTURE_INK.brown, PICTURE_INK.cream, PICTURE_INK.cream],
+  }),
+  makeTask({
+    id: 'shape-rainbow', category: 'shapes', title: 'Regenbogen', speech: 'Male drei bunte Bögen.', label: 'Regenbogen',
+    strokes: [arc(0.5, 0.76, 0.34, 0.47, 180, 360, 28), arc(0.5, 0.76, 0.25, 0.36, 180, 360, 28), arc(0.5, 0.76, 0.16, 0.25, 180, 360, 24)],
+    complexity: 3, strokeColors: [PICTURE_INK.red, PICTURE_INK.yellow, PICTURE_INK.blue],
+  }),
+  makeTask({
+    id: 'shape-car', category: 'shapes', title: 'Auto', speech: 'Male ein Auto mit Rädern.', label: 'Auto',
+    strokes: [poly([0.16, 0.7], [0.28, 0.48], [0.63, 0.48], [0.82, 0.63], [0.82, 0.76], [0.16, 0.76], [0.16, 0.7]), arc(0.33, 0.76, 0.1, 0.1, 0, 360, 20), arc(0.68, 0.76, 0.1, 0.1, 0, 360, 20), poly([0.34, 0.5], [0.58, 0.5], [0.68, 0.62], [0.28, 0.62], [0.34, 0.5])],
+    complexity: 3, angularStrokes: [0, 3], strokeColors: [PICTURE_INK.red, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.blue],
+  }),
+  makeTask({
+    id: 'shape-butterfly', category: 'shapes', title: 'Schmetterling', speech: 'Male einen Schmetterling mit Flügeln.', label: 'Schmetterling',
+    strokes: [arc(0.37, 0.48, 0.16, 0.27, -90, 270, 28), arc(0.63, 0.48, 0.16, 0.27, -90, 270, 28), poly([0.5, 0.18], [0.5, 0.78]), poly([0.5, 0.22], [0.42, 0.12]), poly([0.5, 0.22], [0.58, 0.12])],
+    complexity: 3, angularStrokes: [2, 3, 4], strokeColors: [PICTURE_INK.purple, PICTURE_INK.purple, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal],
+  }),
+  makeTask({
+    id: 'shape-snail', category: 'shapes', title: 'Schnecke', speech: 'Male eine Schnecke mit Haus und Fühlern.', label: 'Schnecke',
+    strokes: [arc(0.4, 0.5, 0.2, 0.2, -90, 270, 30), bezier(p(0.18, 0.68), p(0.46, 0.77), p(0.77, 0.75), p(0.8, 0.58), 28), poly([0.8, 0.58], [0.74, 0.44]), poly([0.8, 0.58], [0.87, 0.45])],
+    complexity: 3, angularStrokes: [2, 3], strokeColors: [PICTURE_INK.purple, PICTURE_INK.green, PICTURE_INK.green, PICTURE_INK.green],
+  }),
+  makeTask({
+    id: 'shape-umbrella', category: 'shapes', title: 'Regenschirm', speech: 'Male einen Regenschirm mit Griff.', label: 'Regenschirm',
+    strokes: [arc(0.5, 0.5, 0.32, 0.25, 180, 360, 28), join(poly([0.5, 0.5], [0.5, 0.76]), bezier(p(0.5, 0.76), p(0.5, 0.88), p(0.65, 0.88), p(0.63, 0.76), 16)), poly([0.5, 0.5], [0.35, 0.5]), poly([0.5, 0.5], [0.65, 0.5])],
+    complexity: 3, angularStrokes: [2, 3], strokeColors: [PICTURE_INK.blue, PICTURE_INK.charcoal, PICTURE_INK.blue, PICTURE_INK.blue],
+  }),
+  makeTask({
+    id: 'shape-mushroom', category: 'shapes', title: 'Pilz', speech: 'Male einen Pilz mit Hut und Stiel.', label: 'Pilz',
+    strokes: [arc(0.5, 0.46, 0.27, 0.21, 180, 360, 28), poly([0.23, 0.46], [0.77, 0.46]), poly([0.43, 0.46], [0.38, 0.82], [0.62, 0.82], [0.57, 0.46])],
+    complexity: 3, angularStrokes: [1, 2], strokeColors: [PICTURE_INK.red, PICTURE_INK.red, PICTURE_INK.cream],
+  }),
+  makeTask({
+    id: 'shape-bird', category: 'shapes', title: 'Vogel', speech: 'Male einen Vogel mit Flügel und Schnabel.', label: 'Vogel',
+    strokes: [arc(0.44, 0.52, 0.26, 0.18, -90, 270, 28), arc(0.44, 0.52, 0.12, 0.08, 180, 540, 20), poly([0.68, 0.52], [0.83, 0.57], [0.68, 0.62], [0.68, 0.52])],
+    complexity: 3, angularStrokes: [2], strokeColors: [PICTURE_INK.blue, PICTURE_INK.purple, PICTURE_INK.orange],
+  }),
+  makeTask({
+    id: 'shape-present', category: 'shapes', title: 'Geschenk', speech: 'Male ein Geschenk mit Schleife.', label: 'Geschenk',
+    strokes: [poly([0.22, 0.36], [0.78, 0.36], [0.78, 0.8], [0.22, 0.8], [0.22, 0.36]), poly([0.5, 0.36], [0.5, 0.8]), poly([0.22, 0.56], [0.78, 0.56]), join(bezier(p(0.5, 0.36), p(0.34, 0.12), p(0.21, 0.28), p(0.5, 0.42), 18), bezier(p(0.5, 0.42), p(0.79, 0.28), p(0.66, 0.12), p(0.5, 0.36), 18))],
+    complexity: 3, angularStrokes: [0, 1, 2], strokeColors: [PICTURE_INK.blue, PICTURE_INK.yellow, PICTURE_INK.yellow, PICTURE_INK.pink],
+  }),
+  makeTask({
+    id: 'shape-crown', category: 'shapes', title: 'Krone', speech: 'Male eine Krone mit drei Spitzen.', label: 'Krone',
+    strokes: [poly([0.22, 0.72], [0.78, 0.72], [0.78, 0.82], [0.22, 0.82], [0.22, 0.72]), poly([0.22, 0.72], [0.3, 0.3], [0.5, 0.58], [0.7, 0.3], [0.78, 0.72]), poly([0.22, 0.78], [0.78, 0.78])],
+    complexity: 3, angularStrokes: [0, 1, 2], strokeColors: [PICTURE_INK.yellow, PICTURE_INK.yellow, PICTURE_INK.pink],
+  }),
+  makeTask({
+    id: 'shape-castle', category: 'shapes', title: 'Burg', speech: 'Male eine Burg mit Türmen und Fahnen.', label: 'Burg',
+    strokes: [poly([0.2, 0.8], [0.2, 0.42], [0.34, 0.42], [0.34, 0.3], [0.46, 0.3], [0.46, 0.42], [0.54, 0.42], [0.54, 0.22], [0.66, 0.22], [0.66, 0.42], [0.8, 0.42], [0.8, 0.8], [0.2, 0.8]), arc(0.5, 0.8, 0.08, 0.15, 180, 360, 18), poly([0.34, 0.3], [0.34, 0.16], [0.44, 0.2]), poly([0.66, 0.22], [0.66, 0.1], [0.76, 0.14])],
+    complexity: 3, angularStrokes: [0, 2, 3], strokeColors: [PICTURE_INK.red, PICTURE_INK.brown, PICTURE_INK.yellow, PICTURE_INK.yellow],
+  }),
+  makeTask({
+    id: 'shape-train', category: 'shapes', title: 'Zug', speech: 'Male einen Zug mit Rädern.', label: 'Zug',
+    strokes: [poly([0.15, 0.7], [0.15, 0.52], [0.64, 0.52], [0.64, 0.4], [0.76, 0.4], [0.76, 0.7], [0.15, 0.7]), arc(0.3, 0.7, 0.09, 0.09, 0, 360, 18), arc(0.62, 0.7, 0.09, 0.09, 0, 360, 18), poly([0.58, 0.52], [0.58, 0.3], [0.7, 0.3], [0.7, 0.52]), poly([0.28, 0.54], [0.46, 0.54], [0.46, 0.64], [0.28, 0.64], [0.28, 0.54])],
+    complexity: 3, angularStrokes: [0, 3, 4], strokeColors: [PICTURE_INK.red, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.orange, PICTURE_INK.blue],
+  }),
+  makeTask({
+    id: 'shape-planet', category: 'shapes', title: 'Planet', speech: 'Male einen Planeten mit Ring.', label: 'Planet',
+    strokes: [arc(0.5, 0.5, 0.22, 0.22, -90, 270, 28), arc(0.5, 0.5, 0.36, 0.13, 0, 360, 30), arc(0.45, 0.45, 0.07, 0.05, -90, 270, 16)],
+    complexity: 3, strokeColors: [PICTURE_INK.blue, PICTURE_INK.purple, PICTURE_INK.cream],
+  }),
+  makeTask({
+    id: 'shape-apple', category: 'shapes', title: 'Apfel', speech: 'Male einen Apfel mit Blatt.', label: 'Apfel',
+    strokes: [join(bezier(p(0.5, 0.3), p(0.32, 0.18), p(0.2, 0.46), p(0.3, 0.7), 22), bezier(p(0.3, 0.7), p(0.42, 0.93), p(0.58, 0.93), p(0.7, 0.7), 22), bezier(p(0.7, 0.7), p(0.84, 0.45), p(0.68, 0.18), p(0.5, 0.3), 22)), bezier(p(0.5, 0.28), p(0.66, 0.09), p(0.78, 0.21), p(0.6, 0.33), 18), poly([0.5, 0.3], [0.45, 0.16])],
+    complexity: 3, angularStrokes: [2], strokeColors: [PICTURE_INK.red, PICTURE_INK.green, PICTURE_INK.brown],
+  }),
+  makeTask({
+    id: 'shape-bee', category: 'shapes', title: 'Biene', speech: 'Male eine Biene mit Flügeln und Streifen.', label: 'Biene',
+    strokes: [arc(0.5, 0.56, 0.18, 0.24, -90, 270, 28), poly([0.34, 0.47], [0.66, 0.47]), poly([0.32, 0.62], [0.68, 0.62]), arc(0.37, 0.38, 0.14, 0.1, 0, 360, 20), arc(0.63, 0.38, 0.14, 0.1, 0, 360, 20)],
+    complexity: 3, angularStrokes: [1, 2], strokeColors: [PICTURE_INK.yellow, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.blue, PICTURE_INK.blue],
   }),
 ];
 
@@ -698,6 +796,7 @@ function variantBank(category, templates, layouts) {
     family: category,
     layout: key,
     angularStrokes: template.angularStrokes,
+    strokeColors: template.strokeColors,
   }))));
 }
 
@@ -950,10 +1049,10 @@ export function createNameExerciseBank(rawName) {
 }
 
 const mixedBank = Object.freeze([
-  ...lineBank.slice(0, 30),
+  ...lineBank.slice(0, 22),
   ...shapeBank,
-  ...numberBank.slice(0, 25),
-  ...letterBank.slice(0, 25),
+  ...numberBank.slice(0, 21),
+  ...letterBank.slice(0, 21),
 ].map((task) => makeTask({ ...task, id: `mixed-${task.id}`, family: task.family })));
 
 export const EXERCISE_BANKS = Object.freeze({ lines: lineBank, shapes: shapeBank, numbers: numberBank, letters: letterBank, mixed: mixedBank });
@@ -1122,6 +1221,7 @@ export function adaptTaskToViewport(task, viewport) {
   }
   const strokes = [];
   const completionGroups = [];
+  const strokeColors = [];
   const sourceToTarget = new Map();
 
   groupIndexes.forEach((groupIndex, visibleIndex) => {
@@ -1131,6 +1231,7 @@ export function adaptTaskToViewport(task, viewport) {
     const firstStroke = strokes.length;
     sourceIndexes.forEach((strokeIndex, index) => sourceToTarget.set(strokeIndex, firstStroke + index));
     strokes.push(...fitted);
+    strokeColors.push(...sourceIndexes.map((strokeIndex) => task.strokeColors?.[strokeIndex] ?? null));
     completionGroups.push(fitted.map((_, index) => firstStroke + index));
   });
 
@@ -1143,6 +1244,7 @@ export function adaptTaskToViewport(task, viewport) {
     label: displayedSymbols || task.label,
     strokes: Object.freeze(strokes.map((stroke) => Object.freeze(stroke))),
     completionGroups: Object.freeze(completionGroups.map((group) => Object.freeze(group))),
+    strokeColors: Object.freeze(strokeColors),
     angularStrokes: Object.freeze((task.angularStrokes ?? [])
       .filter((index) => sourceToTarget.has(index))
       .map((index) => sourceToTarget.get(index))),

@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   demoStageAtProgress,
+  DEMO_SPEED_MULTIPLIER,
   drawingBounds,
   evaluateDrawing,
   feedbackForEvaluation,
+  GUIDE_STYLES,
   inkColorAt,
   INK_COLORS,
   guideStagesForTask,
@@ -209,4 +211,17 @@ test('each new pen stroke receives a different friendly ink color', () => {
   for (let index = 0; index < INK_COLORS.length * 2; index += 1) {
     assert.notEqual(inkColorAt(index), inkColorAt(index + 1));
   }
+});
+
+test('dotted helper paths stay clearly visible at every difficulty', () => {
+  assert.deepEqual(Object.keys(GUIDE_STYLES), ['easy', 'medium', 'hard']);
+  assert.ok(GUIDE_STYLES.easy.alpha >= 0.75);
+  assert.ok(GUIDE_STYLES.medium.alpha >= 0.65);
+  assert.ok(GUIDE_STYLES.hard.alpha >= 0.55);
+  assert.ok(GUIDE_STYLES.easy.alpha > GUIDE_STYLES.medium.alpha);
+  assert.ok(GUIDE_STYLES.medium.alpha > GUIDE_STYLES.hard.alpha);
+});
+
+test('Fino previews are set to one-and-a-half times the former speed', () => {
+  assert.equal(DEMO_SPEED_MULTIPLIER, 1.5);
 });

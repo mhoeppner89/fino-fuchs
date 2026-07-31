@@ -75,3 +75,25 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Rebuilt the guide centre lines for all A–Z, a–z and 0–9. The routes now follow the companion guide font's published start dots, direction and pen lifts: e.g. 1 is a single slanted downstroke, 7 has no crossbar, and 9 is a top loop followed by a descending tail. Fino already follows first points and jumps between separate paths, so the teaching route is now used directly in the game without adding screen clutter or voice-over.
 - Added regression checks for Kiwi's M/i construction and the distinctive 1, 7 and 9 forms; updated the source attribution in the README.
 - Verification: `npm test` passes 48 of 48; `git diff --check` passes. The required Playwright game-client smoke check showed the live dotted guide with Fino and no browser console errors. A separate local contact-sheet render visually inspected every rebuilt uppercase, lowercase and digit guide with no rendering errors.
+
+## 2026-07-31 helper contrast and version follow-up
+
+- Added a deliberately quiet `v1.0.22` label beside the privacy note on the home screen. The service-worker cache version now matches, so installed copies can receive the update.
+- Strengthened the dotted guide colour and opacity at all three difficulty levels. The path stays clearly visible on a light board; difficulty still comes from the drawing assessment rather than from hiding the guide.
+- Verification: `npm test` passes 50 of 50 and `git diff --check` passes. Local browser screenshots visually confirmed the home-screen version label and a high-contrast dotted guide with Fino; the Playwright smoke run recorded no console errors.
+
+## 2026-07-31 multistage picture shapes follow-up
+
+- Added 16 genuinely different picture tasks to Formen: Baum, Eis, Regenbogen, Auto, Schmetterling, Schnecke, Regenschirm, Pilz, Vogel, Geschenk, Krone, Burg, Zug, Planet, Apfel, and Biene. The shapes bank now has 36 distinct drawings, without size, position, or mirror duplicates.
+- Every new picture has at least three simple marks. Fino reveals them in calm two-mark stages; the completed dotted marks remain visible as the next stage appears.
+- Added planned per-stroke colours. Picture guides show these colours, and the child's ink uses the same planned colour for the next unfinished path. Responsive reflow keeps colours matched to their shapes.
+- Kept the mixed bank at 100 unique tasks while including the expanded shape collection. Bumped the app and offline cache to `v1.0.23`.
+- Verification: `npm test` passes 52 of 52; `git diff --check` passes. Browser checks visually confirmed staged and coloured Apple/Car drawings and a finished red-yellow-blue Rainbow, with no console errors. The required Playwright game-client smoke run also completed without console errors.
+
+## 2026-07-31 round controls and one-stroke preview follow-up
+
+- Added previous and next buttons directly beside the round progress. Next skips without marking an exercise as completed; back returns to the prior task. Completed dots remain accurate even if a child revisits a task.
+- Replaced the top-right tools with a trash can for clearing everything, a curved undo arrow for the last stroke, and Fino's face for showing the route again.
+- Fino now demonstrates precisely one unfinished stroke, then waits. After the child finishes that mark, he previews the next one. Preview speed is 1.5× the previous speed (50% faster), with matching shorter duration bounds.
+- Bumped the app and offline cache to `v1.0.24`.
+- Verification: `npm test` passes 53 of 53; browser interaction checks confirm skip/back, undo, clear, one-stroke initial preview, and the next-stroke preview after child progress. Both desktop and 390×844 phone screenshots fit the complete header without browser errors. The required game-client smoke run completed without console errors.

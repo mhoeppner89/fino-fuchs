@@ -36,11 +36,14 @@ const elements = {
   startButton: $('#start-button'),
   soundButtons: $$('.sound-button'),
   exitButton: $('#exit-button'),
+  previousTaskButton: $('#previous-task-button'),
+  nextTaskButton: $('#next-task-button'),
   progressDots: $('#progress-dots'),
   progressText: $('#progress-text'),
   drawingCanvas: $('#drawing-canvas'),
   canvasHint: $('#canvas-hint'),
   clearButton: $('#clear-button'),
+  undoButton: $('#undo-button'),
   showButton: $('#show-button'),
   finishSummary: $('#finish-summary'),
   repeatButton: $('#repeat-button'),
@@ -63,12 +66,15 @@ const state = {
   activeTask: null,
   index: 0,
   completed: 0,
+  completedIndexes: new Set(),
   attempts: 0,
   currentSpeech: '',
   transitioning: false,
   screen: 'home',
   toastTimer: 0,
   autoCheckTimer: 0,
+  previewTimer: 0,
+  previewedStrokeIndex: null,
   taskToken: 0,
 };
 
@@ -202,7 +208,7 @@ function updateProgress() {
   elements.progressDots.innerHTML = '';
   state.session.forEach((_, index) => {
     const dot = document.createElement('span');
-    if (index < state.index) dot.classList.add('is-complete');
+    if (state.completedIndexes.has(index)) dot.classList.add('is-complete');
     if (index === state.index) dot.classList.add('is-current');
     elements.progressDots.append(dot);
   });
@@ -212,6 +218,45 @@ function updateProgress() {
 function clearAutoCheck() {
   window.clearTimeout(state.autoCheckTimer);
   state.autoCheckTimer = 0;
+}
+
+function clearPreview() {
+  window.clearTimeout(state.previewTimer);
+  state.previewTimer = 0;
+}
+
+function updateRoundControls() {
+  const hasTask = Boolean(state.activeTask);
+  const hasInk = board.hasInk();
+  const disabled = state.transitioning || !hasTask;
+  elements.previousTaskButton.disabled = disabled || state.index === 0;
+  elements.nextTaskButton.disabled = disabled || state.index >= state.session.length - 1;
+  elements.clearButton.disabled = disabled || !hasInk;
+  elements.undoButton.disabled = disabled || !hasInk;
+  elements.showButton.disabled = disabled;
+}
+
+async function previewCurrentStroke({ force = false } = {}) {
+  if (state.transitioning || state.screen !== 'practice' || !state.activeTask) return false;
+  const strokeIndex = board.nextGuideStrokeIndex();
+  if (!force && state.previewedStrokeIndex === strokeIndex) return false;
+  state.previewedStrokeIndex = strokeIndex;
+  updateRoundControls();
+  elements.showButton.disabled = true;
+  await board.startDemo();
+  if (!state.transitioning) updateRoundControls();
+  return true;
+}
+
+function scheduleNextStrokePreview() {
+  clearPreview();
+  const taskToken = state.taskToken;
+  const strokeIndex = board.nextGuideStrokeIndex();
+  if (state.previewedStrokeIndex === strokeIndex) return;
+  state.previewTimer = window.setTimeout(() => {
+    state.previewTimer = 0;
+    if (state.taskToken === taskToken && state.screen === 'practice' && !state.transitioning) previewCurrentStroke();
+  }, 180);
 }
 
 function scheduleAutoCheck() {
@@ -241,21 +286,22 @@ async function renderTask() {
 
   state.attempts = 0;
   clearAutoCheck();
+  clearPreview();
   state.transitioning = false;
+  state.previewedStrokeIndex = null;
   state.taskToken += 1;
   const token = state.taskToken;
   updateProgress();
   elements.drawingCanvas.setAttribute('aria-label', `Zeichenfläche für ${task.title}. Zeichne mit Finger oder Stift.`);
-  elements.clearButton.disabled = false;
-  elements.showButton.disabled = false;
   elements.canvasHint.classList.add('is-hidden');
   board.setTask(task, task.assist);
+  updateRoundControls();
 
   const shouldDemo = task.assist === 'easy' || (state.index === 0 && task.assist === 'medium');
   if (shouldDemo) {
     window.setTimeout(async () => {
       if (token !== state.taskToken || state.screen !== 'practice' || board.hasInk()) return;
-      await board.startDemo();
+      await previewCurrentStroke();
     }, 320);
   }
 }
@@ -291,6 +337,7 @@ function beginSession() {
 
   state.index = 0;
   state.completed = 0;
+  state.completedIndexes = new Set();
   state.attempts = 0;
   state.transitioning = false;
   state.session = [];
@@ -334,7 +381,9 @@ function makeConfetti() {
 
 function celebrate(message, { gentle = false } = {}) {
   clearAutoCheck();
+  clearPreview();
   state.transitioning = true;
+  updateRoundControls();
   elements.successText.textContent = message;
   makeConfetti();
   elements.successOverlay.hidden = false;
@@ -344,7 +393,8 @@ function celebrate(message, { gentle = false } = {}) {
   const delay = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 320 : 650;
   window.setTimeout(() => {
     elements.successOverlay.hidden = true;
-    state.completed += 1;
+    state.completedIndexes.add(state.index);
+    state.completed = state.completedIndexes.size;
     state.index += 1;
     if (state.index >= state.session.length) {
       finishSession();
@@ -365,21 +415,20 @@ function checkDrawing({ quietIncomplete = false } = {}) {
   const passed = passCriteria(result, task.assist, task);
 
   if (passed) {
-    elements.clearButton.disabled = true;
-    elements.showButton.disabled = true;
     celebrate(praise[Math.floor(Math.random() * praise.length)]);
     return { passed: true, result };
   }
 
   // A partial multi-stroke drawing is progress, not a failed attempt. The
   // visible stage and Fino already point to the next missing part.
-  if (quietIncomplete && !result.allRequired) return { passed: false, result, inProgress: true };
+  if (quietIncomplete && !result.allRequired) {
+    scheduleNextStrokePreview();
+    return { passed: false, result, inProgress: true };
+  }
 
   state.attempts += 1;
   const nearPass = state.attempts >= 3 && passCriteria(result, task.assist, task, 0.04);
   if (nearPass) {
-    elements.clearButton.disabled = true;
-    elements.showButton.disabled = true;
     celebrate('Gut probiert!', { gentle: true });
     return { passed: true, result, gentle: true };
   }
@@ -391,6 +440,7 @@ function checkDrawing({ quietIncomplete = false } = {}) {
 function finishSession() {
   if (state.screen === 'finish') return;
   clearAutoCheck();
+  clearPreview();
   state.taskToken += 1;
   state.transitioning = false;
   elements.successOverlay.hidden = true;
@@ -404,6 +454,7 @@ function finishSession() {
 
 function returnHome() {
   clearAutoCheck();
+  clearPreview();
   state.taskToken += 1;
   state.transitioning = false;
   elements.successOverlay.hidden = true;
@@ -426,6 +477,7 @@ function closeExitModal() {
 const board = new DrawingBoard(elements.drawingCanvas, {
   onInkChange(hasInk) {
     elements.canvasHint.classList.add('is-hidden');
+    updateRoundControls();
   },
   onStrokeStart() {
     clearAutoCheck();
@@ -484,15 +536,30 @@ elements.letterSet.addEventListener('input', () => {
 });
 
 elements.clearButton.addEventListener('click', () => {
+  clearPreview();
+  state.previewedStrokeIndex = null;
   board.clear();
 });
 
 elements.showButton.addEventListener('click', async () => {
-  if (state.transitioning) return;
-  elements.showButton.disabled = true;
-  await board.startDemo();
-  if (!state.transitioning) elements.showButton.disabled = false;
+  await previewCurrentStroke({ force: true });
 });
+
+elements.undoButton.addEventListener('click', () => {
+  clearPreview();
+  board.undoLastStroke();
+});
+
+function goToTask(index) {
+  if (state.transitioning || index < 0 || index >= state.session.length || index === state.index) return;
+  clearAutoCheck();
+  clearPreview();
+  state.index = index;
+  renderTask();
+}
+
+elements.previousTaskButton.addEventListener('click', () => goToTask(state.index - 1));
+elements.nextTaskButton.addEventListener('click', () => goToTask(state.index + 1));
 
 elements.exitButton.addEventListener('click', openExitModal);
 elements.continueButton.addEventListener('click', closeExitModal);
@@ -522,9 +589,9 @@ window.render_game_to_text = () => JSON.stringify({
   screen: state.screen,
   category: state.category,
   selection: selectedOption(),
-  progress: { completed: state.completed, current: state.index + 1, total: state.session.length },
+  progress: { completed: state.completed, current: state.index + 1, total: state.session.length, canGoBack: state.index > 0, canSkip: state.index < state.session.length - 1 },
   task: state.activeTask
-    ? { id: state.activeTask.id, title: state.activeTask.title, expectedStrokes: state.activeTask.strokes.length, layout: state.activeTask.layout, viewport: state.activeTask.viewport }
+    ? { id: state.activeTask.id, title: state.activeTask.title, expectedStrokes: state.activeTask.strokes.length, expectedStrokeColors: state.activeTask.strokeColors, layout: state.activeTask.layout, viewport: state.activeTask.viewport }
     : null,
   assist: state.activeTask?.assist ?? null,
   userStrokes: board.getUserStrokes().length,
@@ -554,6 +621,7 @@ if (new URLSearchParams(location.search).has('test')) {
         id: task.id,
         strokes: task.strokes,
         completionGroups: task.completionGroups,
+        strokeColors: task.strokeColors,
       } : null;
     },
     solveCurrent() {

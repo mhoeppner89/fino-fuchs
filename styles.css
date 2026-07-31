@@ -696,6 +696,19 @@ p {
   color: var(--ink-soft);
   font-size: .8rem;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .55rem;
+}
+
+.app-version {
+  color: var(--ink-soft);
+  font-size: .7rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: .035em;
+  opacity: .5;
 }
 
 /* Practice */
@@ -745,11 +758,38 @@ p {
   opacity: .5;
 }
 
+.fino-tool-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
 .session-progress {
   min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
+}
+
+.round-nav-button {
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  border-radius: 12px !important;
+  background: #fff;
+  color: var(--ink);
+}
+
+.round-nav-button:disabled {
+  cursor: default;
+  opacity: .38;
+}
+
+.progress-status {
+  min-width: 0;
+  display: flex;
+  align-items: center;
   gap: 12px;
 }
 
@@ -1358,18 +1398,35 @@ p {
   }
 
   .practice-header .icon-button {
-    width: 42px;
-    height: 42px;
-    min-width: 42px;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+  }
+
+  .round-nav-button {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    border-radius: 11px !important;
+  }
+
+  .practice-actions {
+    gap: 5px;
+  }
+
+  .fino-tool-icon {
+    width: 28px;
+    height: 28px;
   }
 
   .progress-dots {
-    gap: 4px;
+    gap: 2px;
   }
 
   .progress-dots span {
-    width: 9px;
-    height: 9px;
+    width: 7px;
+    height: 7px;
+    border-width: 1px;
   }
 
   .progress-text {
@@ -1473,6 +1530,31 @@ p {
 }
 
 @media (max-width: 370px) {
+  .practice-header {
+    gap: 4px;
+  }
+
+  .practice-header .icon-button {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+  }
+
+  .round-nav-button {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+  }
+
+  .session-progress,
+  .progress-status {
+    gap: 3px;
+  }
+
+  .progress-dots span:not(.is-current) {
+    display: none;
+  }
+
   .practice-controls button span {
     display: none;
   }

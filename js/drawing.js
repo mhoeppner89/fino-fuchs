@@ -4,7 +4,15 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const DEMO_JUMP_UNITS = 0.42;
 const REQUIRED_PATH_COVERAGE = 0.66;
+export const DEMO_SPEED_MULTIPLIER = 1.5;
 export const INK_COLORS = Object.freeze(['#284B73', '#C75C7B', '#2A9D8F', '#9A63BA', '#DD8530']);
+// The guide remains easy to find at every difficulty. Difficulty comes from
+// scoring, not from making the practice path disappear into the background.
+export const GUIDE_STYLES = Object.freeze({
+  easy: Object.freeze({ width: 0.021, min: 10, max: 17, dash: [2, 22], alpha: 0.78, color: '#5BACC0' }),
+  medium: Object.freeze({ width: 0.015, min: 7, max: 12, dash: [9, 12], alpha: 0.68, color: '#69AFC0' }),
+  hard: Object.freeze({ width: 0.01, min: 5, max: 8, dash: [5, 13], alpha: 0.58, color: '#78ADBB' }),
+});
 
 export function inkColorAt(strokeIndex) {
   return INK_COLORS[strokeIndex % INK_COLORS.length];
@@ -647,6 +655,19 @@ export class DrawingBoard {
     this.hooks.onInkChange?.(false);
   }
 
+  undoLastStroke() {
+    if (!this.userStrokes.length) return false;
+    this.stopDemo({ render: false });
+    this.userStrokes.pop();
+    this.strokeColors.pop();
+    this.activeStroke = null;
+    this.jumpAnimation = null;
+    cancelAnimationFrame(this.jumpFrame);
+    this.render();
+    this.hooks.onInkChange?.(this.hasInk());
+    return true;
+  }
+
   hasInk() {
     return this.userStrokes.some((stroke) => stroke.length > 0);
   }
@@ -661,7 +682,7 @@ export class DrawingBoard {
 
   setUserStrokes(strokes) {
     this.userStrokes = strokes.map((stroke) => stroke.map((point) => ({ x: point.x, y: point.y, pressure: point.pressure ?? 0.5 })));
-    this.strokeColors = this.userStrokes.map((_, index) => inkColorAt(index));
+    this.strokeColors = this.userStrokes.map((_, index) => this.task?.strokeColors?.[index] ?? inkColorAt(index));
     this.render();
     this.hooks.onInkChange?.(this.hasInk());
   }
@@ -728,19 +749,20 @@ export class DrawingBoard {
   }
 
   startDemo() {
-    if (!this.task || this.demoProgress !== null || this.hasInk()) return Promise.resolve();
+    if (!this.task || this.demoProgress !== null) return Promise.resolve();
     this.jumpAnimation = null;
     cancelAnimationFrame(this.jumpFrame);
-    this.demoStrokeIndexes = [...this.activeGuideStrokeIndexes()];
+    // Fino demonstrates one mark, then leaves the next turn to the child.
+    this.demoStrokeIndexes = [this.nextGuideStrokeIndex()];
     const demoStrokes = this.demoStrokeIndexes.map((index) => this.task.strokes[index]);
     if (!demoStrokes.length) return Promise.resolve();
     this.demoProgress = 0;
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    // Pace the helper by distance, not stroke count. It stays calm for a
-    // detailed picture and only demonstrates the currently visible stage.
+    // Pace the helper by distance, not stroke count. The 1.5× multiplier
+    // makes every preview exactly 50% faster while keeping it readable.
     const pathLength = demoStrokes.reduce((sum, stroke) => sum + polylineLength(stroke, this.width, this.height), 0);
-    const demoSpeed = clamp(drawingBounds(this.width, this.height).height * 0.55, 70, 140);
-    const duration = reducedMotion ? 240 : clamp((pathLength / demoSpeed) * 1000, 900, 4600);
+    const demoSpeed = clamp(drawingBounds(this.width, this.height).height * 0.55, 70, 140) * DEMO_SPEED_MULTIPLIER;
+    const duration = reducedMotion ? 160 : clamp((pathLength / demoSpeed) * 1000, 600, 3067);
     const startedAt = performance.now();
 
     return new Promise((resolve) => {
@@ -823,10 +845,11 @@ export class DrawingBoard {
     this.stopDemo({ render: false });
     if (!demoPosition) this.jumpAnimation = null;
     cancelAnimationFrame(this.jumpFrame);
+    const guideStrokeIndex = this.nextGuideStrokeIndex();
     this.activePointerId = event.pointerId;
     this.activeStroke = [point];
     this.userStrokes.push(this.activeStroke);
-    this.strokeColors.push(inkColorAt(this.userStrokes.length - 1));
+    this.strokeColors.push(this.task.strokeColors?.[guideStrokeIndex] ?? inkColorAt(this.userStrokes.length - 1));
     if (demoPosition) this.animateFoxJump(demoPosition, toPixels(point, this.width, this.height), { maxDuration: 220 });
     this.canvas.setPointerCapture?.(event.pointerId);
     this.hooks.onStrokeStart?.();
@@ -1117,17 +1140,16 @@ export class DrawingBoard {
       const guideIndexes = this.visibleGuideStrokeIndexes();
       const visibleStrokes = guideIndexes.map((index) => this.task.strokes[index]);
       const bounds = drawingBounds(this.width, this.height);
-      const guideStyle = {
-        easy: { width: 0.021, min: 10, max: 17, dash: [2, 22], alpha: 0.45, color: '#B9D8DE' },
-        medium: { width: 0.015, min: 7, max: 12, dash: [9, 12], alpha: 0.34, color: '#C9D6E2' },
-        hard: { width: 0.01, min: 5, max: 8, dash: [5, 13], alpha: 0.25, color: '#D0DAE5' },
-      }[this.assist];
-      this.drawStrokeSet(context, visibleStrokes, {
-        color: isHighlight ? '#F3B348' : guideStyle.color,
-        width: clamp(Math.min(bounds.width, bounds.height) * guideStyle.width, guideStyle.min, guideStyle.max),
-        dash: guideStyle.dash,
-        alpha: isHighlight ? 0.72 : guideStyle.alpha,
-        angularForStroke: (_, index) => this.isAngularGuide(guideIndexes[index]),
+      const guideStyle = GUIDE_STYLES[this.assist] ?? GUIDE_STYLES.easy;
+      visibleStrokes.forEach((stroke, index) => {
+        const guideIndex = guideIndexes[index];
+        this.drawStrokeSet(context, [stroke], {
+          color: isHighlight ? '#F3B348' : this.task.strokeColors?.[guideIndex] ?? guideStyle.color,
+          width: clamp(Math.min(bounds.width, bounds.height) * guideStyle.width, guideStyle.min, guideStyle.max),
+          dash: guideStyle.dash,
+          alpha: isHighlight ? 0.72 : guideStyle.alpha,
+          angularForStroke: () => this.isAngularGuide(guideIndex),
+        });
       });
 
       this.drawFoxForCurrentStroke(context);
