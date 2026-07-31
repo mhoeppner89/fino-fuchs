@@ -3,6 +3,11 @@
  * All coordinates are normalized to the drawing board (0..1).
  */
 
+import {
+  CHARACTER_STROKES,
+  CHARACTER_STROKE_GEOMETRY,
+} from './handwriting-stroke-data.js';
+
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));
 
@@ -326,62 +331,11 @@ const shapeTemplates = [
   }),
 ];
 
-// These centre lines are traced from Kiwi School Handwriting v3.0.  The
-// companion "with Guides" font supplies the start dots, route and pen lifts;
-// that order is what Fino demonstrates.  Keeping the guides as centre lines
-// gives children a forgiving path to follow instead of asking them to colour
-// in a typeface outline.
-const digitStrokes = {
-  '0': [join(
-    bezier(p(0.52, 0.13), p(0.29, 0.19), p(0.23, 0.62), p(0.4, 0.84), 22),
-    bezier(p(0.4, 0.84), p(0.62, 0.97), p(0.77, 0.54), p(0.63, 0.21), 22),
-    bezier(p(0.63, 0.21), p(0.59, 0.14), p(0.55, 0.13), p(0.52, 0.13), 10),
-  )],
-  // Kiwi's 1 is one deliberate, slightly left-leaning downstroke — no hook
-  // and no extra upright that could turn it into an L or an I.
-  '1': [poly([0.59, 0.16], [0.43, 0.84])],
-  '2': [join(
-    bezier(p(0.29, 0.23), p(0.45, 0.09), p(0.74, 0.12), p(0.73, 0.3), 20),
-    bezier(p(0.73, 0.3), p(0.71, 0.48), p(0.42, 0.63), p(0.26, 0.82), 22),
-    poly([0.26, 0.82], [0.76, 0.82]),
-  )],
-  '3': [join(
-    bezier(p(0.3, 0.22), p(0.46, 0.1), p(0.73, 0.13), p(0.71, 0.34), 20),
-    bezier(p(0.71, 0.34), p(0.69, 0.46), p(0.55, 0.5), p(0.45, 0.5), 12),
-    bezier(p(0.45, 0.5), p(0.68, 0.49), p(0.76, 0.6), p(0.71, 0.75), 18),
-    bezier(p(0.71, 0.75), p(0.64, 0.9), p(0.39, 0.9), p(0.27, 0.78), 20),
-  )],
-  '4': [
-    poly([0.6, 0.16], [0.27, 0.66], [0.78, 0.66]),
-    poly([0.61, 0.16], [0.52, 0.84]),
-  ],
-  '5': [join(
-    poly([0.75, 0.17], [0.35, 0.17], [0.29, 0.5]),
-    bezier(p(0.29, 0.5), p(0.48, 0.42), p(0.72, 0.47), p(0.72, 0.66), 20),
-    bezier(p(0.72, 0.66), p(0.74, 0.88), p(0.4, 0.92), p(0.25, 0.77), 20),
-  )],
-  '6': [join(
-    bezier(p(0.68, 0.2), p(0.55, 0.12), p(0.32, 0.2), p(0.28, 0.52), 22),
-    bezier(p(0.28, 0.52), p(0.23, 0.84), p(0.64, 0.92), p(0.72, 0.7), 22),
-    bezier(p(0.72, 0.7), p(0.79, 0.43), p(0.43, 0.39), p(0.28, 0.58), 22),
-  )],
-  // The reference 7 has only a top stroke and a descending diagonal; the
-  // former middle crossbar made it look like an unrelated character.
-  '7': [poly([0.26, 0.17], [0.78, 0.17], [0.38, 0.84])],
-  '8': [join(
-    bezier(p(0.6, 0.15), p(0.3, 0.12), p(0.23, 0.34), p(0.5, 0.5), 20),
-    bezier(p(0.5, 0.5), p(0.2, 0.67), p(0.29, 0.89), p(0.5, 0.88), 20),
-    bezier(p(0.5, 0.88), p(0.76, 0.87), p(0.8, 0.64), p(0.5, 0.5), 20),
-    bezier(p(0.5, 0.5), p(0.78, 0.36), p(0.75, 0.16), p(0.6, 0.15), 20),
-  )],
-  // Start at the upper-right loop, then let the tail fall cleanly below it.
-  // This makes a 9, not a mirrored g.
-  '9': [join(
-    bezier(p(0.68, 0.16), p(0.42, 0.06), p(0.22, 0.18), p(0.22, 0.38), 22),
-    bezier(p(0.22, 0.38), p(0.22, 0.62), p(0.6, 0.64), p(0.69, 0.45), 22),
-    bezier(p(0.69, 0.45), p(0.72, 0.64), p(0.63, 0.83), p(0.48, 0.92), 20),
-  )],
-};
+// Runtime geometry is extracted from the same approved pixels the child sees.
+// This one data set drives Fino, layout, and scoring.
+export const digitStrokes = Object.freeze(Object.fromEntries(
+  [...'0123456789'].map((digit) => [digit, CHARACTER_STROKES[digit]]),
+));
 
 const numberWords = ['Null', 'Eins', 'Zwei', 'Drei', 'Vier', 'Fünf', 'Sechs', 'Sieben', 'Acht', 'Neun'];
 const numberTemplates = Object.entries(digitStrokes).map(([digit, strokes]) => makeTask({
@@ -394,84 +348,28 @@ const numberTemplates = Object.entries(digitStrokes).map(([digit, strokes]) => m
   complexity: digit === '1' || digit === '0' ? 1 : Number(digit) <= 5 ? 2 : 3,
 }));
 
-const letterStrokes = {
-  A: [poly([0.2, 0.84], [0.54, 0.16]), poly([0.54, 0.16], [0.62, 0.84]), poly([0.34, 0.56], [0.6, 0.56])],
-  B: [poly([0.36, 0.16], [0.25, 0.84]), join(bezier(p(0.36, 0.16), p(0.76, 0.14), p(0.77, 0.42), p(0.3, 0.49), 24), bezier(p(0.3, 0.49), p(0.82, 0.48), p(0.76, 0.85), p(0.25, 0.84), 26))],
-  C: [arc(0.55, 0.5, 0.28, 0.36, -48, -312, 42)],
-  D: [poly([0.36, 0.16], [0.25, 0.84]), bezier(p(0.36, 0.16), p(0.82, 0.18), p(0.77, 0.78), p(0.25, 0.84), 38)],
-  E: [poly([0.36, 0.16], [0.25, 0.84], [0.74, 0.84]), poly([0.36, 0.16], [0.78, 0.16]), poly([0.31, 0.5], [0.67, 0.5])],
-  F: [poly([0.36, 0.16], [0.25, 0.84]), poly([0.36, 0.16], [0.77, 0.16]), poly([0.31, 0.5], [0.68, 0.5])],
-  G: [arc(0.55, 0.5, 0.28, 0.36, -48, -312, 42), poly([0.52, 0.55], [0.77, 0.55], [0.71, 0.75])],
-  H: [poly([0.35, 0.16], [0.25, 0.84]), poly([0.76, 0.16], [0.66, 0.84]), poly([0.3, 0.52], [0.71, 0.52])],
-  I: [poly([0.56, 0.16], [0.45, 0.84]), poly([0.4, 0.16], [0.7, 0.16]), poly([0.37, 0.84], [0.64, 0.84])],
-  J: [join(poly([0.62, 0.16], [0.5, 0.68]), bezier(p(0.5, 0.68), p(0.45, 0.91), p(0.17, 0.89), p(0.2, 0.76), 24))],
-  K: [poly([0.35, 0.16], [0.24, 0.84]), poly([0.76, 0.16], [0.3, 0.52]), poly([0.3, 0.52], [0.69, 0.84])],
-  L: [poly([0.36, 0.16], [0.25, 0.84], [0.75, 0.84])],
-  M: [poly([0.19, 0.84], [0.37, 0.16]), poly([0.37, 0.16], [0.52, 0.64], [0.68, 0.16], [0.79, 0.84])],
-  // An N has a diagonal that travels from top-left to bottom-right. Keep its
-  // three marks separate so the helper can show the natural pen lifts too.
-  N: [poly([0.37, 0.16], [0.25, 0.84]), poly([0.37, 0.16], [0.66, 0.84]), poly([0.66, 0.84], [0.77, 0.16])],
-  O: [arc(0.5, 0.5, 0.25, 0.36, -64, 296, 44)],
-  P: [poly([0.36, 0.16], [0.25, 0.84]), bezier(p(0.36, 0.16), p(0.78, 0.16), p(0.77, 0.5), p(0.3, 0.5), 32)],
-  Q: [arc(0.5, 0.48, 0.25, 0.34, -64, 296, 44), poly([0.55, 0.64], [0.78, 0.85])],
-  R: [poly([0.36, 0.16], [0.25, 0.84]), bezier(p(0.36, 0.16), p(0.78, 0.16), p(0.77, 0.5), p(0.3, 0.5), 32), poly([0.31, 0.5], [0.74, 0.84])],
-  S: [join(bezier(p(0.74, 0.23), p(0.58, 0.09), p(0.3, 0.15), p(0.29, 0.35), 22), bezier(p(0.29, 0.35), p(0.29, 0.52), p(0.7, 0.49), p(0.72, 0.68), 22), bezier(p(0.72, 0.68), p(0.75, 0.89), p(0.4, 0.91), p(0.23, 0.77), 22))],
-  T: [poly([0.22, 0.16], [0.78, 0.16]), poly([0.56, 0.16], [0.45, 0.84])],
-  U: [join(poly([0.35, 0.16], [0.26, 0.63]), bezier(p(0.26, 0.63), p(0.22, 0.91), p(0.66, 0.93), p(0.71, 0.65), 28), poly([0.71, 0.65], [0.78, 0.16]))],
-  V: [poly([0.23, 0.16], [0.5, 0.84], [0.77, 0.16])],
-  W: [poly([0.13, 0.16], [0.31, 0.84], [0.5, 0.4], [0.68, 0.84], [0.86, 0.16])],
-  X: [poly([0.24, 0.16], [0.75, 0.84]), poly([0.77, 0.16], [0.23, 0.84])],
-  Y: [poly([0.23, 0.16], [0.5, 0.52], [0.75, 0.16]), poly([0.5, 0.52], [0.29, 0.84])],
-  Z: [poly([0.24, 0.16], [0.79, 0.16], [0.25, 0.84], [0.78, 0.84])],
-};
-letterStrokes['Ä'] = [...letterStrokes.A, poly([0.36, 0.07], [0.4, 0.07]), poly([0.6, 0.07], [0.64, 0.07])];
-letterStrokes['Ö'] = [...letterStrokes.O, poly([0.36, 0.07], [0.4, 0.07]), poly([0.6, 0.07], [0.64, 0.07])];
-letterStrokes['Ü'] = [...letterStrokes.U, poly([0.36, 0.07], [0.4, 0.07]), poly([0.6, 0.07], [0.64, 0.07])];
+function addUmlautDots(baseStrokes) {
+  const bounds = boundsOf(baseStrokes);
+  const width = Math.max(0.018, bounds.maxX - bounds.minX);
+  const height = Math.max(0.04, bounds.maxY - bounds.minY);
+  const dotY = bounds.minY - Math.max(0.014, height * 0.13);
+  return [
+    ...baseStrokes,
+    [p(bounds.minX + width * 0.34, dotY)],
+    [p(bounds.minX + width * 0.7, dotY)],
+  ];
+}
 
-// Lowercase letters use the approved upright print model. Dots and crossbars
-// stay separate strokes so Fino can jump between the natural pen lifts.
-const lowerLetterStrokes = {
-  a: [join(arc(0.48, 0.56, 0.18, 0.18, -55, 305, 28), poly([0.58, 0.41], [0.64, 0.73]))],
-  b: [join(
-    poly([0.48, 0.16], [0.34, 0.72]),
-    bezier(p(0.34, 0.72), p(0.72, 0.8), p(0.76, 0.4), p(0.48, 0.4), 20),
-    bezier(p(0.48, 0.4), p(0.31, 0.42), p(0.3, 0.64), p(0.34, 0.72), 16),
-  )],
-  c: [arc(0.53, 0.56, 0.2, 0.18, -48, -312, 28)],
-  d: [arc(0.46, 0.56, 0.18, 0.18, -55, 305, 28), poly([0.69, 0.16], [0.58, 0.73])],
-  e: [join(bezier(p(0.3, 0.56), p(0.38, 0.35), p(0.69, 0.35), p(0.68, 0.53), 18), bezier(p(0.68, 0.53), p(0.55, 0.57), p(0.4, 0.58), p(0.3, 0.56), 12), bezier(p(0.3, 0.56), p(0.34, 0.8), p(0.67, 0.78), p(0.72, 0.64), 18))],
-  f: [join(bezier(p(0.61, 0.16), p(0.46, 0.15), p(0.43, 0.31), p(0.39, 0.8), 16)), poly([0.26, 0.45], [0.62, 0.45])],
-  g: [join(arc(0.48, 0.55, 0.18, 0.18, -55, 305, 28), bezier(p(0.58, 0.4), p(0.74, 0.78), p(0.58, 0.98), p(0.35, 0.92), 22))],
-  h: [poly([0.48, 0.16], [0.34, 0.73]), bezier(p(0.4, 0.49), p(0.51, 0.31), p(0.7, 0.38), p(0.63, 0.73), 28)],
-  i: [poly([0.54, 0.4], [0.47, 0.73]), poly([0.53, 0.25], [0.55, 0.25])],
-  j: [join(poly([0.56, 0.4], [0.48, 0.84]), bezier(p(0.48, 0.84), p(0.45, 0.98), p(0.24, 0.97), p(0.28, 0.84), 16)), poly([0.62, 0.25], [0.64, 0.25])],
-  k: [poly([0.48, 0.16], [0.34, 0.73]), poly([0.41, 0.51], [0.68, 0.35]), poly([0.41, 0.51], [0.66, 0.73])],
-  // A print l has one upright stroke and a small, friendly rightward exit at
-  // the baseline. It is not a loop and does not connect to another letter.
-  l: [join(
-    poly([0.5, 0.16], [0.5, 0.68]),
-    bezier(p(0.5, 0.68), p(0.5, 0.73), p(0.52, 0.74), p(0.55, 0.73), 10),
-  )],
-  m: [join(poly([0.3, 0.73], [0.36, 0.4]), bezier(p(0.36, 0.4), p(0.5, 0.34), p(0.57, 0.49), p(0.53, 0.73), 18), bezier(p(0.53, 0.49), p(0.69, 0.35), p(0.79, 0.49), p(0.75, 0.73), 18))],
-  n: [join(poly([0.32, 0.73], [0.37, 0.4]), bezier(p(0.37, 0.4), p(0.55, 0.34), p(0.72, 0.43), p(0.66, 0.73), 24))],
-  o: [arc(0.5, 0.56, 0.19, 0.18, -55, 305, 30)],
-  p: [poly([0.44, 0.4], [0.31, 0.94]), arc(0.5, 0.56, 0.18, 0.18, -90, 270, 28)],
-  // q keeps a plain vertical descender; the little exit curve belongs to l.
-  q: [arc(0.48, 0.56, 0.18, 0.18, -55, 305, 28), poly([0.67, 0.4], [0.67, 0.94])],
-  r: [join(poly([0.31, 0.73], [0.36, 0.43]), bezier(p(0.36, 0.43), p(0.48, 0.35), p(0.59, 0.37), p(0.66, 0.48), 16))],
-  s: [join(bezier(p(0.69, 0.43), p(0.57, 0.31), p(0.33, 0.37), p(0.34, 0.53), 18), bezier(p(0.34, 0.53), p(0.39, 0.65), p(0.7, 0.56), p(0.68, 0.69), 18), bezier(p(0.68, 0.69), p(0.64, 0.81), p(0.39, 0.8), p(0.31, 0.71), 16))],
-  t: [join(bezier(p(0.58, 0.18), p(0.48, 0.2), p(0.46, 0.3), p(0.4, 0.66), 12), bezier(p(0.4, 0.66), p(0.39, 0.77), p(0.55, 0.79), p(0.68, 0.69), 12)), poly([0.3, 0.42], [0.63, 0.42])],
-  u: [join(poly([0.36, 0.4], [0.31, 0.65]), bezier(p(0.31, 0.65), p(0.3, 0.82), p(0.63, 0.84), p(0.66, 0.65), 18), poly([0.66, 0.65], [0.71, 0.4]))],
-  v: [poly([0.31, 0.4], [0.49, 0.73], [0.7, 0.4])],
-  w: [poly([0.23, 0.4], [0.37, 0.73], [0.51, 0.51], [0.63, 0.73], [0.78, 0.4])],
-  x: [poly([0.32, 0.4], [0.67, 0.73]), poly([0.7, 0.4], [0.31, 0.73])],
-  y: [poly([0.31, 0.4], [0.5, 0.73], [0.7, 0.4]), join(poly([0.5, 0.73], [0.4, 0.94]), bezier(p(0.4, 0.94), p(0.34, 1), p(0.25, 0.98), p(0.23, 0.94), 10))],
-  z: [poly([0.3, 0.4], [0.7, 0.4], [0.31, 0.73], [0.7, 0.73])],
-};
-lowerLetterStrokes.ä = [...lowerLetterStrokes.a, poly([0.4, 0.23], [0.44, 0.23]), poly([0.58, 0.23], [0.62, 0.23])];
-lowerLetterStrokes.ö = [...lowerLetterStrokes.o, poly([0.4, 0.23], [0.44, 0.23]), poly([0.58, 0.23], [0.62, 0.23])];
-lowerLetterStrokes.ü = [...lowerLetterStrokes.u, poly([0.4, 0.23], [0.44, 0.23]), poly([0.58, 0.23], [0.62, 0.23])];
-Object.assign(letterStrokes, lowerLetterStrokes);
+export const letterStrokes = Object.fromEntries(
+  [...'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'].map((letter) => [letter, CHARACTER_STROKES[letter]]),
+);
+letterStrokes['Ä'] = addUmlautDots(letterStrokes.A);
+letterStrokes['Ö'] = addUmlautDots(letterStrokes.O);
+letterStrokes['Ü'] = addUmlautDots(letterStrokes.U);
+letterStrokes.ä = addUmlautDots(letterStrokes.a);
+letterStrokes.ö = addUmlautDots(letterStrokes.o);
+letterStrokes.ü = addUmlautDots(letterStrokes.u);
+Object.freeze(letterStrokes);
 
 const letterMeta = {
   A: ['Affe', 'diagonal', 2], B: ['Ball', 'mixed', 3], C: ['Clown', 'round', 2], D: ['Dino', 'mixed', 2],
@@ -481,7 +379,7 @@ const letterMeta = {
   Q: ['Qualle', 'round', 3], R: ['Regen', 'mixed', 3], S: ['Sonne', 'round', 3], T: ['Tiger', 'straight', 1],
   U: ['Uhu', 'round', 2], V: ['Vogel', 'diagonal', 1], W: ['Wolke', 'diagonal', 3], X: ['Xylofon', 'diagonal', 2],
   Y: ['Yak', 'diagonal', 2], Z: ['Zebra', 'diagonal', 2], Ä: ['Äpfel', 'diagonal', 3], Ö: ['Öl', 'round', 3], Ü: ['Überraschung', 'round', 3],
-  ...Object.fromEntries(Object.keys(lowerLetterStrokes).map((letter) => [letter, [`kleines ${letter}`, 'lowercase', 2]])),
+  ...Object.fromEntries([...'abcdefghijklmnopqrstuvwxyzäöü'].map((letter) => [letter, [`kleines ${letter}`, 'lowercase', 2]])),
 };
 
 const letterTemplates = Object.entries(letterStrokes).map(([letter, strokes]) => {
@@ -555,11 +453,18 @@ function boundsOf(strokes) {
 }
 
 function fitStrokesToBounds(strokes, rect, bounds) {
-  const spanX = Math.max(0.001, bounds.maxX - bounds.minX);
-  const spanY = Math.max(0.001, bounds.maxY - bounds.minY);
+  const sourceCenterX = ((bounds.minX + bounds.maxX) / 2) * CANONICAL_DRAWING_WIDTH;
+  const sourceCenterY = ((bounds.minY + bounds.maxY) / 2) * CANONICAL_DRAWING_HEIGHT;
+  const sourceWidth = Math.max(1, (bounds.maxX - bounds.minX) * CANONICAL_DRAWING_WIDTH);
+  const sourceHeight = Math.max(1, (bounds.maxY - bounds.minY) * CANONICAL_DRAWING_HEIGHT);
+  const targetWidth = rect.width * CANONICAL_DRAWING_WIDTH;
+  const targetHeight = rect.height * CANONICAL_DRAWING_HEIGHT;
+  const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
+  const targetCenterX = (rect.x + rect.width / 2) * CANONICAL_DRAWING_WIDTH;
+  const targetCenterY = (rect.y + rect.height / 2) * CANONICAL_DRAWING_HEIGHT;
   return strokes.map((stroke) => stroke.map((point) => p(
-    rect.x + ((point.x - bounds.minX) / spanX) * rect.width,
-    rect.y + ((point.y - bounds.minY) / spanY) * rect.height,
+    (targetCenterX + (point.x * CANONICAL_DRAWING_WIDTH - sourceCenterX) * scale) / CANONICAL_DRAWING_WIDTH,
+    (targetCenterY + (point.y * CANONICAL_DRAWING_HEIGHT - sourceCenterY) * scale) / CANONICAL_DRAWING_HEIGHT,
   )));
 }
 
@@ -567,8 +472,6 @@ function fitStrokes(strokes, rect) {
   return fitStrokesToBounds(strokes, rect, boundsOf(strokes));
 }
 
-const LOWERCASE_EM_BOX = Object.freeze({ minX: 0.18, maxX: 0.82, minY: 0.12, maxY: 0.96 });
-const NARROW_CAPITAL_EM_BOX = Object.freeze({ minX: 0.2, maxX: 0.8, minY: 0.12, maxY: 0.9 });
 const NARROW_LETTERS = new Set(['I', 'i', 'j', 'l']);
 const WIDE_LETTERS = new Set(['M', 'W', 'm', 'w']);
 
@@ -603,21 +506,15 @@ export function layoutProfileForViewport({ width = CANONICAL_DRAWING_WIDTH, heig
 }
 
 function fitLetterStrokes(letter, rect) {
-  const lowerCase = letter === letter.toLocaleLowerCase('de-DE');
-  const bounds = lowerCase
-    ? LOWERCASE_EM_BOX
-    : NARROW_LETTERS.has(letter)
-      ? NARROW_CAPITAL_EM_BOX
-      : boundsOf(letterStrokes[letter]);
-  return fitStrokesToBounds(letterStrokes[letter], rect, bounds);
+  return fitStrokesToBounds(letterStrokes[letter], rect, boundsOf(letterStrokes[letter]));
 }
 
 function letterAdvance(letter) {
-  if (NARROW_LETTERS.has(letter)) return 0.58;
-  if (WIDE_LETTERS.has(letter)) return 1.18;
-  if ('JFT'.includes(letter)) return 0.78;
-  if ('ftr'.includes(letter)) return 0.7;
-  return 0.96;
+  const base = ({ Ä: 'A', Ö: 'O', Ü: 'U', ä: 'a', ö: 'o', ü: 'u' })[letter] ?? letter;
+  const geometry = CHARACTER_STROKE_GEOMETRY[base];
+  if (!geometry) return NARROW_LETTERS.has(letter) ? 0.5 : WIDE_LETTERS.has(letter) ? 1.15 : 0.9;
+  const aspect = geometry.inkWidth / Math.max(1, geometry.inkHeight);
+  return Math.min(1.35, Math.max(0.34, 0.18 + aspect * 1.35));
 }
 
 function transformStrokes(strokes, { scale = 1, dx = 0, dy = 0, mirrorX = false, mirrorY = false } = {}) {

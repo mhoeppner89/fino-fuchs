@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fino-schreibt-v1.0.26';
+const CACHE_NAME = 'fino-schreibt-v1.1.0';
 const APP_SHELL = [
   './',
   './index.html',
@@ -7,6 +7,11 @@ const APP_SHELL = [
   './js/app.js',
   './js/curriculum.js',
   './js/drawing.js',
+  './js/handwriting-template-data.js',
+  './js/handwriting-stroke-data.js',
+  './assets/handwriting-templates/uppercase-mask.png',
+  './assets/handwriting-templates/lowercase-mask.png',
+  './assets/handwriting-templates/digits-mask.png',
   './assets/fox-mentor.svg',
   './assets/fox-face.svg',
   './assets/icons/favicon.svg',

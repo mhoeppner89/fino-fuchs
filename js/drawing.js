@@ -1,9 +1,15 @@
 /** Canvas input, rendering, and forgiving local handwriting scoring. */
 
+import {
+  CHARACTER_TEMPLATE_SHEETS,
+  characterTemplateCrop,
+} from './handwriting-template-data.js';
+import { characterStrokeGeometry } from './handwriting-stroke-data.js';
+
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const DEMO_JUMP_UNITS = 0.42;
-const REQUIRED_PATH_COVERAGE = 0.66;
+const REQUIRED_PATH_COVERAGE = 0.8;
 export const DEMO_SPEED_MULTIPLIER = 1.5;
 export const INK_COLORS = Object.freeze(['#284B73', '#C75C7B', '#2A9D8F', '#9A63BA', '#DD8530']);
 // The guide remains easy to find at every difficulty. Difficulty comes from
@@ -55,6 +61,51 @@ function toNormalized(point, width, height) {
     x: clamp((point.x - bounds.x) / bounds.width, 0, 1),
     y: clamp((point.y - bounds.y) / bounds.height, 0, 1),
   };
+}
+
+function pixelBoundsForStrokes(strokes, width, height) {
+  const points = strokes.flat().map((point) => toPixels(point, width, height));
+  if (!points.length) return null;
+  const minX = Math.min(...points.map((point) => point.x));
+  const maxX = Math.max(...points.map((point) => point.x));
+  const minY = Math.min(...points.map((point) => point.y));
+  const maxY = Math.max(...points.map((point) => point.y));
+  return {
+    minX, maxX, minY, maxY,
+    width: Math.max(1, maxX - minX),
+    height: Math.max(1, maxY - minY),
+    centerX: (minX + maxX) / 2,
+    centerY: (minY + maxY) / 2,
+  };
+}
+
+export function characterTemplatePlacement(bounds, crop, geometry) {
+  if (!bounds || !crop || !geometry) return null;
+  const scaleX = bounds.width / Math.max(1, geometry.routeWidth);
+  const scaleY = bounds.height / Math.max(1, geometry.routeHeight);
+  // A one-pixel source span is a synthetic bound for a perfectly vertical or
+  // horizontal centre line (notably lowercase i). It cannot determine image
+  // scale, so use the other axis. For ordinary glyphs, averaging only absorbs
+  // sub-pixel rounding from the generated JS data.
+  const horizontalScaleIsReliable = geometry.routeWidth > 1.5 && bounds.width > 1.5;
+  const verticalScaleIsReliable = geometry.routeHeight > 1.5 && bounds.height > 1.5;
+  const scale = horizontalScaleIsReliable && verticalScaleIsReliable
+    ? (scaleX + scaleY) / 2
+    : horizontalScaleIsReliable ? scaleX : scaleY;
+  return {
+    x: bounds.minX - geometry.routeX * scale,
+    y: bounds.minY - geometry.routeY * scale,
+    width: crop.width * scale,
+    height: crop.height * scale,
+    scale,
+    scaleDifference: horizontalScaleIsReliable && verticalScaleIsReliable ? Math.abs(scaleX - scaleY) : 0,
+    horizontalScaleIsReliable,
+    verticalScaleIsReliable,
+  };
+}
+
+function templateSymbolsForTask(task) {
+  return [...String(task?.label ?? '').replace(/\s/g, '')];
 }
 
 function pointToSegmentDistance(point, a, b) {
@@ -115,16 +166,6 @@ function minDistanceToStrokes(point, strokes) {
   return best;
 }
 
-function distanceScore(samples, targetStrokes, tolerance) {
-  if (!samples.length || !targetStrokes.length) return 0;
-  let total = 0;
-  for (const sample of samples) {
-    const d = minDistanceToStrokes(sample, targetStrokes);
-    total += Math.exp(-((d / tolerance) ** 2));
-  }
-  return total / samples.length;
-}
-
 function bandCoverage(samples, targetStrokes, tolerance) {
   if (!samples.length || !targetStrokes.length) return 0;
   const matches = samples.filter((sample) => minDistanceToStrokes(sample, targetStrokes) <= tolerance).length;
@@ -154,55 +195,6 @@ function pixelPolylineLength(points) {
 
 function pointStrokes(points) {
   return points.map((point) => [point]);
-}
-
-function pathOwnership(expectedSamplesByStroke, groups, userSamplesByStroke, ownershipMargin) {
-  const ownedSamples = expectedSamplesByStroke.map(() => []);
-  userSamplesByStroke.forEach((userSamples) => {
-    if (!userSamples.length) return;
-    // Calculate every point-to-path distance once. The derived group and path
-    // decisions below then stay cheap enough to run after every pen lift.
-    const distancesByPath = expectedSamplesByStroke.map((expectedSamples) => (
-      userSamples.map((sample) => minDistanceToStrokes(sample, [expectedSamples]))
-    ));
-    const groupDistanceAt = (indexes, sampleIndex) => Math.min(...indexes.map((index) => distancesByPath[index][sampleIndex]));
-    const averagePathDistance = (pathIndex) => (
-      distancesByPath[pathIndex].reduce((sum, value) => sum + value, 0) / userSamples.length
-    );
-    const groupDistances = groups.map((indexes) => (
-      userSamples.reduce((sum, _, sampleIndex) => sum + groupDistanceAt(indexes, sampleIndex), 0) / userSamples.length
-    ));
-    const preferredGroupIndex = groupDistances.reduce((best, value, index) => (
-      value < groupDistances[best] ? index : best
-    ), 0);
-    const preferredPathByGroup = groups.map((indexes) => indexes.reduce((bestIndex, index) => {
-      return averagePathDistance(index) < averagePathDistance(bestIndex) ? index : bestIndex;
-    }, indexes[0]));
-
-    userSamples.forEach((sample, sampleIndex) => {
-      const sampleGroupDistances = groups.map((indexes) => groupDistanceAt(indexes, sampleIndex));
-      const localGroupIndex = sampleGroupDistances.reduce((best, value, index) => (
-        value < sampleGroupDistances[best] ? index : best
-      ), 0);
-      // Keep a real pen stroke with its intended character while it wobbles
-      // near a neighbouring letter. When the stroke actually travels to a
-      // new character, that character must be clearly closer than the small
-      // ownership margin, and then it changes group naturally.
-      const chosenGroupIndex = sampleGroupDistances[localGroupIndex] + ownershipMargin < sampleGroupDistances[preferredGroupIndex]
-        ? localGroupIndex
-        : preferredGroupIndex;
-      const candidatePaths = groups[chosenGroupIndex];
-      const preferredPathIndex = preferredPathByGroup[chosenGroupIndex];
-      let bestIndex = candidatePaths.reduce((best, index) => (
-        distancesByPath[index][sampleIndex] < distancesByPath[best][sampleIndex] ? index : best
-      ), candidatePaths[0]);
-      const bestDistance = distancesByPath[bestIndex][sampleIndex];
-      const preferredPathDistance = distancesByPath[preferredPathIndex][sampleIndex];
-      if (bestDistance + ownershipMargin >= preferredPathDistance) bestIndex = preferredPathIndex;
-      if (bestIndex >= 0) ownedSamples[bestIndex].push(sample);
-    });
-  });
-  return ownedSamples;
 }
 
 function strokeComponents(expectedStrokes, samplesByStroke, tolerance) {
@@ -249,6 +241,72 @@ function vectorScore(aStart, aEnd, bStart, bEnd) {
   return (cosine + 1) / 2;
 }
 
+function nearestDistanceMetrics(samples, targetStrokes, tolerance, cap = 2.5) {
+  if (!samples.length || !targetStrokes.length) {
+    return { coverage: 0, mse: cap ** 2, distances: samples.map(() => Infinity) };
+  }
+  const distances = samples.map((sample) => minDistanceToStrokes(sample, targetStrokes));
+  const coverage = distances.filter((value) => value <= tolerance).length / distances.length;
+  const mse = distances.reduce((sum, value) => {
+    const normalized = Math.min(cap, value / Math.max(1, tolerance));
+    return sum + normalized ** 2;
+  }, 0) / distances.length;
+  return { coverage, mse, distances };
+}
+
+function groupOwnedUserSamples(expectedPixels, groups, userSamplesByStroke, margin) {
+  const groupTargets = groups.map((indexes) => indexes.map((index) => expectedPixels[index]));
+  const owned = groups.map(() => []);
+  userSamplesByStroke.forEach((strokeSamples) => {
+    if (!strokeSamples.length) return;
+    const distances = strokeSamples.map((sample) => groupTargets.map((targets) => (
+      minDistanceToStrokes(sample, targets)
+    )));
+    const averageDistances = groupTargets.map((_, groupIndex) => (
+      distances.reduce((sum, row) => sum + row[groupIndex], 0) / strokeSamples.length
+    ));
+    const preferred = averageDistances.reduce((best, value, index) => (
+      value < averageDistances[best] ? index : best
+    ), 0);
+    strokeSamples.forEach((sample, sampleIndex) => {
+      const row = distances[sampleIndex];
+      const local = row.reduce((best, value, index) => (value < row[best] ? index : best), 0);
+      const owner = row[local] + margin < row[preferred] ? local : preferred;
+      owned[owner].push(sample);
+    });
+  });
+  return owned;
+}
+
+function alignedByMedianNearest(samples, targets, maximumShift) {
+  if (!targets.length || !samples.length) return samples;
+  const deltas = samples.map((sample) => {
+    let nearest = targets[0];
+    let bestDistance = distance(sample, nearest);
+    for (let index = 1; index < targets.length; index += 1) {
+      const value = distance(sample, targets[index]);
+      if (value < bestDistance) {
+        bestDistance = value;
+        nearest = targets[index];
+      }
+    }
+    return { x: nearest.x - sample.x, y: nearest.y - sample.y };
+  });
+  const median = (values) => {
+    const sorted = [...values].sort((a, b) => a - b);
+    const middle = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+  };
+  let dx = median(deltas.map((delta) => delta.x));
+  let dy = median(deltas.map((delta) => delta.y));
+  const length = Math.hypot(dx, dy);
+  if (length > maximumShift) {
+    dx *= maximumShift / length;
+    dy *= maximumShift / length;
+  }
+  return samples.map((point) => ({ x: point.x + dx, y: point.y + dy }));
+}
+
 /**
  * Returns a score in [0,1]. It intentionally tolerates child-like variation.
  */
@@ -272,63 +330,176 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
       allRequired: false,
       componentCoverage: [],
       pathCoverage: expectedStrokes.map(() => 0),
+      pathLongestGaps: expectedStrokes.map(() => 1),
+      pathDensitySupport: expectedStrokes.map(() => 0),
+      pathLongitudinalSupport: expectedStrokes.map(() => 0),
+      targetMse: Infinity,
+      userMse: Infinity,
+      symmetricMse: Infinity,
+      groupMetrics: [],
     };
   }
 
-  const expectedSamplesByStroke = expectedStrokes.filter((stroke) => stroke.length).map((stroke) => resampleStroke(stroke, width, height));
+  const expectedSamplesByStroke = expectedStrokes.filter((stroke) => stroke.length).map((stroke) => resampleStroke(stroke, width, height, 6));
   const expectedSamples = expectedSamplesByStroke.flat();
   const userSamplesByStroke = userStrokes
     .filter((stroke) => stroke.length)
-    .map((stroke) => resampleStroke(stroke, width, height));
+    .map((stroke) => resampleStroke(stroke, width, height, 6));
   const userSamples = userSamplesByStroke.flat();
-  const coverage = distanceScore(expectedSamples, user, tolerance);
-  const precision = distanceScore(userSamples, expected, tolerance);
+  // Symmetric closest-line MSE prevents both classic one-way failures: a
+  // tiny correct fragment cannot stand in for a whole glyph, and a long
+  // scribble crossing the target cannot pass merely because it touched it.
+  const targetMatch = nearestDistanceMetrics(expectedSamples, user, tolerance);
+  const userMatch = nearestDistanceMetrics(userSamples, expected, tolerance);
+  const coverage = targetMatch.coverage;
+  const precision = userMatch.coverage;
+  const targetMse = targetMatch.mse;
+  const userMse = userMatch.mse;
+  const symmetricMse = (targetMse + userMse) / 2;
   const groups = completionGroups?.length
     ? completionGroups.filter((group) => group.length && group.every((index) => expectedSamplesByStroke[index]))
     : [...strokeComponents(expected, expectedSamplesByStroke, tolerance).values()];
-  // A sample belongs only to its nearest required path. This stops a nearby
-  // letter, number, or the other half of a character from receiving credit
-  // for a path the child never drew. It still permits a child to merge,
-  // split, reverse, or reorder their real pen strokes.
-  // Every required path gets its own forgiving corridor. A child may wobble
-  // inside that band, but an undrawn crossbar still owns no samples and gets
-  // no credit from its neighbouring line.
-  const requiredPathTolerance = completionTolerance
-    ?? clamp(drawingBounds(width, height).height * 0.11, 24, 58);
-  const ownedSamplesByPath = pathOwnership(
-    expectedSamplesByStroke,
+  const boardUnit = Math.min(drawingBounds(width, height).width, drawingBounds(width, height).height);
+  const requiredPathTolerance = completionTolerance ?? clamp(boardUnit * 0.115, 26, 62);
+  const groupTolerances = groups.map((indexes) => {
+    const points = indexes.flatMap((index) => expectedSamplesByStroke[index]);
+    const minX = Math.min(...points.map((point) => point.x));
+    const maxX = Math.max(...points.map((point) => point.x));
+    const minY = Math.min(...points.map((point) => point.y));
+    const maxY = Math.max(...points.map((point) => point.y));
+    const span = Math.max(maxX - minX, maxY - minY);
+    return Math.min(requiredPathTolerance, Math.max(12, span * 0.14));
+  });
+  const ownedSamplesByGroup = groupOwnedUserSamples(
+    expected,
     groups,
     userSamplesByStroke,
-    Math.max(8, requiredPathTolerance * 0.4),
+    Math.max(5, Math.min(...groupTolerances) * 0.2),
   );
-  const pathLongestGaps = [];
-  const pathCoverage = expectedSamplesByStroke.map((pathSamples, index) => {
-    const ownedPoints = pointStrokes(ownedSamplesByPath[index]);
-    const pathLength = pixelPolylineLength(pathSamples);
-    // A dot is a touch-sized target, so it gets most of the friendly band.
-    // Other short paths stay narrower: a stem landing at one intersection
-    // cannot accidentally count as a missing crossbar.
-    const pathTolerance = pathLength <= 12
-      ? Math.min(requiredPathTolerance, Math.max(16, requiredPathTolerance * 0.76))
-      : Math.min(requiredPathTolerance, Math.max(14, pathLength * 0.3));
-    const covered = bandCoverage(pathSamples, ownedPoints, pathTolerance);
-    const density = 0.82 + 0.18 * clamp(ownedSamplesByPath[index].length / Math.max(1, pathSamples.length * 0.32), 0, 1);
-    // A neighbouring character may land near both endpoints of a missing
-    // vertical, but it cannot fill its long empty middle. Keep that shortcut
-    // below the completion gate.
-    const longestGap = longestUncoveredRun(pathSamples, ownedPoints, pathTolerance);
-    pathLongestGaps.push(longestGap);
-    const gapPenalty = longestGap > 0.2 ? 0.68 : 1;
-    return covered * density * gapPenalty;
+  const needsAlignment = symmetricMse > 0.0005;
+  const alignedSamplesByGroup = groups.map((indexes, groupIndex) => {
+    const targets = indexes.flatMap((index) => expectedSamplesByStroke[index]);
+    const samples = ownedSamplesByGroup[groupIndex];
+    // Median nearest-point displacement finds a coherent small translation.
+    // Unlike centroid alignment it stays at zero when a bar or tail is simply
+    // missing, so absent geometry cannot be manufactured by repositioning the
+    // remaining strokes.
+    return needsAlignment
+      ? alignedByMedianNearest(samples, targets, groupTolerances[groupIndex] * 0.85)
+      : samples;
   });
-  // Every visible part is required: the least-covered path decides its
-  // character's completion, and the least-complete character decides the
-  // exercise. A crossbar, tail, or umlaut dot can no longer disappear into
-  // an otherwise high average.
-  const componentCoverage = groups
-    .map((indexes) => Math.min(...indexes.map((index) => pathCoverage[index])));
-  const completion = componentCoverage.length ? Math.min(...componentCoverage) : 0;
-  const allRequired = pathCoverage.length > 0 && pathCoverage.every((coverage) => coverage >= REQUIRED_PATH_COVERAGE);
+  // Within a character, each pen sample supports only the centre-line route
+  // it is closest to.  This distinguishes nearby petals, bars and stems while
+  // still allowing one continuous pen movement to cover several routes.
+  const ownedSamplesByPath = expectedSamplesByStroke.map(() => []);
+  groups.forEach((indexes, groupIndex) => {
+    const sharedRouteMargin = Math.max(0.25, groupTolerances[groupIndex] * 0.08);
+    alignedSamplesByGroup[groupIndex].forEach((sample) => {
+      const distances = indexes.map((index) => minDistanceToStrokes(sample, [expected[index]]));
+      const bestDistance = Math.min(...distances);
+      indexes.forEach((index, localIndex) => {
+        // At a real shared segment (for example the right side of a print a),
+        // the same ink may legitimately support both teaching routes. A
+        // narrow, scale-aware tie window keeps coherent corner strokes
+        // together after a small translation. Longitudinal coverage below
+        // still prevents a few intersection samples from standing in for a
+        // whole nearby crossbar or petal.
+        if (distances[localIndex] <= bestDistance + sharedRouteMargin) ownedSamplesByPath[index].push(sample);
+      });
+    });
+  });
+  const pathCoverage = expectedSamplesByStroke.map(() => 0);
+  const pathLongestGaps = expectedSamplesByStroke.map(() => 1);
+  const pathDensitySupport = expectedSamplesByStroke.map(() => 0);
+  const pathLongitudinalSupport = expectedSamplesByStroke.map(() => 0);
+  const groupMetrics = groups.map((indexes, groupIndex) => {
+    const ownedPoints = pointStrokes(alignedSamplesByGroup[groupIndex]);
+    const groupSamples = indexes.flatMap((index) => expectedSamplesByStroke[index]);
+    const groupTolerance = groupTolerances[groupIndex];
+    const groupMatch = nearestDistanceMetrics(groupSamples, ownedPoints, groupTolerance);
+    indexes.forEach((index) => {
+      const samples = expectedSamplesByStroke[index];
+      const pathLength = pixelPolylineLength(samples);
+      // Small neighbouring details (a crossbar, dot, flower petal, or tail)
+      // need their own local band.  Otherwise a broad child-friendly glyph
+      // band could let an adjacent line fill a detail that was never drawn.
+      const pathTolerance = pathLength <= 12
+        ? Math.min(groupTolerance, Math.max(10, groupTolerance * 0.72))
+        : groupTolerance;
+      const alignedPathSamples = needsAlignment
+        ? alignedByMedianNearest(ownedSamplesByPath[index], samples, groupTolerance * 0.55)
+        : ownedSamplesByPath[index];
+      const pathPoints = pointStrokes(alignedPathSamples);
+      const geometricCoverage = bandCoverage(samples, pathPoints, pathTolerance);
+      const densitySupport = clamp(
+        ownedSamplesByPath[index].length / Math.max(1, samples.length * 0.6),
+        0,
+        1,
+      );
+      const binCount = pathLength <= 12
+        ? 1
+        : Math.min(samples.length, clamp(
+          Math.ceil(pathLength / Math.max(12, groupTolerance * 0.55)),
+          3,
+          8,
+        ));
+      const occupiedBins = new Set();
+      alignedPathSamples.forEach((sample) => {
+        let nearestIndex = 0;
+        let nearestDistance = Infinity;
+        samples.forEach((target, sampleIndex) => {
+          const value = distance(sample, target);
+          if (value < nearestDistance) {
+            nearestDistance = value;
+            nearestIndex = sampleIndex;
+          }
+        });
+        if (nearestDistance <= pathTolerance) {
+          occupiedBins.add(Math.min(binCount - 1, Math.floor((nearestIndex / Math.max(1, samples.length)) * binCount)));
+        }
+      });
+      const longitudinalSupport = occupiedBins.size / Math.max(1, binCount);
+      pathDensitySupport[index] = densitySupport;
+      pathLongitudinalSupport[index] = longitudinalSupport;
+      pathCoverage[index] = geometricCoverage * Math.min(densitySupport, longitudinalSupport);
+      // A coherent offset trace stays near the entire route.  A missing stem
+      // or tail only happens to be near another route at one end and leaves a
+      // long empty run.  Measuring that run with all points in the character
+      // avoids penalising harmless alternative pen segmentation.
+      const gapTolerance = Math.min(groupTolerance, Math.max(10, groupTolerance * 0.68));
+      pathLongestGaps[index] = longestUncoveredRun(samples, ownedPoints, gapTolerance);
+    });
+    const minPathCoverage = Math.min(...indexes.map((index) => pathCoverage[index]));
+    const maxGap = Math.max(...indexes.map((index) => pathLongestGaps[index]));
+    const structural = groupMatch.coverage >= 0.8
+      && groupMatch.mse <= 1.2
+      && minPathCoverage >= REQUIRED_PATH_COVERAGE
+      && maxGap <= 0.24;
+    const completionScore = structural
+      ? clamp(
+        0.55 * groupMatch.coverage
+          + 0.2 * (1 - maxGap)
+          + 0.15 * minPathCoverage
+          + 0.1 * Math.exp(-groupMatch.mse),
+        0,
+        1,
+      )
+      : Math.min(0.69, groupMatch.coverage * 0.7);
+    return {
+      indexes: [...indexes],
+      coverage: groupMatch.coverage,
+      mse: groupMatch.mse,
+      minPathCoverage,
+      maxGap,
+      completion: completionScore,
+      structural,
+      ownedSamples: ownedSamplesByGroup[groupIndex].length,
+      tolerance: groupTolerance,
+    };
+  });
+  const componentCoverage = groupMetrics.map((metric) => metric.coverage);
+  const completion = groupMetrics.length ? Math.min(...groupMetrics.map((metric) => metric.completion)) : 0;
+  const allRequired = groupMetrics.length > 0 && groupMetrics.every((metric) => metric.structural);
 
   let startTotal = 0;
   let directionTotal = 0;
@@ -354,29 +525,24 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
   const strokeCount = Math.exp(-Math.abs(expected.length - user.length) * 0.16);
   const lengthRatio = expectedLength > 0 ? userLength / expectedLength : 0;
   const length = lengthRatio > 0 ? Math.exp(-Math.abs(Math.log(lengthRatio)) * 0.75) : 0;
-  const shape = Math.sqrt(Math.max(0, coverage * precision));
-  const rawScore =
-    0.58 * shape
-      + 0.2 * coverage
-      + 0.16 * precision
-      + 0.025 * start
-      + 0.015 * direction
-      + 0.015 * length
-      + 0.005 * strokeCount;
-  // Shape match matters most. Start, direction, and pen lifts are deliberately
-  // light-touch checks so a child may use a natural alternative stroke order.
-  const score = clamp(rawScore * (0.74 + 0.26 * length), 0, 1);
+  const mseScore = Math.exp(-0.72 * symmetricMse);
+  // Start, direction, and number of pen lifts are feedback only.  Completion
+  // depends on the resulting shape, so a child may reverse, merge, or split
+  // strokes whenever the finished letter is still recognisable.
+  const score = clamp(0.55 * mseScore + 0.25 * coverage + 0.2 * precision, 0, 1);
 
   return {
-    score, coverage, precision, completion, allRequired, componentCoverage, pathCoverage, pathLongestGaps, start, direction, length, strokeCount,
+    score, coverage, precision, completion, allRequired, componentCoverage, pathCoverage, pathLongestGaps,
+    pathDensitySupport, pathLongitudinalSupport, start, direction, length, strokeCount,
+    targetMse, userMse, symmetricMse, groupMetrics,
     expectedLength, userLength, hasInk: true,
   };
 }
 
 const PASS_CRITERIA = Object.freeze({
-  easy: Object.freeze({ score: 0.48, coverage: 0.4, precision: 0.3, completion: 0.66 }),
-  medium: Object.freeze({ score: 0.53, coverage: 0.45, precision: 0.35, completion: 0.7 }),
-  hard: Object.freeze({ score: 0.58, coverage: 0.5, precision: 0.4, completion: 0.74 }),
+  easy: Object.freeze({ score: 0.58, coverage: 0.72, precision: 0.52, completion: 0.7, targetMse: 1.05, userMse: 1.4 }),
+  medium: Object.freeze({ score: 0.62, coverage: 0.76, precision: 0.57, completion: 0.73, targetMse: 0.88, userMse: 1.18 }),
+  hard: Object.freeze({ score: 0.66, coverage: 0.8, precision: 0.62, completion: 0.76, targetMse: 0.72, userMse: 0.98 }),
 });
 
 /**
@@ -391,7 +557,9 @@ export function passesDrawingCriteria(result, assist, { qualityAdjustment = 0, s
     && result.score >= criteria.score - qualitySlack
     && result.coverage >= criteria.coverage - qualitySlack
     && result.precision >= criteria.precision - qualitySlack
-    && result.completion >= criteria.completion;
+    && result.completion >= criteria.completion - qualitySlack * 0.5
+    && result.targetMse <= criteria.targetMse + qualitySlack * 3
+    && result.userMse <= criteria.userMse + qualitySlack * 3;
 }
 
 export function nextGuideStrokeIndex(expectedStrokes, userStrokes, {
@@ -596,6 +764,7 @@ export class DrawingBoard {
     this.jumpAnimation = null;
     this.jumpFrame = 0;
     this.highlightUntil = 0;
+    this.templateImages = new Map();
     this.width = 800;
     this.height = 560;
     this.dpr = 1;
@@ -610,7 +779,19 @@ export class DrawingBoard {
     canvas.addEventListener('pointerup', this.onPointerUp);
     canvas.addEventListener('pointercancel', this.onPointerUp);
     canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+    this.loadCharacterTemplateImages();
     this.resize();
+  }
+
+  loadCharacterTemplateImages() {
+    if (typeof Image === 'undefined') return;
+    Object.entries(CHARACTER_TEMPLATE_SHEETS).forEach(([key, source]) => {
+      const image = new Image();
+      image.decoding = 'async';
+      image.addEventListener('load', () => this.render(), { once: true });
+      image.src = source;
+      this.templateImages.set(key, image);
+    });
   }
 
   destroy() {
@@ -705,14 +886,18 @@ export class DrawingBoard {
   }
 
   evaluationOptions() {
-    const toleranceByAssist = { easy: 0.11, medium: 0.095, hard: 0.08 };
+    const toleranceByAssist = { easy: 0.12, medium: 0.105, hard: 0.09 };
     const bounds = drawingBounds(this.width, this.height);
-    const unit = bounds.height;
+    const unit = Math.min(bounds.width, bounds.height);
     return {
       width: this.width,
       height: this.height,
-      tolerance: clamp(unit * toleranceByAssist[this.assist], this.assist === 'easy' ? 24 : 20, this.assist === 'easy' ? 58 : this.assist === 'medium' ? 52 : 46),
-      completionTolerance: clamp(unit * 0.11, 24, 58),
+      tolerance: clamp(
+        unit * toleranceByAssist[this.assist],
+        this.assist === 'easy' ? 28 : 24,
+        this.assist === 'easy' ? 62 : this.assist === 'medium' ? 56 : 50,
+      ),
+      completionTolerance: clamp(unit * 0.115, 26, 62),
     };
   }
 
@@ -968,6 +1153,54 @@ export class DrawingBoard {
     context.restore();
   }
 
+  drawCharacterTemplates(context, guideIndexes, { alpha }) {
+    if (!this.task) return new Set();
+    const visible = new Set(guideIndexes);
+    const symbols = templateSymbolsForTask(this.task);
+    const groups = this.task.completionGroups?.length
+      ? this.task.completionGroups
+      : [this.task.strokes.map((_, index) => index)];
+    const renderedIndexes = new Set();
+
+    groups.forEach((group, groupIndex) => {
+      const visibleGroup = group.filter((index) => visible.has(index));
+      if (!visibleGroup.length) return;
+      const symbol = symbols[groupIndex];
+      const baseSymbol = ({ Ä: 'A', Ö: 'O', Ü: 'U', ä: 'a', ö: 'o', ü: 'u' })[symbol] ?? symbol;
+      const crop = characterTemplateCrop(baseSymbol);
+      const geometry = characterStrokeGeometry(baseSymbol);
+      const image = crop ? this.templateImages.get(crop.sheet) : null;
+      const imageIndexes = symbol === baseSymbol
+        ? group
+        : group.slice(0, geometry?.routeCount ?? 0);
+      const bounds = pixelBoundsForStrokes(
+        imageIndexes.map((index) => this.task.strokes[index]),
+        this.width,
+        this.height,
+      );
+      if (!crop || !geometry || !image?.complete || !image.naturalWidth || !bounds) return;
+
+      // The generated route and the crop share source-pixel coordinates.
+      // Mapping the route bounds back to that crop keeps the raster template
+      // aligned to Fino's centre line down to the source pixel, including the
+      // narrow i/l and wide M/W forms.
+      const placement = characterTemplatePlacement(bounds, crop, geometry);
+      context.save();
+      context.globalAlpha = alpha;
+      context.imageSmoothingEnabled = true;
+      context.drawImage(
+        image,
+        crop.x, crop.y, crop.width, crop.height,
+        placement.x, placement.y,
+        placement.width, placement.height,
+      );
+      context.restore();
+      imageIndexes.filter((index) => visible.has(index)).forEach((index) => renderedIndexes.add(index));
+    });
+
+    return renderedIndexes;
+  }
+
   drawStrokeSet(context, strokes, {
     color,
     width,
@@ -1158,8 +1391,14 @@ export class DrawingBoard {
       const visibleStrokes = guideIndexes.map((index) => this.task.strokes[index]);
       const bounds = drawingBounds(this.width, this.height);
       const guideStyle = guidePresentationForTask(this.task, this.assist);
+      const templateIndexes = guideStyle.template
+        ? this.drawCharacterTemplates(context, guideIndexes, {
+          alpha: isHighlight ? Math.min(0.56, guideStyle.alpha + 0.2) : guideStyle.alpha,
+        })
+        : new Set();
       visibleStrokes.forEach((stroke, index) => {
         const guideIndex = guideIndexes[index];
+        if (templateIndexes.has(guideIndex)) return;
         this.drawStrokeSet(context, [stroke], {
           color: isHighlight && !guideStyle.template
             ? '#F3B348'

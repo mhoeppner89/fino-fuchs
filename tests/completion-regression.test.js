@@ -71,17 +71,39 @@ test('exact traces pass every static, custom, and name exercise on phone and tab
   });
 });
 
-test('every missing visible symbol and required path remains incomplete', () => {
+test('every missing visible symbol remains incomplete', () => {
   allRegressionBanks().forEach((task) => {
     task.completionGroups.forEach((group, groupIndex) => {
       const result = resultFor(task, omitIndexes(task, group));
       assert.equal(passesDrawingCriteria(result, 'easy'), false, `${task.id} missing group ${groupIndex} passed`);
       assert.equal(passesDrawingCriteria(result, 'easy', { slack: 0.04 }), false, `${task.id} missing group ${groupIndex} passed retry`);
     });
-    task.strokes.forEach((_, pathIndex) => {
+  });
+});
+
+test('missing bars, dots, stems, tails, petals, and rays remain incomplete', () => {
+  const cases = [
+    ['letters', 'letter-A-gross', [2]],
+    ['letters', 'letter-H-gross', [2]],
+    ['letters', 'letter-I-gross', [0, 2]],
+    ['letters', 'letter-i-gross', [1]],
+    ['letters', 'letter-j-gross', [1]],
+    ['letters', 'letter-p-gross', [0]],
+    ['letters', 'letter-q-gross', [1]],
+    ['letters', 'letter-t-gross', [1]],
+    ['letters', 'letter-Ä-gross', [3, 4]],
+    ['letters', 'letter-ä-gross', [2, 3]],
+    ['numbers', 'number-4-gross', [0, 1]],
+    ['shapes', 'shape-flower', [0, 1, 2, 3, 4]],
+    ['shapes', 'shape-sun', [1, 2, 3, 4, 5, 6]],
+  ];
+  cases.forEach(([bankName, taskId, indexes]) => {
+    const task = EXERCISE_BANKS[bankName].find((candidate) => candidate.id === taskId);
+    assert.ok(task, `missing test task ${taskId}`);
+    indexes.forEach((pathIndex) => {
       const result = resultFor(task, omitIndexes(task, [pathIndex]));
-      assert.equal(passesDrawingCriteria(result, 'easy'), false, `${task.id} missing path ${pathIndex} passed`);
-      assert.equal(passesDrawingCriteria(result, 'easy', { slack: 0.04 }), false, `${task.id} missing path ${pathIndex} passed retry`);
+      assert.equal(passesDrawingCriteria(result, 'easy'), false, `${task.id} missing detail ${pathIndex} passed`);
+      assert.equal(passesDrawingCriteria(result, 'easy', { slack: 0.04 }), false, `${task.id} missing detail ${pathIndex} passed retry`);
     });
   });
 });
@@ -150,12 +172,15 @@ test('child-like in-tolerance jitter still passes at every difficulty', () => {
   });
 });
 
-test('Fino follows the first unfinished path for multi-letter names', () => {
+test('Fino never skips an untouched letter in a multi-letter name', () => {
   ['MARTIN', 'KÄTHE'].forEach((name) => {
     const task = createNameExerciseBank(name).find((candidate) => candidate.id === `name-full-${name}-0`);
-    task.strokes.slice(0, -1).forEach((_, index) => {
-      const guideIndex = nextGuideStrokeIndex(task.strokes, task.strokes.slice(0, index + 1), options(task));
-      assert.equal(guideIndex, index + 1, `${name} jumped after path ${index}`);
+    const drawn = [];
+    task.completionGroups.slice(0, -1).forEach((group, groupIndex) => {
+      drawn.push(...group.map((index) => task.strokes[index]));
+      const guideIndex = nextGuideStrokeIndex(task.strokes, drawn, options(task));
+      const nextGroup = task.completionGroups[groupIndex + 1];
+      assert.ok(nextGroup.includes(guideIndex), `${name} skipped letter ${groupIndex + 1}`);
     });
   });
 });

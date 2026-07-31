@@ -8,14 +8,14 @@ Fino schreibt ist eine statische, deutschsprachige Schreiblern-App für kurze Ü
 - drei Hilfestufen: **Leicht**, **Mittel** und **Knifflig**
 - 10 kontrolliert zufällig ausgewählte Aufgaben pro Runde; verfügbare Zahlen, Buchstaben und Vorlagen wechseln sich ab, bevor etwas wiederkommt. Bei **Mein Name** wird zuerst jeder Buchstabe und dann der ganze Name geschrieben.
 - automatischer, kurzer Abschluss-Check nach jedem abgesetzten Strich
-- 100 unterschiedliche Übungen pro Bereich: Wege, Formen, Zahlen, Buchstaben, Namen und bunte Mischung
+- 100 unterschiedliche Übungen für Wege, Zahlen, Buchstaben, Namen und bunte Mischung; dazu 36 wirklich verschiedene Formen und kleine Bilder ohne Spiegel- oder Größenkopien
 - bei Zahlen und Buchstaben: **Alle** üben oder eine eigene Auswahl eingeben
 - Groß- und Kleinbuchstaben, einschließlich ä, ö und ü
-- Zahlen und Buchstaben sind an **Kiwi School Handwriting** angelehnt; Fino folgt den veröffentlichten Startpunkten, Richtungen und Stiftpausen.
+- Zahlen und Buchstaben verwenden eine eigene, nicht verbundene Druckschrift, die allgemein an **Kiwi School Handwriting** angelehnt ist.
 - in der leichten Stufe jeweils genau eine Zahl oder einen Buchstaben üben
-- Fino läuft die Schreibspur als Start-Hilfe auf der gepunkteten Linie ab; beim Absetzen springt er zum nächsten Strich
-- eine dünne, je nach Hilfestufe unterschiedlich dezente Schreibspur; die erlaubte Abweichung wird dabei strenger
-- lokale, kindgerechte Auswertung von Form, Abdeckung und Genauigkeit, die auch eine sinnvolle andere Strichaufteilung akzeptiert
+- Kinder sehen den vollständigen Buchstaben oder die Zahl als halbtransparente Vorlage; Fino läuft exakt auf deren Mittellinie und springt bei einem echten Stiftwechsel
+- eine klare, je nach Hilfestufe unterschiedlich kräftige Vorlage; die erlaubte Abweichung wird dabei strenger
+- lokale, kindgerechte Formauswertung mit symmetrischer Nächste-Linie-Distanz: kurze Teilstücke und zusätzliche Kritzeleien fallen durch, sinnvolle andere Strichaufteilungen bleiben erlaubt
 - freundliche, gut unterscheidbare Tintenfarben wechseln nach jedem abgesetzten Strich
 - ein grüner Punkt und Fino zeigen den nächsten noch offenen Startpunkt
 - freundliche Wiederholungen ohne sichtbare Fehlerpunkte oder Ranglisten
@@ -71,13 +71,12 @@ Die Sprachfunktion ist derzeit ausgeschaltet. Alle Hinweise stehen deshalb direk
 
 ## Schriftvorlage
 
-Die Schreibspuren für A–Z, a–z und 0–9 wurden anhand von **Kiwi School
-Handwriting** und der zugehörigen Variante **Kiwi School Handwriting with
-Guides** von Rob Ashcroft überarbeitet. Letztere zeigt Startpunkte,
-Bewegungsrichtung und Stiftpausen. Die Fontdatei selbst wird nicht mit der App
-ausgeliefert; die App enthält nur eigene, kindgerecht nachzeichnbare
-Mittellinien. Quelle und Lizenzhinweis: [Kiwi School Handwriting with
-Guides](https://www.dafont.com/kiwi-school-handwriting-with-guides.font).
+Die App enthält eigene, freigegebene Bildvorlagen für A–Z, a–z und 0–9. Ein
+lokales Erzeugungsskript dünnt genau diese Pixel auf eine Mittellinie aus. Damit
+verwenden die sichtbare Vorlage, Finos Laufweg, die Startpunkte und die
+Bewertung dieselbe Geometrie. Kiwi School Handwriting diente nur als allgemeine
+gestalterische und didaktische Inspiration; die Fontdatei wird nicht
+ausgeliefert.
 
 ## Inhalt anpassen
 
@@ -91,9 +90,9 @@ Wichtige Bereiche:
 
 - `lineTemplates`: Linien und ihre Schreibspuren
 - `shapeTemplates`: Formen
-- `digitStrokes`: Zahlen 0–9
-- `letterStrokes`: Großbuchstaben und Umlaute
-- `EXERCISE_BANKS`: die 100er-Bänke für Linien, Formen, Zahlen, Buchstaben und Mischung
+- `handwriting-stroke-data.js`: erzeugte Mittellinien für A–Z, a–z und 0–9
+- `digitStrokes` und `letterStrokes`: Einbindung der erzeugten Zeichen sowie Umlaute
+- `EXERCISE_BANKS`: die Übungsbänke für Linien, Formen, Zahlen, Buchstaben und Mischung
 - `createNameExerciseBank()`: 100 Übungen, die aus dem eingegebenen Namen entstehen
 - `buildSession()`: kontrollierte Zufallsauswahl und Reihenfolge
 - `assistancePlans`: Hilfestufen innerhalb einer Runde
@@ -102,6 +101,13 @@ Die Zeichenauswertung und Canvas-Eingabe stehen in:
 
 ```text
 js/drawing.js
+```
+
+Die Zeichenbilder und ihre exakten Mittellinien lassen sich reproduzierbar neu
+erzeugen mit:
+
+```bash
+python3 scripts/extract_handwriting_templates.py
 ```
 
 Oberfläche und Navigation stehen in:
@@ -141,10 +147,13 @@ fuchsschrift/
 ├── js/
 │   ├── app.js
 │   ├── curriculum.js
-│   └── drawing.js
+│   ├── drawing.js
+│   ├── handwriting-template-data.js
+│   └── handwriting-stroke-data.js
 ├── assets/
 │   ├── fox-face.svg
 │   ├── fox-mentor.svg
+│   ├── handwriting-templates/
 │   └── icons/
 ├── tests/
 │   ├── curriculum.test.js

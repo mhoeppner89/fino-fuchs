@@ -113,3 +113,20 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Applied the approved lowercase corrections: `l` is upright with a small rightward exit, and `q` has a plain vertical descender. Added a regression test for both forms.
 - Bumped the app and offline cache to `v1.0.26`.
 - Verification: `npm test` passes 55 of 55. The standard game Playwright client could not start Chromium in this environment (host process error), so the local in-app-browser check was used: it visually confirmed the solid X, q, and corrected l templates with Fino on their centre line and no console errors.
+
+## 2026-07-31 approved image-template correction
+
+- Replaced the thick rendered centre lines that had been posing as character templates. Standard A–Z, a–z, and 0–9 are now transparent masks extracted directly from the approved print reference sheets; paper, grid, and writing guides are removed from the image assets.
+- A template is proportionally scaled as an image for each visible character group. It is therefore the actual approved letterform, while Fino, pen input, staged reveals, and scoring keep using a separate centre-line model beneath it.
+- Added the three image masks and generated crop map to the offline app shell, plus a regression that verifies all 62 standard glyphs and assets are present. The extraction script is kept in `scripts/` so a later revised reference sheet can be regenerated deterministically.
+- Bumped the app and offline cache to `v1.0.27`.
+- Verification: `npm test` passes 56 of 56. The required Playwright game-client smoke run completed without errors. Browser visual checks confirmed a reference-image q and 7, with Fino on their independent route and no console errors.
+
+## 2026-07-31 exact stroke-system rebuild
+
+- Replaced the separate hand-authored runtime alphabet with centre lines generated directly from the 62 approved raster templates. The generator skeletonizes each mask, projects reviewed teaching routes onto that skeleton, writes `js/handwriting-stroke-data.js`, and produces a full visual QA contact sheet.
+- The template crop and route now share source-pixel bounds. Character placement uses one physical scale in both axes, so letters and digits keep their exact proportions. Narrow and wide letters use measured source geometry for word spacing.
+- Replaced the former path-count/average scoring with a symmetric closest-line MSE: template-to-child distance catches unfinished forms, and child-to-template distance catches scribbles. Structural checks work per visible character, scale their tolerance to that character, and inspect longitudinal support for bars, dots, stems, tails, petals, and rays. Stroke order, direction, splitting, and pen lifts do not decide completion.
+- Added exhaustive checks for all 62 characters across phone, tablet, portrait, landscape, and all difficulties. The matrix covers coherent offsets and jitter, out-of-band traces, reversed/split strokes, under-half partial forms, added scribbles, missing multi-character groups, and critical small details.
+- A final canvas-alignment check found and fixed the zero-width lowercase `i` case: a perfectly vertical centre line now takes its scale from height, so the raster template, Fino, and scoring occupy the same full bounds instead of shrinking the image.
+- Final verification: the generator reproduced byte-identical masks, route data, and contact sheet; `npm test` passes 67 of 67 checks. The matrix covers every static/custom/name exercise, every visible group, all 62 characters, four screen shapes, three difficulties, natural shifts/turns/scaling/hand wobble, large missing sections, far-off traces, and added scribbles. The standard browser-game client reached the live canvas, saved two state snapshots and screenshots, and recorded no error artifact; the final screenshot was visually inspected.

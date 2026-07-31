@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   adaptTaskToViewport,
   createNameExerciseBank,
@@ -14,6 +14,15 @@ import {
   SESSION_SIZE,
   seededRandom,
 } from '../js/curriculum.js';
+import {
+  CHARACTER_TEMPLATE_CROPS,
+  CHARACTER_TEMPLATE_SHEETS,
+} from '../js/handwriting-template-data.js';
+import {
+  CHARACTER_STROKES,
+  CHARACTER_STROKE_GEOMETRY,
+} from '../js/handwriting-stroke-data.js';
+import { characterTemplatePlacement } from '../js/drawing.js';
 
 const geometryKey = (task) => JSON.stringify(task.strokes.map((stroke) => stroke.map((point) => [
   Number(point.x.toFixed(5)), Number(point.y.toFixed(5)),
@@ -112,13 +121,89 @@ test('the home screen shows the current app version discreetly', () => {
   assert.match(styles, /\.app-version\s*\{[^}]*opacity:\s*\.5/s);
 });
 
+test('approved reference images supply every standard letter and digit template', () => {
+  const expectedCharacters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  assert.deepEqual(Object.keys(CHARACTER_TEMPLATE_CROPS).sort(), [...expectedCharacters].sort());
+  assert.deepEqual(Object.keys(CHARACTER_STROKES).sort(), [...expectedCharacters].sort());
+  assert.deepEqual(Object.keys(CHARACTER_STROKE_GEOMETRY).sort(), [...expectedCharacters].sort());
+  Object.values(CHARACTER_TEMPLATE_CROPS).forEach((crop) => {
+    assert.ok(crop.width > 8 && crop.height > 8, 'template crop must contain a real glyph');
+    assert.ok(CHARACTER_TEMPLATE_SHEETS[crop.sheet], `unknown template sheet ${crop.sheet}`);
+  });
+  ['uppercase-mask.png', 'lowercase-mask.png', 'digits-mask.png'].forEach((file) => {
+    assert.equal(existsSync(new URL(`../assets/handwriting-templates/${file}`, import.meta.url)), true, `${file} is missing`);
+  });
+  Object.entries(CHARACTER_STROKE_GEOMETRY).forEach(([character, geometry]) => {
+    assert.ok(CHARACTER_STROKES[character].length > 0, `${character} has no Fino route`);
+    assert.ok(geometry.maximumRouteError <= 8, `${character} misses its template by ${geometry.maximumRouteError}px`);
+    assert.ok(geometry.routeWidth > 0 && geometry.routeHeight > 0, `${character} has invalid source bounds`);
+  });
+});
+
+test('every placed character preserves the source template aspect ratio', () => {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  [...characters].forEach((character) => {
+    const number = /\d/.test(character);
+    const task = (number ? EXERCISE_BANKS.numbers : EXERCISE_BANKS.letters)
+      .find((candidate) => candidate.id === `${number ? 'number' : 'letter'}-${character}-gross`);
+    assert.ok(task, `missing gross task for ${character}`);
+    const points = task.strokes.flat();
+    const width = (Math.max(...points.map((point) => point.x)) - Math.min(...points.map((point) => point.x))) * 900;
+    const height = (Math.max(...points.map((point) => point.y)) - Math.min(...points.map((point) => point.y))) * 620;
+    const expected = CHARACTER_STROKE_GEOMETRY[character];
+    if (width < 0.5) {
+      assert.ok(expected.routeWidth <= 1, `${character} unexpectedly collapsed horizontally`);
+      return;
+    }
+    const placedAspect = width / height;
+    const sourceAspect = expected.routeWidth / expected.routeHeight;
+    assert.ok(Math.abs(placedAspect - sourceAspect) < 0.002, `${character} was distorted: ${placedAspect} / ${sourceAspect}`);
+  });
+});
+
+test('every visible template lands on the same canvas bounds as Fino and scoring', () => {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  [...characters].forEach((character) => {
+    const number = /\d/.test(character);
+    const task = (number ? EXERCISE_BANKS.numbers : EXERCISE_BANKS.letters)
+      .find((candidate) => candidate.id === `${number ? 'number' : 'letter'}-${character}-gross`);
+    const points = task.strokes.flat();
+    const bounds = {
+      minX: Math.min(...points.map((point) => point.x * 900)),
+      maxX: Math.max(...points.map((point) => point.x * 900)),
+      minY: Math.min(...points.map((point) => point.y * 620)),
+      maxY: Math.max(...points.map((point) => point.y * 620)),
+    };
+    bounds.width = Math.max(1, bounds.maxX - bounds.minX);
+    bounds.height = Math.max(1, bounds.maxY - bounds.minY);
+    const crop = CHARACTER_TEMPLATE_CROPS[character];
+    const geometry = CHARACTER_STROKE_GEOMETRY[character];
+    const placement = characterTemplatePlacement(bounds, crop, geometry);
+    const mappedRight = placement.x + (geometry.routeX + geometry.routeWidth) * placement.scale;
+    const mappedBottom = placement.y + (geometry.routeY + geometry.routeHeight) * placement.scale;
+    assert.ok(placement.scaleDifference < 0.02, `${character} has conflicting horizontal and vertical scales: ${JSON.stringify(placement)}`);
+    if (placement.horizontalScaleIsReliable) {
+      assert.ok(Math.abs(mappedRight - bounds.maxX) < 0.45, `${character} template misses Fino horizontally`);
+    } else {
+      assert.ok(Math.abs(placement.x + geometry.routeX * placement.scale - bounds.minX) < 1e-6, `${character} vertical centre line moved`);
+    }
+    if (placement.verticalScaleIsReliable) {
+      assert.ok(Math.abs(mappedBottom - bounds.maxY) < 0.45, `${character} template misses Fino vertically`);
+    }
+    assert.ok(
+      Math.abs((placement.width / placement.height) - (crop.width / crop.height)) < 1e-12,
+      `${character} template image was distorted`,
+    );
+  });
+});
+
 test('lowercase letters are included in the regular 100-exercise letter bank', () => {
   const labels = new Set(EXERCISE_BANKS.letters.map((task) => task.label.replace(/\s/g, '')));
   ['a', 'm', 'z', 'ä', 'ö', 'ü'].forEach((letter) => assert.ok(labels.has(letter), `missing ${letter}`));
   assert.equal(EXERCISE_BANKS.letters.length, 100);
 });
 
-test('M and lowercase i keep the published Kiwi handwriting construction', () => {
+test('M and lowercase i follow the approved print-template construction', () => {
   const m = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-M-gross');
   assert.ok(m.strokes[0][0].y > m.strokes[0][1].y, 'M should begin at the lower-left then travel up');
   assert.equal(m.strokes.length, 2, 'M should lift after its first rising slant');
@@ -130,29 +215,32 @@ test('M and lowercase i keep the published Kiwi handwriting construction', () =>
   assert.ok(Math.max(...i.strokes[1].map((point) => point.y)) < Math.min(...i.strokes[0].map((point) => point.y)), 'i dot should sit above its stem');
 });
 
-test('Kiwi digits 1, 7, and 9 retain their distinct published forms', () => {
+test('approved digits 1, 7, and 9 retain their distinct print forms', () => {
   const one = EXERCISE_BANKS.numbers.find((task) => task.id === 'number-1-gross');
   const seven = EXERCISE_BANKS.numbers.find((task) => task.id === 'number-7-gross');
   const nine = EXERCISE_BANKS.numbers.find((task) => task.id === 'number-9-gross');
-  assert.equal(one.strokes.length, 1, '1 is one slanted downstroke, without a hook or foot');
-  assert.ok(one.strokes[0][0].x > one.strokes[0].at(-1).x, '1 should lean left as it descends');
+  assert.equal(one.strokes.length, 1, '1 is one continuous lead-in and upright');
+  assert.ok(one.strokes[0][0].x < one.strokes[0][1].x, '1 should begin with its upper-left lead-in');
+  assert.ok(Math.abs(one.strokes[0].at(-1).x - Math.max(...one.strokes[0].map((point) => point.x))) < 0.02, '1 should finish on its upright');
   assert.equal(seven.strokes.length, 1, '7 has no middle crossbar in the source font');
   assert.ok(seven.strokes[0][0].x < seven.strokes[0][1].x, '7 should begin with a top bar');
-  assert.ok(seven.strokes[0].at(-1).x < seven.strokes[0][1].x, '7 should descend to the left');
+  assert.ok(seven.strokes[0].at(-1).x < Math.max(...seven.strokes[0].map((point) => point.x)) - 0.1, '7 should descend to the left');
   assert.equal(nine.strokes.length, 1, '9 remains one loop-and-tail movement');
   assert.ok(nine.strokes[0][0].y < nine.strokes[0].at(-1).y, '9 tail should finish below its loop');
   assert.ok(nine.strokes[0][0].x > nine.strokes[0].at(-1).x, '9 tail should finish left of its upper loop');
 });
 
-test('lowercase a, r, and t use connected, recognisable handwriting paths', () => {
+test('lowercase a, r, and t retain the approved upright print details', () => {
   const a = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-a-gross');
   const r = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-r-gross');
   const t = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-t-gross');
-  assert.equal(a.strokes.length, 1, 'a loop and tail should be one continuous trace');
-  assert.ok(a.strokes[0].at(-1).y > a.strokes[0][0].y + 0.1, 'a should end with a clear right-hand tail');
+  assert.equal(a.strokes.length, 2, 'a should have its round body and right upright');
+  assert.ok(Math.hypot(
+    a.strokes[0][0].x - a.strokes[0].at(-1).x,
+    a.strokes[0][0].y - a.strokes[0].at(-1).y,
+  ) < 0.02, 'a body should close cleanly');
   assert.equal(r.strokes.length, 1, 'r upright and shoulder should be continuous');
-  const rJoin = r.strokes[0].findIndex((point) => point.y < 0.42);
-  assert.ok(rJoin > 0 && r.strokes[0][rJoin - 1].x <= r.strokes[0][rJoin].x, 'r shoulder should leave its upright without a gap');
+  assert.ok(r.strokes[0].at(-1).x > r.strokes[0][0].x + 0.2, 'r needs a clear right shoulder');
   assert.equal(t.strokes.length, 2, 't needs a stem and one crossbar');
   assert.ok(t.strokes[0].at(-1).x > t.strokes[0][0].x + 0.04, 't should finish with a friendly exit hook');
 });
