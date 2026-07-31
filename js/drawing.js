@@ -14,6 +14,23 @@ export const GUIDE_STYLES = Object.freeze({
   hard: Object.freeze({ width: 0.01, min: 5, max: 8, dash: [5, 13], alpha: 0.58, color: '#78ADBB' }),
 });
 
+// Letter, number, and name exercises use a quiet solid handwriting template
+// instead of a dotted route. The same centre lines remain the source of truth
+// for Fino's route and the generous scoring corridor.
+export const TEMPLATE_STYLES = Object.freeze({
+  easy: Object.freeze({ width: 0.058, min: 26, max: 42, alpha: 0.29, color: '#3E7F95' }),
+  medium: Object.freeze({ width: 0.054, min: 24, max: 38, alpha: 0.24, color: '#3E7F95' }),
+  hard: Object.freeze({ width: 0.05, min: 22, max: 34, alpha: 0.2, color: '#3E7F95' }),
+});
+
+export function guidePresentationForTask(task, assist = 'easy') {
+  const template = ['letters', 'numbers', 'name'].includes(task?.category);
+  const style = template
+    ? TEMPLATE_STYLES[assist] ?? TEMPLATE_STYLES.easy
+    : GUIDE_STYLES[assist] ?? GUIDE_STYLES.easy;
+  return Object.freeze({ ...style, dash: template ? [] : style.dash, template });
+}
+
 export function inkColorAt(strokeIndex) {
   return INK_COLORS[strokeIndex % INK_COLORS.length];
 }
@@ -481,7 +498,7 @@ function guideSegmentAngle(segment, progress) {
 }
 
 // The helper is sampled from the same line and quadratic segments as
-// roundedPath(), keeping Fino centered on the visible dotted guide.
+// roundedPath(), keeping Fino centered on the visible practice template.
 export function pointAlongGuidePath(stroke, progress, width, height, angular = false) {
   if (!stroke.length) return null;
   if (stroke.length === 1) return { point: toPixels(stroke[0], width, height), angle: 0 };
@@ -936,7 +953,7 @@ export class DrawingBoard {
     context.save();
     context.strokeStyle = 'rgba(82, 105, 142, .13)';
     context.lineWidth = 2;
-    context.setLineDash([7, 9]);
+    context.setLineDash([]);
     [0.18, 0.5, 0.84].forEach((y, index) => {
       context.beginPath();
       context.moveTo(bounds.x + bounds.width * 0.08, bounds.y + bounds.height * y);
@@ -1052,7 +1069,7 @@ export class DrawingBoard {
     const nextStroke = this.task.strokes[nextStrokeIndex];
     const angular = this.isAngularGuide(nextStrokeIndex);
     // Fino waits just after the green starting point, still exactly on the
-    // dotted path. This leaves the child a clear, visible place to begin.
+    // invisible centre line of the visible template.
     const next = pointAlongGuidePath(nextStroke ?? [], 0.07, this.width, this.height, angular);
     if (next) this.drawGuideFox(context, next.point, next.angle);
   }
@@ -1140,14 +1157,18 @@ export class DrawingBoard {
       const guideIndexes = this.visibleGuideStrokeIndexes();
       const visibleStrokes = guideIndexes.map((index) => this.task.strokes[index]);
       const bounds = drawingBounds(this.width, this.height);
-      const guideStyle = GUIDE_STYLES[this.assist] ?? GUIDE_STYLES.easy;
+      const guideStyle = guidePresentationForTask(this.task, this.assist);
       visibleStrokes.forEach((stroke, index) => {
         const guideIndex = guideIndexes[index];
         this.drawStrokeSet(context, [stroke], {
-          color: isHighlight ? '#F3B348' : this.task.strokeColors?.[guideIndex] ?? guideStyle.color,
+          color: isHighlight && !guideStyle.template
+            ? '#F3B348'
+            : this.task.strokeColors?.[guideIndex] ?? guideStyle.color,
           width: clamp(Math.min(bounds.width, bounds.height) * guideStyle.width, guideStyle.min, guideStyle.max),
           dash: guideStyle.dash,
-          alpha: isHighlight ? 0.72 : guideStyle.alpha,
+          alpha: isHighlight
+            ? guideStyle.template ? Math.min(0.56, guideStyle.alpha + 0.2) : 0.72
+            : guideStyle.alpha,
           angularForStroke: () => this.isAngularGuide(guideIndex),
         });
       });

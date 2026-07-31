@@ -157,6 +157,13 @@ test('lowercase a, r, and t use connected, recognisable handwriting paths', () =
   assert.ok(t.strokes[0].at(-1).x > t.strokes[0][0].x + 0.04, 't should finish with a friendly exit hook');
 });
 
+test('approved lowercase l and q retain their distinct exits', () => {
+  const l = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-l-gross');
+  const q = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-q-gross');
+  assert.ok(l.strokes[0].at(-1).x > l.strokes[0].at(-2).x, 'l should finish with a small rightward curve');
+  assert.ok(Math.abs(q.strokes[1][0].x - q.strokes[1].at(-1).x) < 0.001, 'q descender should be vertical');
+});
+
 test('N uses the normal downward-right diagonal with natural pen lifts', () => {
   const n = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-N-gross');
   assert.equal(n.strokes.length, 3, 'N should have two uprights and one diagonal');

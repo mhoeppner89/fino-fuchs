@@ -7,6 +7,8 @@ import {
   evaluateDrawing,
   feedbackForEvaluation,
   GUIDE_STYLES,
+  TEMPLATE_STYLES,
+  guidePresentationForTask,
   inkColorAt,
   INK_COLORS,
   guideStagesForTask,
@@ -213,13 +215,27 @@ test('each new pen stroke receives a different friendly ink color', () => {
   }
 });
 
-test('dotted helper paths stay clearly visible at every difficulty', () => {
+test('dotted shape and line routes stay clearly visible at every difficulty', () => {
   assert.deepEqual(Object.keys(GUIDE_STYLES), ['easy', 'medium', 'hard']);
   assert.ok(GUIDE_STYLES.easy.alpha >= 0.75);
   assert.ok(GUIDE_STYLES.medium.alpha >= 0.65);
   assert.ok(GUIDE_STYLES.hard.alpha >= 0.55);
   assert.ok(GUIDE_STYLES.easy.alpha > GUIDE_STYLES.medium.alpha);
   assert.ok(GUIDE_STYLES.medium.alpha > GUIDE_STYLES.hard.alpha);
+});
+
+test('letters, numbers, and names use solid transparent templates', () => {
+  assert.deepEqual(Object.keys(TEMPLATE_STYLES), ['easy', 'medium', 'hard']);
+  ['letters', 'numbers', 'name'].forEach((category) => {
+    const presentation = guidePresentationForTask({ category }, 'easy');
+    assert.equal(presentation.template, true);
+    assert.deepEqual(presentation.dash, []);
+    assert.ok(presentation.width > GUIDE_STYLES.easy.width);
+    assert.ok(presentation.alpha >= 0.2 && presentation.alpha < 0.4);
+  });
+  const shapePresentation = guidePresentationForTask({ category: 'shapes' }, 'easy');
+  assert.equal(shapePresentation.template, false);
+  assert.deepEqual(shapePresentation.dash, GUIDE_STYLES.easy.dash);
 });
 
 test('Fino previews are set to one-and-a-half times the former speed', () => {

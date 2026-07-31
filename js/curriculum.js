@@ -428,9 +428,8 @@ letterStrokes['Ä'] = [...letterStrokes.A, poly([0.36, 0.07], [0.4, 0.07]), poly
 letterStrokes['Ö'] = [...letterStrokes.O, poly([0.36, 0.07], [0.4, 0.07]), poly([0.6, 0.07], [0.64, 0.07])];
 letterStrokes['Ü'] = [...letterStrokes.U, poly([0.36, 0.07], [0.4, 0.07]), poly([0.6, 0.07], [0.64, 0.07])];
 
-// Lowercase letters share the Kiwi x-height (0.40–0.73). Ascenders and
-// descenders are deliberately slanted a little to the right, like the source
-// font, while dots and crossbars stay separate strokes so Fino can jump.
+// Lowercase letters use the approved upright print model. Dots and crossbars
+// stay separate strokes so Fino can jump between the natural pen lifts.
 const lowerLetterStrokes = {
   a: [join(arc(0.48, 0.56, 0.18, 0.18, -55, 305, 28), poly([0.58, 0.41], [0.64, 0.73]))],
   b: [join(
@@ -447,12 +446,18 @@ const lowerLetterStrokes = {
   i: [poly([0.54, 0.4], [0.47, 0.73]), poly([0.53, 0.25], [0.55, 0.25])],
   j: [join(poly([0.56, 0.4], [0.48, 0.84]), bezier(p(0.48, 0.84), p(0.45, 0.98), p(0.24, 0.97), p(0.28, 0.84), 16)), poly([0.62, 0.25], [0.64, 0.25])],
   k: [poly([0.48, 0.16], [0.34, 0.73]), poly([0.41, 0.51], [0.68, 0.35]), poly([0.41, 0.51], [0.66, 0.73])],
-  l: [poly([0.5, 0.16], [0.38, 0.73])],
+  // A print l has one upright stroke and a small, friendly rightward exit at
+  // the baseline. It is not a loop and does not connect to another letter.
+  l: [join(
+    poly([0.5, 0.16], [0.5, 0.68]),
+    bezier(p(0.5, 0.68), p(0.5, 0.73), p(0.52, 0.74), p(0.55, 0.73), 10),
+  )],
   m: [join(poly([0.3, 0.73], [0.36, 0.4]), bezier(p(0.36, 0.4), p(0.5, 0.34), p(0.57, 0.49), p(0.53, 0.73), 18), bezier(p(0.53, 0.49), p(0.69, 0.35), p(0.79, 0.49), p(0.75, 0.73), 18))],
   n: [join(poly([0.32, 0.73], [0.37, 0.4]), bezier(p(0.37, 0.4), p(0.55, 0.34), p(0.72, 0.43), p(0.66, 0.73), 24))],
   o: [arc(0.5, 0.56, 0.19, 0.18, -55, 305, 30)],
   p: [poly([0.44, 0.4], [0.31, 0.94]), arc(0.5, 0.56, 0.18, 0.18, -90, 270, 28)],
-  q: [arc(0.48, 0.56, 0.18, 0.18, -55, 305, 28), poly([0.67, 0.4], [0.55, 0.94])],
+  // q keeps a plain vertical descender; the little exit curve belongs to l.
+  q: [arc(0.48, 0.56, 0.18, 0.18, -55, 305, 28), poly([0.67, 0.4], [0.67, 0.94])],
   r: [join(poly([0.31, 0.73], [0.36, 0.43]), bezier(p(0.36, 0.43), p(0.48, 0.35), p(0.59, 0.37), p(0.66, 0.48), 16))],
   s: [join(bezier(p(0.69, 0.43), p(0.57, 0.31), p(0.33, 0.37), p(0.34, 0.53), 18), bezier(p(0.34, 0.53), p(0.39, 0.65), p(0.7, 0.56), p(0.68, 0.69), 18), bezier(p(0.68, 0.69), p(0.64, 0.81), p(0.39, 0.8), p(0.31, 0.71), 16))],
   t: [join(bezier(p(0.58, 0.18), p(0.48, 0.2), p(0.46, 0.3), p(0.4, 0.66), 12), bezier(p(0.4, 0.66), p(0.39, 0.77), p(0.55, 0.79), p(0.68, 0.69), 12)), poly([0.3, 0.42], [0.63, 0.42])],

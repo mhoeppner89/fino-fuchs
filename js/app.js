@@ -256,7 +256,7 @@ function scheduleNextStrokePreview() {
   state.previewTimer = window.setTimeout(() => {
     state.previewTimer = 0;
     if (state.taskToken === taskToken && state.screen === 'practice' && !state.transitioning) previewCurrentStroke();
-  }, 180);
+  }, 50);
 }
 
 function scheduleAutoCheck() {
@@ -270,7 +270,7 @@ function scheduleAutoCheck() {
   state.autoCheckTimer = window.setTimeout(() => {
     state.autoCheckTimer = 0;
     if (state.taskToken === taskToken && state.screen === 'practice' && !state.transitioning) checkDrawing({ quietIncomplete: true });
-  }, 260);
+  }, 90);
 }
 
 async function renderTask() {
@@ -536,6 +536,7 @@ elements.letterSet.addEventListener('input', () => {
 });
 
 elements.clearButton.addEventListener('click', () => {
+  clearAutoCheck();
   clearPreview();
   state.previewedStrokeIndex = null;
   board.clear();
@@ -546,8 +547,12 @@ elements.showButton.addEventListener('click', async () => {
 });
 
 elements.undoButton.addEventListener('click', () => {
+  clearAutoCheck();
   clearPreview();
-  board.undoLastStroke();
+  if (board.undoLastStroke()) {
+    state.previewedStrokeIndex = null;
+    scheduleNextStrokePreview();
+  }
 });
 
 function goToTask(index) {

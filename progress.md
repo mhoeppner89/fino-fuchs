@@ -97,3 +97,19 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Fino now demonstrates precisely one unfinished stroke, then waits. After the child finishes that mark, he previews the next one. Preview speed is 1.5× the previous speed (50% faster), with matching shorter duration bounds.
 - Bumped the app and offline cache to `v1.0.24`.
 - Verification: `npm test` passes 53 of 53; browser interaction checks confirm skip/back, undo, clear, one-stroke initial preview, and the next-stroke preview after child progress. Both desktop and 390×844 phone screenshots fit the complete header without browser errors. The required game-client smoke run completed without console errors.
+
+## 2026-07-31 undo and next-preview correction
+
+- Undo and clear now cancel any pending automatic completion check before changing the board, so a delayed check cannot race either control.
+- After a child completes a mark, the quick completion check runs after 90 ms and Fino starts the next one-stroke preview 50 ms later (previously 260 ms and 180 ms respectively).
+- Verified with an actual pointer trace on the four-stroke snail: after the first mark, Fino began previewing stroke two within 170 ms; undo then removed that same pointer stroke and disabled itself on the clean board.
+- Bumped the app and offline cache to `v1.0.25`.
+- Verification: `npm test` passes 53 of 53 and `git diff --check` passes. The required Playwright game-client smoke run rendered Fino on the guide with no console errors.
+
+## 2026-07-31 solid character-template follow-up
+
+- Letters, numbers, and name exercises now show a broad, semi-transparent handwriting template instead of dotted letter paths. Writing guidelines are quiet solid rules as well. Lines and shapes retain their dotted routes because their staged movement cues remain useful there.
+- The visible template, Fino's route, the starting point, jump animation, and scoring all share the same underlying stroke centre lines. The template changes only what children see; the generous evaluation corridor is unchanged.
+- Applied the approved lowercase corrections: `l` is upright with a small rightward exit, and `q` has a plain vertical descender. Added a regression test for both forms.
+- Bumped the app and offline cache to `v1.0.26`.
+- Verification: `npm test` passes 55 of 55. The standard game Playwright client could not start Chromium in this environment (host process error), so the local in-app-browser check was used: it visually confirmed the solid X, q, and corrected l templates with Fino on their centre line and no console errors.
