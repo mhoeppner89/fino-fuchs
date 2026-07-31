@@ -1,4 +1,5 @@
 import {
+  adaptTaskToViewport,
   buildSession,
   CATEGORY_CONFIG,
   DIFFICULTIES,
@@ -59,6 +60,7 @@ const state = {
   sound: SYNTHETIC_VOICE_ENABLED,
   name: '',
   session: [],
+  activeTask: null,
   index: 0,
   completed: 0,
   attempts: 0,
@@ -213,7 +215,7 @@ function clearAutoCheck() {
 }
 
 function scheduleAutoCheck() {
-  const task = state.session[state.index];
+  const task = state.activeTask;
   const strokes = board.getUserStrokes();
   const lastStroke = strokes.at(-1);
   if (state.transitioning || !task || !lastStroke || lastStroke.length < 2) return;
@@ -227,11 +229,15 @@ function scheduleAutoCheck() {
 }
 
 async function renderTask() {
-  const task = state.session[state.index];
-  if (!task) {
+  const sourceTask = state.session[state.index];
+  if (!sourceTask) {
     finishSession('complete');
     return;
   }
+
+  board.resize();
+  const task = adaptTaskToViewport(sourceTask, board.getViewport());
+  state.activeTask = task;
 
   state.attempts = 0;
   clearAutoCheck();
@@ -254,7 +260,7 @@ async function renderTask() {
   }
 }
 
-function buildCurrentSession() {
+function buildCurrentSession(viewport) {
   const cleanName = normalizeName(elements.childName.value);
   state.name = cleanName;
   state.difficulty = selectedDifficulty();
@@ -263,6 +269,7 @@ function buildCurrentSession() {
     difficulty: state.difficulty,
     option: selectedOption(),
     name: cleanName,
+    viewport,
   });
 }
 
@@ -282,19 +289,25 @@ function beginSession() {
     return;
   }
 
-  try {
-    state.session = buildCurrentSession();
-  } catch (error) {
-    console.error(error);
-    showToast('Diese Runde konnte nicht gestartet werden.');
-    return;
-  }
   state.index = 0;
   state.completed = 0;
   state.attempts = 0;
   state.transitioning = false;
+  state.session = [];
+  state.activeTask = null;
   showScreen('practice');
-  requestAnimationFrame(() => renderTask());
+  requestAnimationFrame(() => {
+    board.resize();
+    try {
+      state.session = buildCurrentSession(board.getViewport());
+    } catch (error) {
+      console.error(error);
+      showScreen('home');
+      showToast('Diese Runde konnte nicht gestartet werden.');
+      return;
+    }
+    renderTask();
+  });
 }
 
 function passCriteria(result, assist, task, slack = 0) {
@@ -342,8 +355,8 @@ function celebrate(message, { gentle = false } = {}) {
 }
 
 function checkDrawing({ quietIncomplete = false } = {}) {
-  if (state.transitioning || !state.session[state.index]) return null;
-  const task = state.session[state.index];
+  if (state.transitioning || !state.activeTask) return null;
+  const task = state.activeTask;
   const userStrokes = board.getUserStrokes();
   const result = evaluateDrawing(task.strokes, userStrokes, {
     ...board.evaluationOptions(),
@@ -510,10 +523,10 @@ window.render_game_to_text = () => JSON.stringify({
   category: state.category,
   selection: selectedOption(),
   progress: { completed: state.completed, current: state.index + 1, total: state.session.length },
-  task: state.session[state.index]
-    ? { id: state.session[state.index].id, title: state.session[state.index].title, expectedStrokes: state.session[state.index].strokes.length }
+  task: state.activeTask
+    ? { id: state.activeTask.id, title: state.activeTask.title, expectedStrokes: state.activeTask.strokes.length, layout: state.activeTask.layout, viewport: state.activeTask.viewport }
     : null,
-  assist: state.session[state.index]?.assist ?? null,
+  assist: state.activeTask?.assist ?? null,
   userStrokes: board.getUserStrokes().length,
   inkColors: board.getUserStrokeColors(),
 });
@@ -531,12 +544,12 @@ if (new URLSearchParams(location.search).has('test')) {
       difficulty: state.difficulty,
       index: state.index,
       completed: state.completed,
-      task: state.session[state.index]?.id ?? null,
-      assist: state.session[state.index]?.assist ?? null,
+      task: state.activeTask?.id ?? null,
+      assist: state.activeTask?.assist ?? null,
       screen: state.screen,
     }),
     getCurrentTask: () => {
-      const task = state.session[state.index];
+      const task = state.activeTask;
       return task ? {
         id: task.id,
         strokes: task.strokes,
@@ -544,7 +557,7 @@ if (new URLSearchParams(location.search).has('test')) {
       } : null;
     },
     solveCurrent() {
-      const task = state.session[state.index];
+      const task = state.activeTask;
       if (!task) return false;
       board.setUserStrokes(task.strokes);
       checkDrawing();
@@ -559,7 +572,7 @@ if (new URLSearchParams(location.search).has('test')) {
       return checkDrawing({ quietIncomplete });
     },
     evaluationSnapshot() {
-      const task = state.session[state.index];
+      const task = state.activeTask;
       if (!task) return null;
       const result = evaluateDrawing(task.strokes, board.getUserStrokes(), {
         ...board.evaluationOptions(),

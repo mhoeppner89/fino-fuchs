@@ -175,13 +175,11 @@ test('the starting helper includes a jump between distinct strokes', () => {
   assert.ok(Math.abs(stage.progress - 0.5) < 0.0001);
 });
 
-test('the fitted drawing area keeps the same aspect ratio in portrait and landscape', () => {
+test('the drawing board uses the full measured rectangle in portrait and landscape', () => {
   const portrait = drawingBounds(366, 608);
   const landscape = drawingBounds(844, 390);
-  assert.ok(Math.abs(portrait.width / portrait.height - 900 / 620) < 0.0001);
-  assert.ok(Math.abs(landscape.width / landscape.height - 900 / 620) < 0.0001);
-  assert.ok(portrait.y > 0, 'portrait artboard should be vertically centred');
-  assert.ok(landscape.x > 0, 'landscape artboard should be horizontally centred');
+  assert.deepEqual(portrait, { x: 0, y: 0, width: 366, height: 608 });
+  assert.deepEqual(landscape, { x: 0, y: 0, width: 844, height: 390 });
 });
 
 test('complex pictures and multi-symbol tasks reveal guides in small stages', () => {

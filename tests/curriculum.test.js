@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
+  adaptTaskToViewport,
   createNameExerciseBank,
   TASKS,
   buildSession,
@@ -18,14 +19,21 @@ const geometryKey = (task) => JSON.stringify(task.strokes.map((stroke) => stroke
   Number(point.x.toFixed(5)), Number(point.y.toFixed(5)),
 ])));
 
-test('every activity has a 100-exercise bank with unique IDs and paths', () => {
+test('every activity has distinct exercises, without repeated shape variants', () => {
   const banks = { ...EXERCISE_BANKS, name: createNameExerciseBank('Käthe') };
+  const expectedSizes = { lines: 100, shapes: 20, numbers: 100, letters: 100, mixed: 100, name: 100 };
   Object.entries(banks).forEach(([category, bank]) => {
-    assert.equal(bank.length, 100, `${category} bank size`);
-    assert.equal(new Set(bank.map((task) => task.id)).size, 100, `${category} IDs`);
-    assert.equal(new Set(bank.map(geometryKey)).size, 100, `${category} paths`);
+    assert.equal(bank.length, expectedSizes[category], `${category} bank size`);
+    assert.equal(new Set(bank.map((task) => task.id)).size, expectedSizes[category], `${category} IDs`);
+    assert.equal(new Set(bank.map(geometryKey)).size, expectedSizes[category], `${category} paths`);
   });
-  assert.equal(TASKS.length, 500);
+  assert.equal(TASKS.length, 420);
+  assert.deepEqual(EXERCISE_BANKS.shapes.map((task) => task.id), [
+    'shape-circle', 'shape-oval', 'shape-square', 'shape-triangle', 'shape-cross',
+    'shape-diamond', 'shape-heart', 'shape-star', 'shape-rectangle', 'shape-pentagon',
+    'shape-hexagon', 'shape-arrow', 'shape-house', 'shape-kite', 'shape-balloon',
+    'shape-fish', 'shape-flower', 'shape-sun', 'shape-sailboat', 'shape-rocket',
+  ]);
 });
 
 test('custom number and letter sets retain enough unique exercises for a full round', () => {
@@ -70,15 +78,30 @@ test('lowercase letters are included in the regular 100-exercise letter bank', (
   assert.equal(EXERCISE_BANKS.letters.length, 100);
 });
 
-test('M is upright and the lowercase i dot is centred above its stem', () => {
+test('M and lowercase i keep the published Kiwi handwriting construction', () => {
   const m = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-M-gross');
   assert.ok(m.strokes[0][0].y > m.strokes[0][1].y, 'M should begin at the lower-left then travel up');
-  assert.ok(m.strokes[0][2].y > m.strokes[0][1].y, 'M middle should dip below its two top points');
+  assert.equal(m.strokes.length, 2, 'M should lift after its first rising slant');
+  assert.ok(m.strokes[1][1].y > m.strokes[1][0].y, 'M middle should dip below its two top points');
 
   const i = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-i-gross');
-  const averageX = (stroke) => stroke.reduce((sum, point) => sum + point.x, 0) / stroke.length;
-  assert.ok(Math.abs(averageX(i.strokes[1]) - averageX(i.strokes[0])) < 0.001, 'i dot must align with its stem');
+  const dotX = i.strokes[1].reduce((sum, point) => sum + point.x, 0) / i.strokes[1].length;
+  assert.ok(Math.abs(dotX - i.strokes[0][0].x) < 0.025, 'i dot must sit over the top of its slanted stem');
   assert.ok(Math.max(...i.strokes[1].map((point) => point.y)) < Math.min(...i.strokes[0].map((point) => point.y)), 'i dot should sit above its stem');
+});
+
+test('Kiwi digits 1, 7, and 9 retain their distinct published forms', () => {
+  const one = EXERCISE_BANKS.numbers.find((task) => task.id === 'number-1-gross');
+  const seven = EXERCISE_BANKS.numbers.find((task) => task.id === 'number-7-gross');
+  const nine = EXERCISE_BANKS.numbers.find((task) => task.id === 'number-9-gross');
+  assert.equal(one.strokes.length, 1, '1 is one slanted downstroke, without a hook or foot');
+  assert.ok(one.strokes[0][0].x > one.strokes[0].at(-1).x, '1 should lean left as it descends');
+  assert.equal(seven.strokes.length, 1, '7 has no middle crossbar in the source font');
+  assert.ok(seven.strokes[0][0].x < seven.strokes[0][1].x, '7 should begin with a top bar');
+  assert.ok(seven.strokes[0].at(-1).x < seven.strokes[0][1].x, '7 should descend to the left');
+  assert.equal(nine.strokes.length, 1, '9 remains one loop-and-tail movement');
+  assert.ok(nine.strokes[0][0].y < nine.strokes[0].at(-1).y, '9 tail should finish below its loop');
+  assert.ok(nine.strokes[0][0].x > nine.strokes[0].at(-1).x, '9 tail should finish left of its upper loop');
 });
 
 test('lowercase a, r, and t use connected, recognisable handwriting paths', () => {
@@ -230,10 +253,43 @@ test('long names become shorter as a whole instead of squeezing tall letters int
 });
 
 test('straight-edged shape guides preserve hard corners', () => {
-  const cross = EXERCISE_BANKS.shapes.find((task) => task.id === 'shapes-shape-cross-gross');
-  const circle = EXERCISE_BANKS.shapes.find((task) => task.id === 'shapes-shape-circle-gross');
+  const cross = EXERCISE_BANKS.shapes.find((task) => task.id === 'shape-cross');
+  const circle = EXERCISE_BANKS.shapes.find((task) => task.id === 'shape-circle');
   assert.deepEqual(cross.angularStrokes, [0, 1]);
   assert.deepEqual(circle.angularStrokes, []);
+});
+
+test('measured board space chooses fewer targets in portrait and a row in landscape', () => {
+  const source = EXERCISE_BANKS.numbers.find((task) => task.id === 'number-4-vierer');
+  const portrait = adaptTaskToViewport({ ...source, slot: 0 }, { width: 390, height: 844 });
+  const insetPortrait = adaptTaskToViewport({ ...source, slot: 0 }, { width: 362, height: 766 });
+  const landscape = adaptTaskToViewport({ ...source, slot: 0 }, { width: 844, height: 390 });
+  assert.equal(portrait.completionGroups.length, 2, 'phone portrait should not overwhelm with four targets');
+  assert.equal(insetPortrait.completionGroups.length, 2, 'a padded 390px phone board should still allow two targets');
+  assert.equal(landscape.completionGroups.length, 3, 'phone landscape may use a three-target row');
+
+  const groupCenter = (task, group) => {
+    const points = group.flatMap((index) => task.strokes[index]);
+    return points.reduce((sum, point) => ({ x: sum.x + point.x / points.length, y: sum.y + point.y / points.length }), { x: 0, y: 0 });
+  };
+  const portraitCenters = portrait.completionGroups.map((group) => groupCenter(portrait, group));
+  const landscapeCenters = landscape.completionGroups.map((group) => groupCenter(landscape, group));
+  assert.ok(Math.abs(portraitCenters[0].x - portraitCenters[1].x) > 0.15, 'portrait targets should form a diagonal');
+  assert.ok(Math.abs(portraitCenters[0].y - portraitCenters[1].y) > 0.2, 'portrait targets should use the board height');
+  assert.ok(landscapeCenters[0].x < landscapeCenters[1].x && landscapeCenters[1].x < landscapeCenters[2].x, 'landscape targets should form a row');
+
+  const word = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-word-FUCHS');
+  const wideWord = adaptTaskToViewport(word, { width: 1250, height: 632 });
+  assert.equal(wideWord.completionGroups.length, 5, 'a wide board should keep a short word intact');
+});
+
+test('phone name rounds keep the full name to landscape names of eight letters or fewer', () => {
+  const portrait = buildSession({ category: 'name', difficulty: 'easy', name: 'ELISABETH', viewport: { width: 390, height: 844 } });
+  const shortLandscape = buildSession({ category: 'name', difficulty: 'easy', name: 'MARTIN', viewport: { width: 844, height: 390 } });
+  const longLandscape = buildSession({ category: 'name', difficulty: 'easy', name: 'ELISABETH', viewport: { width: 844, height: 390 } });
+  assert.ok(!portrait.some((task) => task.layout === 'whole-name'));
+  assert.ok(shortLandscape.some((task) => task.layout === 'whole-name'));
+  assert.ok(!longLandscape.some((task) => task.layout === 'whole-name'));
 });
 
 test('restricted choices still form a repetition-free round', () => {

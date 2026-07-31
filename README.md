@@ -11,6 +11,7 @@ Fino schreibt ist eine statische, deutschsprachige Schreiblern-App für kurze Ü
 - 100 unterschiedliche Übungen pro Bereich: Wege, Formen, Zahlen, Buchstaben, Namen und bunte Mischung
 - bei Zahlen und Buchstaben: **Alle** üben oder eine eigene Auswahl eingeben
 - Groß- und Kleinbuchstaben, einschließlich ä, ö und ü
+- Zahlen und Buchstaben sind an **Kiwi School Handwriting** angelehnt; Fino folgt den veröffentlichten Startpunkten, Richtungen und Stiftpausen.
 - in der leichten Stufe jeweils genau eine Zahl oder einen Buchstaben üben
 - Fino läuft die Schreibspur als Start-Hilfe auf der gepunkteten Linie ab; beim Absetzen springt er zum nächsten Strich
 - eine dünne, je nach Hilfestufe unterschiedlich dezente Schreibspur; die erlaubte Abweichung wird dabei strenger
@@ -67,6 +68,16 @@ Der Service Worker speichert ausschließlich die statischen App-Dateien, damit d
 ## Sprache
 
 Die Sprachfunktion ist derzeit ausgeschaltet. Alle Hinweise stehen deshalb direkt auf dem Bildschirm. Eigene, aufgenommene Audiodateien können später ergänzt werden, ohne dass dafür ein Online-Dienst nötig ist.
+
+## Schriftvorlage
+
+Die Schreibspuren für A–Z, a–z und 0–9 wurden anhand von **Kiwi School
+Handwriting** und der zugehörigen Variante **Kiwi School Handwriting with
+Guides** von Rob Ashcroft überarbeitet. Letztere zeigt Startpunkte,
+Bewegungsrichtung und Stiftpausen. Die Fontdatei selbst wird nicht mit der App
+ausgeliefert; die App enthält nur eigene, kindgerecht nachzeichnbare
+Mittellinien. Quelle und Lizenzhinweis: [Kiwi School Handwriting with
+Guides](https://www.dafont.com/kiwi-school-handwriting-with-guides.font).
 
 ## Inhalt anpassen
 

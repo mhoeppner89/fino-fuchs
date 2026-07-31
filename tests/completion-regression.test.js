@@ -130,7 +130,7 @@ test('neighbouring paths cannot fill an omitted character and flexible pen use s
 test('child-like in-tolerance jitter still passes at every difficulty', () => {
   const examples = [
     EXERCISE_BANKS.lines.find((task) => task.id === 'lines-line-arch-gross'),
-    EXERCISE_BANKS.shapes.find((task) => task.id === 'shapes-shape-cross-gross'),
+    EXERCISE_BANKS.shapes.find((task) => task.id === 'shape-cross'),
     EXERCISE_BANKS.numbers.find((task) => task.id === 'number-4-gross'),
     EXERCISE_BANKS.letters.find((task) => task.id === 'letter-Ä-gross'),
     createNameExerciseBank('KÄTHE').find((task) => task.id === 'name-full-KÄTHE-0'),

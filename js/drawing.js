@@ -3,7 +3,6 @@
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const DEMO_JUMP_UNITS = 0.42;
-const DESIGN_ASPECT_RATIO = 900 / 620;
 const REQUIRED_PATH_COVERAGE = 0.66;
 export const INK_COLORS = Object.freeze(['#284B73', '#C75C7B', '#2A9D8F', '#9A63BA', '#DD8530']);
 
@@ -14,12 +13,10 @@ export function inkColorAt(strokeIndex) {
 export function drawingBounds(width, height) {
   const safeWidth = Math.max(1, width);
   const safeHeight = Math.max(1, height);
-  if (safeWidth / safeHeight >= DESIGN_ASPECT_RATIO) {
-    const contentWidth = safeHeight * DESIGN_ASPECT_RATIO;
-    return { x: (safeWidth - contentWidth) / 2, y: 0, width: contentWidth, height: safeHeight };
-  }
-  const contentHeight = safeWidth / DESIGN_ASPECT_RATIO;
-  return { x: 0, y: (safeHeight - contentHeight) / 2, width: safeWidth, height: contentHeight };
+  // Tasks are uniformly reflowed to the actual board before rendering. Using
+  // the whole measured rectangle here removes the old fixed landscape band on
+  // portrait screens without stretching their individual letters or shapes.
+  return { x: 0, y: 0, width: safeWidth, height: safeHeight };
 }
 
 function toPixels(point, width, height) {
@@ -615,6 +612,10 @@ export class DrawingBoard {
     }
     this.context.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.render();
+  }
+
+  getViewport() {
+    return { width: this.width, height: this.height };
   }
 
   setTask(task, assist = 'easy') {

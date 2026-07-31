@@ -57,3 +57,21 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 
 - Rebuilt the practice screen around the drawing board: removed the level/title/reference box and Fino's speech bubble, moved clear and show into compact top-bar buttons, and made the board fill all remaining screen space in every orientation.
 - Verification: `npm test` passes 45 of 45 checks, including the new board-first practice-view regression. The final Playwright canvas smoke test recorded no errors.
+
+## 2026-07-31 responsive task-layout follow-up
+
+- Current request: use the measured drawing space to choose one, two, or more letter/number targets without distorting their shapes; use portrait diagonals and landscape rows; restrict full-name writing on phones; and remove repeated shape variants.
+- QA reports are in `qa-luna-max-2026-07-31/`. They identified faint compact guides and portrait multi-target layouts as the main issues. Note: `js/curriculum.js` already contains uncommitted 7/8/h/k refinements from the visual QA pass; preserve and validate them.
+- Implemented measured-board reflow. Tasks now use the full canvas; every rendered component is uniformly scaled from the canonical drawing, preserving glyph and shape proportions. Portrait boards use a staged diagonal (one target only on very narrow boards, otherwise two); landscape boards use a staged row (up to three on phones and four on wide boards).
+- Name rounds now use their real drawing-board size: a full name is offered on phones only in landscape and only up to eight letters. Otherwise, after individual letters, the name is practised in short ordered parts.
+- Removed the repeated size/position/mirror variants from Formen. The visible shapes catalogue now has 20 distinct shape families, enough for a 10-task round. The mixed bank remains 100 tasks.
+- Bumped the offline cache to `fino-schreibt-v1.0.20` so an installed app receives this layout update.
+- Verification: `npm test` passes 47 of 47. Playwright checks confirmed a 390×844 phone renders two staged letters diagonally on the full board and an 844×390 phone renders three staged numbers in a row; no console errors occurred. The standard Playwright game client also completed its desktop smoke run and its canvas screenshot was visually inspected.
+
+## 2026-07-31 Kiwi handwriting follow-up
+
+- Current request: make every letter and digit match the supplied Kiwi School Handwriting character map, including the troublesome 1, 7 and 9; use reliable handwriting guidance for Fino's starting points and stroke routes.
+- Downloaded Kiwi School Handwriting v3.0 and its companion "with Guides" font from the author's published download. The source font was used for inspection only and is not bundled in the public app.
+- Rebuilt the guide centre lines for all A–Z, a–z and 0–9. The routes now follow the companion guide font's published start dots, direction and pen lifts: e.g. 1 is a single slanted downstroke, 7 has no crossbar, and 9 is a top loop followed by a descending tail. Fino already follows first points and jumps between separate paths, so the teaching route is now used directly in the game without adding screen clutter or voice-over.
+- Added regression checks for Kiwi's M/i construction and the distinctive 1, 7 and 9 forms; updated the source attribution in the README.
+- Verification: `npm test` passes 48 of 48; `git diff --check` passes. The required Playwright game-client smoke check showed the live dotted guide with Fino and no browser console errors. A separate local contact-sheet render visually inspected every rebuilt uppercase, lowercase and digit guide with no rendering errors.
