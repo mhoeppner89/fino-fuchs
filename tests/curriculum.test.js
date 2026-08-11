@@ -11,6 +11,7 @@ import {
   getExerciseBank,
   normalizeName,
   OPTION_SETS,
+  reflowTaskWithInk,
   SESSION_SIZE,
   seededRandom,
 } from '../js/curriculum.js';
@@ -30,13 +31,13 @@ const geometryKey = (task) => JSON.stringify(task.strokes.map((stroke) => stroke
 
 test('every activity has distinct exercises, without repeated shape variants', () => {
   const banks = { ...EXERCISE_BANKS, name: createNameExerciseBank('Käthe') };
-  const expectedSizes = { lines: 100, shapes: 36, numbers: 100, letters: 100, mixed: 100, name: 100 };
+  const expectedSizes = { lines: 100, shapes: 36, numbers: 100, letters: 100, maze: 100, connect: 100, mixed: 100, name: 100 };
   Object.entries(banks).forEach(([category, bank]) => {
     assert.equal(bank.length, expectedSizes[category], `${category} bank size`);
     assert.equal(new Set(bank.map((task) => task.id)).size, expectedSizes[category], `${category} IDs`);
     assert.equal(new Set(bank.map(geometryKey)).size, expectedSizes[category], `${category} paths`);
   });
-  assert.equal(TASKS.length, 436);
+  assert.equal(TASKS.length, 636);
   assert.deepEqual(EXERCISE_BANKS.shapes.map((task) => task.id), [
     'shape-circle', 'shape-oval', 'shape-square', 'shape-triangle', 'shape-cross',
     'shape-diamond', 'shape-heart', 'shape-star', 'shape-rectangle', 'shape-pentagon',
@@ -97,12 +98,14 @@ test('the number and letter selector consistently says Alle and has spaced custo
   assert.match(html, /id="child-name"[^>]*enterkeyhint="go"/);
   assert.match(html, /id="number-set"[^>]*inputmode="numeric"[^>]*enterkeyhint="done"/);
   assert.doesNotMatch(app, /setTimeout\(\(\) => elements\.childName\.focus/);
-  assert.match(app, /if \(custom && focus\) input\.focus/);
+  assert.match(app, /if \(custom && focus\) focusForKeyboard\(input\)/);
+  assert.match(app, /input\.scrollIntoView\(\{ block: 'center'/);
 });
 
 test('practice view keeps only the board and compact top-bar actions', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   assert.doesNotMatch(html, /id="mentor-message"/);
   assert.doesNotMatch(html, /id="task-mode"/);
   assert.doesNotMatch(html, /id="task-title"/);
@@ -111,6 +114,21 @@ test('practice view keeps only the board and compact top-bar actions', () => {
   assert.match(html, /class="practice-actions"[\s\S]*id="clear-button"[\s\S]*id="undo-button"[\s\S]*id="show-button"/);
   assert.match(html, /id="show-button"[\s\S]*assets\/fox-face\.svg/);
   assert.match(styles, /\.practice-layout\s*\{\s*display:\s*flex;\s*flex:\s*1 1 auto;/s);
+  assert.match(styles, /grid-template-columns:\s*minmax\(0, 1\.35fr\) minmax\(0, \.75fr\)/);
+  assert.match(styles, /@media \(min-width: 300px\) and \(max-width: 340px\)[\s\S]*grid-template-columns:\s*repeat\(6, 46px\)/);
+  assert.match(styles, /@media \(max-width: 299px\)[\s\S]*grid-template-columns:\s*1fr/);
+  assert.match(styles, /body\s*\{[^}]*min-width:\s*0/s);
+  assert.match(app, /visualViewport[\s\S]*addEventListener\('resize', reveal/);
+  assert.match(app, /cancelActiveStrokeForResize\(\)/);
+  assert.match(app, /practiceScreen\.inert = true/);
+});
+
+test('home screen exposes all eight child activities without emoji art', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.equal((html.match(/class="activity-card/g) ?? []).length, 8);
+  ['maze', 'connect'].forEach((category) => assert.match(html, new RegExp(`data-category="${category}"`)));
+  assert.match(html, />Labyrinth</);
+  assert.match(html, />Funkelpunkte</);
 });
 
 test('the home screen shows the current app version discreetly', () => {
@@ -137,6 +155,22 @@ test('approved reference images supply every standard letter and digit template'
     assert.ok(CHARACTER_STROKES[character].length > 0, `${character} has no Fino route`);
     assert.ok(geometry.maximumRouteError <= 8, `${character} misses its template by ${geometry.maximumRouteError}px`);
     assert.ok(geometry.routeWidth > 0 && geometry.routeHeight > 0, `${character} has invalid source bounds`);
+    CHARACTER_STROKES[character].forEach((stroke, strokeIndex) => {
+      for (let index = 1; index < stroke.length - 1; index += 1) {
+        const incoming = {
+          x: (stroke[index].x - stroke[index - 1].x) * 900,
+          y: (stroke[index].y - stroke[index - 1].y) * 620,
+        };
+        const outgoing = {
+          x: (stroke[index + 1].x - stroke[index].x) * 900,
+          y: (stroke[index + 1].y - stroke[index].y) * 620,
+        };
+        const denominator = Math.hypot(incoming.x, incoming.y) * Math.hypot(outgoing.x, outgoing.y);
+        if (denominator <= 1) continue;
+        const cosine = (incoming.x * outgoing.x + incoming.y * outgoing.y) / denominator;
+        assert.ok(cosine >= -0.8, `${character} stroke ${strokeIndex + 1} doubles back at point ${index}`);
+      }
+    });
   });
 });
 
@@ -239,8 +273,9 @@ test('lowercase a, r, and t retain the approved upright print details', () => {
     a.strokes[0][0].x - a.strokes[0].at(-1).x,
     a.strokes[0][0].y - a.strokes[0].at(-1).y,
   ) < 0.02, 'a body should close cleanly');
-  assert.equal(r.strokes.length, 1, 'r upright and shoulder should be continuous');
-  assert.ok(r.strokes[0].at(-1).x > r.strokes[0][0].x + 0.2, 'r needs a clear right shoulder');
+  assert.equal(r.strokes.length, 2, 'r should lift before its shoulder instead of retracing the upright');
+  assert.ok(r.strokes[0][0].y > r.strokes[0].at(-1).y, 'r upright should travel from the baseline to the x-height');
+  assert.ok(r.strokes[1].at(-1).x > r.strokes[1][0].x + 0.2, 'r needs a clear right shoulder');
   assert.equal(t.strokes.length, 2, 't needs a stem and one crossbar');
   assert.ok(t.strokes[0].at(-1).x > t.strokes[0][0].x + 0.04, 't should finish with a friendly exit hook');
 });
@@ -275,6 +310,8 @@ test('every category creates a 10-task session', () => {
     { category: 'shapes', difficulty: 'medium' },
     { category: 'numbers', difficulty: 'hard', option: 'all' },
     { category: 'letters', difficulty: 'medium', option: 'all' },
+    { category: 'maze', difficulty: 'easy' },
+    { category: 'connect', difficulty: 'hard' },
     { category: 'mixed', difficulty: 'hard' },
   ];
   cases.forEach((config, index) => {
@@ -288,9 +325,9 @@ test('every category creates a 10-task session', () => {
 test('name rounds adapt to the name: each character comes first, then the whole name', () => {
   const session = buildSession({ category: 'name', difficulty: 'medium', name: 'Anna', rng: seededRandom(17) });
   assert.equal(session.length, 5);
-  assert.deepEqual(session.slice(0, -1).map((task) => task.label), ['A', 'N', 'N', 'A']);
+  assert.deepEqual(session.slice(0, -1).map((task) => task.label), ['A', 'n', 'n', 'a']);
   assert.deepEqual(session.slice(0, -1).map((task) => task.layout), ['single-letter', 'single-letter', 'single-letter', 'single-letter']);
-  assert.equal(session.at(-1).label, 'ANNA');
+  assert.equal(session.at(-1).label, 'Anna');
   assert.equal(session.at(-1).layout, 'whole-name');
   assert.equal(session.at(-1).assist, 'easy');
 });
@@ -300,11 +337,19 @@ test('a playthrough samples 10 distinct exercises without repetition', () => {
   assert.equal(new Set(session.map((task) => task.id)).size, SESSION_SIZE);
 });
 
+test('mixed rounds include both new games without crowding out the base activities', () => {
+  const session = buildSession({ category: 'mixed', difficulty: 'medium', rng: seededRandom(541) });
+  const counts = session.reduce((result, task) => ({ ...result, [task.family]: (result[task.family] ?? 0) + 1 }), {});
+  assert.deepEqual(counts, { lines: 2, shapes: 2, numbers: 2, letters: 2, maze: 1, connect: 1 });
+});
+
 test('rounds rotate through available symbols before repeating one', () => {
   const cases = [
     { category: 'numbers', difficulty: 'medium', option: 'all' },
     { category: 'letters', difficulty: 'hard', option: 'all' },
     { category: 'shapes', difficulty: 'medium' },
+    { category: 'maze', difficulty: 'medium' },
+    { category: 'connect', difficulty: 'hard' },
   ];
   cases.forEach((config, index) => {
     const session = buildSession({ ...config, rng: seededRandom(90 + index) });
@@ -334,6 +379,8 @@ test('a non-line round does not begin with a forced line warm-up', () => {
     { category: 'numbers', difficulty: 'medium', option: '257' },
     { category: 'letters', difficulty: 'hard', option: 'MARTIN' },
     { category: 'name', difficulty: 'easy', name: 'I' },
+    { category: 'maze', difficulty: 'easy' },
+    { category: 'connect', difficulty: 'medium' },
     { category: 'mixed', difficulty: 'medium' },
   ];
   cases.forEach((config, index) => {
@@ -342,16 +389,16 @@ test('a non-line round does not begin with a forced line warm-up', () => {
   });
 });
 
-test('name normalization remains local and accepts German uppercase letters', () => {
-  assert.equal(normalizeName('  käthe  '), 'KÄTHE');
-  assert.equal(normalizeName('Zoë 7!'), 'ZOE');
-  assert.equal(normalizeName('Anna-Lena'), 'ANNA-LENA');
+test('name normalization stays local and preserves natural capitalization', () => {
+  assert.equal(normalizeName('  käthe  '), 'käthe');
+  assert.equal(normalizeName('Zoë 7!'), 'Zoe');
+  assert.equal(normalizeName('Anna-Lena'), 'Anna-Lena');
 });
 
 test('word task composes supported letters into the board', () => {
   const word = createWordTask('Löwe');
   assert.ok(word);
-  assert.equal(word.label, 'LÖWE');
+  assert.equal(word.label, 'Löwe');
   assert.ok(word.strokes.length >= 4);
   word.strokes.flat().forEach((point) => {
     assert.ok(point.x >= 0 && point.x <= 1);
@@ -418,6 +465,21 @@ test('measured board space chooses fewer targets in portrait and a row in landsc
   assert.equal(wideWord.completionGroups.length, 5, 'a wide board should keep a short word intact');
 });
 
+test('an in-progress task and its ink reflow together without rotation distortion', () => {
+  const source = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-O-gross');
+  const portrait = adaptTaskToViewport(source, { width: 390, height: 740 });
+  const reflowed = reflowTaskWithInk(portrait, portrait.strokes, { width: 780, height: 330 });
+  const physicalAspect = (strokes, width, height) => {
+    const points = strokes.flat();
+    return ((Math.max(...points.map((point) => point.x)) - Math.min(...points.map((point) => point.x))) * width)
+      / ((Math.max(...points.map((point) => point.y)) - Math.min(...points.map((point) => point.y))) * height);
+  };
+  const before = physicalAspect(portrait.strokes, 390, 740);
+  const after = physicalAspect(reflowed.task.strokes, 780, 330);
+  assert.ok(Math.abs(before - after) / before < 0.001, `${before} became ${after}`);
+  assert.deepEqual(reflowed.task.strokes, reflowed.userStrokes);
+});
+
 test('phone name rounds keep the full name to landscape names of eight letters or fewer', () => {
   const portrait = buildSession({ category: 'name', difficulty: 'easy', name: 'ELISABETH', viewport: { width: 390, height: 844 } });
   const shortLandscape = buildSession({ category: 'name', difficulty: 'easy', name: 'MARTIN', viewport: { width: 844, height: 390 } });
@@ -441,5 +503,52 @@ test('restricted choices still form a repetition-free round', () => {
         : SESSION_SIZE;
       assert.equal(session.length, expectedLength);
     }
+  });
+});
+
+test('responsive custom rounds keep ten visibly different placements', () => {
+  const physicalBounds = (task, viewport) => {
+    const points = task.strokes.flat();
+    return [
+      Math.min(...points.map((point) => point.x * viewport.width)),
+      Math.max(...points.map((point) => point.x * viewport.width)),
+      Math.min(...points.map((point) => point.y * viewport.height)),
+      Math.max(...points.map((point) => point.y * viewport.height)),
+    ];
+  };
+  [
+    { category: 'numbers', difficulty: 'easy', option: '5' },
+    { category: 'numbers', difficulty: 'medium', option: '5' },
+    { category: 'letters', difficulty: 'easy', option: 'i' },
+    { category: 'letters', difficulty: 'medium', option: 'i' },
+  ].forEach((config, index) => {
+    [{ width: 390, height: 700 }, { width: 266, height: 542 }].forEach((viewport) => {
+      const session = buildSession({ ...config, viewport, rng: seededRandom(170 + index) });
+      const bounds = session.map((task) => physicalBounds(adaptTaskToViewport(task, viewport), viewport));
+      const signatures = bounds.map((values) => values.map((value) => Math.round(value)).join(':'));
+      assert.equal(new Set(signatures).size, session.length, `${config.category}/${config.difficulty} repeats responsive geometry at ${viewport.width}px`);
+      bounds.forEach(([left, right, top, bottom]) => {
+        assert.ok(Math.min(left, viewport.width - right, top, viewport.height - bottom) >= 18, `${config.category}/${config.difficulty} touches an edge at ${viewport.width}px`);
+      });
+    });
+  });
+});
+
+test('multiple custom symbols keep an even size and baseline', () => {
+  const viewport = { width: 390, height: 700 };
+  const session = buildSession({ category: 'letters', difficulty: 'medium', option: 'i', viewport, rng: seededRandom(29) });
+  session.map((task) => adaptTaskToViewport(task, viewport)).filter((task) => task.completionGroups.length > 1).forEach((task) => {
+    const boxes = task.completionGroups.map((group) => {
+      const points = group.flatMap((index) => task.strokes[index]);
+      return {
+        width: (Math.max(...points.map((point) => point.x)) - Math.min(...points.map((point) => point.x))) * viewport.width,
+        height: (Math.max(...points.map((point) => point.y)) - Math.min(...points.map((point) => point.y))) * viewport.height,
+        bottom: Math.max(...points.map((point) => point.y)) * viewport.height,
+      };
+    });
+    boxes.slice(1).forEach((box) => {
+      assert.ok(Math.abs(box.width - boxes[0].width) < 0.2);
+      assert.ok(Math.abs(box.height - boxes[0].height) < 0.2);
+    });
   });
 });

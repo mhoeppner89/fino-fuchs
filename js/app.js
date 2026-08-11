@@ -4,10 +4,12 @@ import {
   CATEGORY_CONFIG,
   DIFFICULTIES,
   normalizeName,
+  reflowTaskWithInk,
 } from './curriculum.js';
 import {
   DrawingBoard,
-  evaluateDrawing,
+  evaluateTaskDrawing,
+  feedbackForEvaluation,
   passesDrawingCriteria,
 } from './drawing.js';
 
@@ -40,6 +42,7 @@ const elements = {
   nextTaskButton: $('#next-task-button'),
   progressDots: $('#progress-dots'),
   progressText: $('#progress-text'),
+  practiceStatus: $('#practice-status'),
   drawingCanvas: $('#drawing-canvas'),
   canvasHint: $('#canvas-hint'),
   clearButton: $('#clear-button'),
@@ -76,6 +79,7 @@ const state = {
   previewTimer: 0,
   previewedStrokeIndex: null,
   taskToken: 0,
+  resizeTimer: 0,
 };
 
 let germanVoice = null;
@@ -137,9 +141,13 @@ function showScreen(name) {
   state.screen = name;
   document.body.dataset.screen = name;
   if (name === 'practice') {
-    requestAnimationFrame(() => board.resize());
+    requestAnimationFrame(() => {
+      board.resize();
+      elements.drawingCanvas.focus({ preventScroll: true });
+    });
   } else {
     window.scrollTo({ top: 0, behavior: 'auto' });
+    requestAnimationFrame(() => (name === 'finish' ? $('#finish-title') : $('#home-title'))?.focus({ preventScroll: true }));
   }
 }
 
@@ -150,6 +158,33 @@ function showToast(message, duration = 2800) {
   state.toastTimer = window.setTimeout(() => {
     elements.toast.hidden = true;
   }, duration);
+}
+
+let keyboardRevealCleanup = () => {};
+
+function focusForKeyboard(input) {
+  keyboardRevealCleanup();
+  input.focus({ preventScroll: true });
+  const viewport = window.visualViewport;
+  let fallbackTimer = 0;
+  const reveal = () => {
+    if (document.activeElement !== input) return;
+    requestAnimationFrame(() => input.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' }));
+  };
+  const cleanup = () => {
+    window.clearTimeout(fallbackTimer);
+    viewport?.removeEventListener('resize', reveal);
+    keyboardRevealCleanup = () => {};
+  };
+  keyboardRevealCleanup = cleanup;
+  viewport?.addEventListener('resize', reveal, { passive: true });
+  reveal();
+  // Safari reports the smaller visual viewport after the tap has finished.
+  // Keep listening through that animation and do one final placement.
+  fallbackTimer = window.setTimeout(() => {
+    reveal();
+    cleanup();
+  }, 650);
 }
 
 function selectCategory(category, { announce = true, focusInput = false } = {}) {
@@ -166,7 +201,7 @@ function selectCategory(category, { announce = true, focusInput = false } = {}) 
     panel.classList.toggle('is-visible', selected);
   });
   // Safari only opens its keyboard when focus happens in the tap itself.
-  if (category === 'name' && focusInput) elements.childName.focus({ preventScroll: true });
+  if (category === 'name' && focusInput) focusForKeyboard(elements.childName);
   if (announce) speak(CATEGORY_CONFIG[category].speech);
 }
 
@@ -191,7 +226,7 @@ function updateCustomSetField(category, { focus = false } = {}) {
   field.hidden = !custom;
   input.disabled = !custom;
   help.hidden = !custom;
-  if (custom && focus) input.focus({ preventScroll: true });
+  if (custom && focus) focusForKeyboard(input);
 }
 
 function selectedOption() {
@@ -227,8 +262,10 @@ function clearPreview() {
 
 function updateRoundControls() {
   const hasTask = Boolean(state.activeTask);
-  const hasInk = board.hasInk();
-  const disabled = state.transitioning || !hasTask;
+  const hasInk = board?.hasInk() ?? false;
+  const drawing = board?.isDrawing() ?? false;
+  const disabled = state.transitioning || drawing || !hasTask;
+  elements.exitButton.disabled = disabled;
   elements.previousTaskButton.disabled = disabled || state.index === 0;
   elements.nextTaskButton.disabled = disabled || state.index >= state.session.length - 1;
   elements.clearButton.disabled = disabled || !hasInk;
@@ -238,9 +275,11 @@ function updateRoundControls() {
 
 async function previewCurrentStroke({ force = false } = {}) {
   if (state.transitioning || state.screen !== 'practice' || !state.activeTask) return false;
-  const strokeIndex = board.nextGuideStrokeIndex();
-  if (!force && state.previewedStrokeIndex === strokeIndex) return false;
-  state.previewedStrokeIndex = strokeIndex;
+  const previewKey = board.isGameTask()
+    ? `${state.activeTask.gameMode}-${board.gameSnapshot()?.progress ?? 0}`
+    : board.nextGuideStrokeIndex();
+  if (!force && state.previewedStrokeIndex === previewKey) return false;
+  state.previewedStrokeIndex = previewKey;
   updateRoundControls();
   elements.showButton.disabled = true;
   await board.startDemo();
@@ -249,6 +288,7 @@ async function previewCurrentStroke({ force = false } = {}) {
 }
 
 function scheduleNextStrokePreview() {
+  if (board.isGameTask()) return;
   clearPreview();
   const taskToken = state.taskToken;
   const strokeIndex = board.nextGuideStrokeIndex();
@@ -292,12 +332,17 @@ async function renderTask() {
   state.taskToken += 1;
   const token = state.taskToken;
   updateProgress();
-  elements.drawingCanvas.setAttribute('aria-label', `Zeichenfläche für ${task.title}. Zeichne mit Finger oder Stift.`);
+  updateTaskCanvasLabel(task);
+  elements.practiceStatus.textContent = task.gameMode === 'maze'
+    ? 'Neues Labyrinth. Starte bei Fino und finde das Ziel.'
+    : task.gameMode === 'connect'
+      ? 'Neue Funkelpunkte. Starte bei Fino und verbinde den nächsten Punkt.'
+      : `Neue Aufgabe: ${task.title}.`;
   elements.canvasHint.classList.add('is-hidden');
   board.setTask(task, task.assist);
   updateRoundControls();
 
-  const shouldDemo = task.assist === 'easy' || (state.index === 0 && task.assist === 'medium');
+  const shouldDemo = !task.gameMode && (task.assist === 'easy' || (state.index === 0 && task.assist === 'medium'));
   if (shouldDemo) {
     window.setTimeout(async () => {
       if (token !== state.taskToken || state.screen !== 'practice' || board.hasInk()) return;
@@ -358,8 +403,10 @@ function beginSession() {
 }
 
 function passCriteria(result, assist, task, slack = 0) {
-  const wordAdjustment = task.category === 'name' && task.id.startsWith('word-') ? 0.07 : 0;
-  return passesDrawingCriteria(result, assist, { qualityAdjustment: wordAdjustment, slack });
+  const qualityAdjustment = task.category === 'name' && task.id.startsWith('word-')
+    ? 0.07
+    : task.category === 'shapes' ? 0.045 : 0;
+  return passesDrawingCriteria(result, assist, { qualityAdjustment, slack });
 }
 
 const praise = ['Prima!', 'Super!', 'Toll gemacht!', 'Klasse!', 'Sehr gut!'];
@@ -407,8 +454,16 @@ function celebrate(message, { gentle = false } = {}) {
 function checkDrawing({ quietIncomplete = false } = {}) {
   if (state.transitioning || !state.activeTask) return null;
   const task = state.activeTask;
+  if (task.gameMode) {
+    const snapshot = board.gameSnapshot();
+    if (snapshot?.status === 'complete') {
+      celebrate(praise[Math.floor(Math.random() * praise.length)]);
+      return { passed: true, result: snapshot };
+    }
+    return { passed: false, result: snapshot, inProgress: true };
+  }
   const userStrokes = board.getUserStrokes();
-  const result = evaluateDrawing(task.strokes, userStrokes, {
+  const result = board.currentEvaluation() ?? evaluateTaskDrawing(task, userStrokes, {
     ...board.evaluationOptions(),
     completionGroups: task.completionGroups,
   });
@@ -434,6 +489,7 @@ function checkDrawing({ quietIncomplete = false } = {}) {
   }
 
   board.flashGuide();
+  if (!quietIncomplete || result.allRequired) showToast(feedbackForEvaluation(result), 1800);
   return { passed: false, result, quietIncomplete };
 }
 
@@ -459,31 +515,107 @@ function returnHome() {
   state.transitioning = false;
   elements.successOverlay.hidden = true;
   elements.exitModal.hidden = true;
+  elements.practiceScreen.inert = false;
   stopSpeech();
   showScreen('home');
 }
 
 function openExitModal() {
+  if (board.isDrawing()) return;
   elements.exitModal.hidden = false;
+  elements.practiceScreen.inert = true;
   stopSpeech();
   window.setTimeout(() => elements.continueButton.focus(), 0);
 }
 
 function closeExitModal() {
   elements.exitModal.hidden = true;
+  elements.practiceScreen.inert = false;
   elements.exitButton.focus();
 }
 
-const board = new DrawingBoard(elements.drawingCanvas, {
+function updateTaskCanvasLabel(task) {
+  const instruction = task.gameMode === 'maze'
+    ? 'Starte bei Fino, finde das Ziel und berühre keine Wand.'
+    : task.gameMode === 'connect'
+      ? 'Starte bei Fino, verbinde den nächsten Punkt und berühre keine alte Linie.'
+      : 'Zeichne mit Finger oder Stift.';
+  elements.drawingCanvas.setAttribute('aria-label', `Zeichenfläche für ${task.title}. ${instruction}`);
+}
+
+function handleBoardResize() {
+  window.clearTimeout(state.resizeTimer);
+  state.resizeTimer = 0;
+  if (!board || state.screen !== 'practice' || !state.activeTask || !state.session[state.index]) return;
+  if (board.isDrawing()) board.cancelActiveStrokeForResize();
+  const viewport = board.getViewport();
+  const oldViewport = state.activeTask.viewport;
+  if (oldViewport && Math.abs(oldViewport.width - viewport.width) < 1 && Math.abs(oldViewport.height - viewport.height) < 1) return;
+  clearAutoCheck();
+  clearPreview();
+  board.stopDemo({ render: false });
+  state.previewedStrokeIndex = null;
+  const gameWasReset = Boolean(state.activeTask.gameMode && board.hasInk());
+  if (state.activeTask.gameMode) {
+    const task = adaptTaskToViewport(state.session[state.index], viewport);
+    state.activeTask = task;
+    board.setTask(task, task.assist);
+  } else if (board.hasInk()) {
+    const reflowed = reflowTaskWithInk(state.activeTask, board.getUserStrokes(), viewport);
+    state.activeTask = reflowed.task;
+    board.replaceTask(reflowed.task, {
+      userStrokes: reflowed.userStrokes,
+      strokeColors: board.getUserStrokeColors(),
+      gameState: board.gameState,
+    });
+  } else {
+    const task = adaptTaskToViewport(state.session[state.index], viewport);
+    state.activeTask = task;
+    board.setTask(task, task.assist);
+  }
+  updateTaskCanvasLabel(state.activeTask);
+  elements.practiceStatus.textContent = gameWasReset
+    ? 'Das Spielfeld wurde gedreht. Starte diese Aufgabe noch einmal bei Fino.'
+    : 'Die Zeichenfläche wurde an die neue Ausrichtung angepasst.';
+  updateRoundControls();
+}
+
+let board = null;
+board = new DrawingBoard(elements.drawingCanvas, {
   onInkChange(hasInk) {
     elements.canvasHint.classList.add('is-hidden');
     updateRoundControls();
   },
   onStrokeStart() {
     clearAutoCheck();
+    updateRoundControls();
   },
   onStrokeEnd() {
-    scheduleAutoCheck();
+    if (!board.isGameTask()) scheduleAutoCheck();
+    updateRoundControls();
+  },
+  onGameProgress(snapshot) {
+    if (snapshot?.mode === 'connect') {
+      elements.practiceStatus.textContent = `Punkt ${snapshot.progress + 1} von ${snapshot.total + 1}.`;
+    }
+    updateRoundControls();
+  },
+  onGameMistake(reason, count) {
+    const messages = {
+      start: 'Starte direkt bei Fino.',
+      wall: 'Fast! Bleib zwischen den Wänden.',
+      crossing: 'Fast! Berühre keine alte Linie.',
+    };
+    const message = messages[reason] ?? 'Probier es noch einmal.';
+    elements.practiceStatus.textContent = message;
+    if (reason === 'start' || count <= 2 || count % 2 === 0) showToast(message, 1500);
+    updateRoundControls();
+  },
+  onGameComplete() {
+    checkDrawing({ quietIncomplete: true });
+  },
+  onResize() {
+    handleBoardResize();
   },
 });
 
@@ -556,7 +688,7 @@ elements.undoButton.addEventListener('click', () => {
 });
 
 function goToTask(index) {
-  if (state.transitioning || index < 0 || index >= state.session.length || index === state.index) return;
+  if (state.transitioning || board.isDrawing() || index < 0 || index >= state.session.length || index === state.index) return;
   clearAutoCheck();
   clearPreview();
   state.index = index;
@@ -577,11 +709,33 @@ elements.repeatButton.addEventListener('click', beginSession);
 elements.homeButton.addEventListener('click', returnHome);
 
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && !elements.exitModal.hidden) closeExitModal();
+  if (elements.exitModal.hidden) return;
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeExitModal();
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const focusable = [elements.continueButton, elements.confirmExitButton];
+  const current = focusable.indexOf(document.activeElement);
+  if (event.shiftKey && current <= 0) {
+    event.preventDefault();
+    focusable.at(-1).focus();
+  } else if (!event.shiftKey && current === focusable.length - 1) {
+    event.preventDefault();
+    focusable[0].focus();
+  }
 });
 
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) stopSpeech();
+  if (document.hidden) {
+    stopSpeech();
+    if (board.isDrawing()) {
+      board.cancelActiveStrokeForResize();
+      board.render();
+      updateRoundControls();
+    }
+  }
 });
 
 updateSoundButtons();
@@ -596,12 +750,15 @@ window.render_game_to_text = () => JSON.stringify({
   selection: selectedOption(),
   progress: { completed: state.completed, current: state.index + 1, total: state.session.length, canGoBack: state.index > 0, canSkip: state.index < state.session.length - 1 },
   task: state.activeTask
-    ? { id: state.activeTask.id, title: state.activeTask.title, expectedStrokes: state.activeTask.strokes.length, expectedStrokeColors: state.activeTask.strokeColors, layout: state.activeTask.layout, viewport: state.activeTask.viewport }
+    ? { id: state.activeTask.id, title: state.activeTask.title, mode: state.activeTask.gameMode || 'trace', expectedStrokes: state.activeTask.strokes.length, expectedStrokeColors: state.activeTask.strokeColors, layout: state.activeTask.layout, viewport: state.activeTask.viewport }
     : null,
   assist: state.activeTask?.assist ?? null,
   userStrokes: board.getUserStrokes().length,
   inkColors: board.getUserStrokeColors(),
+  game: board.gameSnapshot(),
 });
+
+window.advanceTime = (milliseconds) => board.advanceTime(milliseconds);
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {
@@ -624,6 +781,9 @@ if (new URLSearchParams(location.search).has('test')) {
       const task = state.activeTask;
       return task ? {
         id: task.id,
+        gameMode: task.gameMode,
+        game: task.game,
+        viewport: task.viewport,
         strokes: task.strokes,
         completionGroups: task.completionGroups,
         strokeColors: task.strokeColors,
@@ -647,7 +807,8 @@ if (new URLSearchParams(location.search).has('test')) {
     evaluationSnapshot() {
       const task = state.activeTask;
       if (!task) return null;
-      const result = evaluateDrawing(task.strokes, board.getUserStrokes(), {
+      if (task.gameMode) return { task: task.id, index: state.index, transitioning: state.transitioning, game: board.gameSnapshot() };
+      const result = evaluateTaskDrawing(task, board.getUserStrokes(), {
         ...board.evaluationOptions(),
         completionGroups: task.completionGroups,
       });

@@ -5,11 +5,19 @@ import {
   characterTemplateCrop,
 } from './handwriting-template-data.js';
 import { characterStrokeGeometry } from './handwriting-stroke-data.js';
+import {
+  connectTrailCollision,
+  firstCircleHit,
+  mazeWallCollision,
+  nextMazeSolutionPoint,
+  pointDistanceInPixels,
+} from './mini-games.js';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const DEMO_JUMP_UNITS = 0.42;
 const REQUIRED_PATH_COVERAGE = 0.8;
+const MAX_CANVAS_PIXELS = 3_200_000;
 export const DEMO_SPEED_MULTIPLIER = 1.5;
 export const INK_COLORS = Object.freeze(['#284B73', '#C75C7B', '#2A9D8F', '#9A63BA', '#DD8530']);
 // The guide remains easy to find at every difficulty. Difficulty comes from
@@ -393,7 +401,7 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
   // still allowing one continuous pen movement to cover several routes.
   const ownedSamplesByPath = expectedSamplesByStroke.map(() => []);
   groups.forEach((indexes, groupIndex) => {
-    const sharedRouteMargin = Math.max(0.25, groupTolerances[groupIndex] * 0.08);
+    const sharedRouteMargin = Math.max(0.2, groupTolerances[groupIndex] * 0.02);
     alignedSamplesByGroup[groupIndex].forEach((sample) => {
       const distances = indexes.map((index) => minDistanceToStrokes(sample, [expected[index]]));
       const bestDistance = Math.min(...distances);
@@ -467,14 +475,20 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
       // long empty run.  Measuring that run with all points in the character
       // avoids penalising harmless alternative pen segmentation.
       const gapTolerance = Math.min(groupTolerance, Math.max(10, groupTolerance * 0.68));
-      pathLongestGaps[index] = longestUncoveredRun(samples, ownedPoints, gapTolerance);
+      pathLongestGaps[index] = pathLength <= 12
+        ? (pathCoverage[index] >= 0.72 ? 0 : 1)
+        : longestUncoveredRun(samples, ownedPoints, gapTolerance);
     });
     const minPathCoverage = Math.min(...indexes.map((index) => pathCoverage[index]));
     const maxGap = Math.max(...indexes.map((index) => pathLongestGaps[index]));
+    const everyPathPresent = indexes.every((index) => {
+      const pathLength = pixelPolylineLength(expectedSamplesByStroke[index]);
+      return pathCoverage[index] >= (pathLength <= 72 ? 0.62 : 0.72);
+    });
     const structural = groupMatch.coverage >= 0.8
       && groupMatch.mse <= 1.2
-      && minPathCoverage >= REQUIRED_PATH_COVERAGE
-      && maxGap <= 0.24;
+      && everyPathPresent
+      && maxGap <= 0.28;
     const completionScore = structural
       ? clamp(
         0.55 * groupMatch.coverage
@@ -537,6 +551,313 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
     targetMse, userMse, symmetricMse, groupMetrics,
     expectedLength, userLength, hasInk: true,
   };
+}
+
+function contourSignature(strokes, width, height) {
+  const pixelStrokes = strokes.filter((stroke) => stroke.length > 1).map((stroke) => stroke.map((point) => toPixels(point, width, height)));
+  const points = pixelStrokes.flat();
+  if (!points.length) return { aspect: 1, corners: 0, radial: [] };
+  const minX = Math.min(...points.map((point) => point.x));
+  const maxX = Math.max(...points.map((point) => point.x));
+  const minY = Math.min(...points.map((point) => point.y));
+  const maxY = Math.max(...points.map((point) => point.y));
+  const span = Math.max(maxX - minX, maxY - minY);
+  const tolerance = clamp(span * 0.035, 6, 14);
+
+  const perpendicularDistance = (point, start, end) => pointToSegmentDistance(point, start, end);
+  const simplify = (source) => {
+    if (source.length <= 2) return source;
+    let farthest = 0;
+    let farthestDistance = 0;
+    for (let index = 1; index < source.length - 1; index += 1) {
+      const value = perpendicularDistance(source[index], source[0], source.at(-1));
+      if (value > farthestDistance) {
+        farthest = index;
+        farthestDistance = value;
+      }
+    }
+    if (farthestDistance <= tolerance) return [source[0], source.at(-1)];
+    return [...simplify(source.slice(0, farthest + 1)).slice(0, -1), ...simplify(source.slice(farthest))];
+  };
+
+  const turnAt = (previous, current, next) => {
+    const first = { x: current.x - previous.x, y: current.y - previous.y };
+    const second = { x: next.x - current.x, y: next.y - current.y };
+    const denominator = Math.hypot(first.x, first.y) * Math.hypot(second.x, second.y);
+    if (denominator < 1) return 0;
+    return Math.acos(clamp((first.x * second.x + first.y * second.y) / denominator, -1, 1)) * 180 / Math.PI;
+  };
+
+  let corners = 0;
+  pixelStrokes.forEach((stroke) => {
+    const closed = distance(stroke[0], stroke.at(-1)) <= tolerance * 1.8;
+    const source = closed ? stroke.slice(0, -1) : stroke;
+    const simplified = simplify(source);
+    if (closed && simplified.length >= 3) {
+      simplified.forEach((point, index) => {
+        const previous = simplified[(index - 1 + simplified.length) % simplified.length];
+        const next = simplified[(index + 1) % simplified.length];
+        if (turnAt(previous, point, next) >= 55) corners += 1;
+      });
+    } else {
+      for (let index = 1; index < simplified.length - 1; index += 1) {
+        if (turnAt(simplified[index - 1], simplified[index], simplified[index + 1]) >= 55) corners += 1;
+      }
+    }
+  });
+  const center = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+  const radialSamples = pixelStrokes.flatMap((stroke) => {
+    const samples = [];
+    for (let index = 1; index < stroke.length; index += 1) {
+      const start = stroke[index - 1];
+      const end = stroke[index];
+      const steps = Math.max(1, Math.ceil(distance(start, end) / 5));
+      for (let step = 0; step <= steps; step += 1) {
+        const progress = step / steps;
+        samples.push({ x: start.x + (end.x - start.x) * progress, y: start.y + (end.y - start.y) * progress });
+      }
+    }
+    return samples;
+  });
+  const binCount = 36;
+  const bins = Array.from({ length: binCount }, () => []);
+  radialSamples.forEach((point) => {
+    const angle = (Math.atan2(point.y - center.y, point.x - center.x) + Math.PI * 2) % (Math.PI * 2);
+    const index = Math.round((angle / (Math.PI * 2)) * binCount) % binCount;
+    bins[index].push(distance(point, center));
+  });
+  const radial = bins.map((values, index) => {
+    if (values.length) return Math.max(...values);
+    for (let offset = 1; offset < binCount / 2; offset += 1) {
+      const before = bins[(index - offset + binCount) % binCount];
+      const after = bins[(index + offset) % binCount];
+      if (before.length && after.length) return (Math.max(...before) + Math.max(...after)) / 2;
+      if (before.length) return Math.max(...before);
+      if (after.length) return Math.max(...after);
+    }
+    return 0;
+  });
+  const averageRadius = radial.reduce((sum, value) => sum + value, 0) / Math.max(1, radial.length);
+  return {
+    aspect: Math.max(1, maxX - minX) / Math.max(1, maxY - minY),
+    corners,
+    radial: radial.map((value) => value / Math.max(1, averageRadius)),
+  };
+}
+
+const BASIC_CONTOUR_SHAPES = new Set([
+  'shape-circle', 'shape-oval', 'shape-square', 'shape-triangle', 'shape-diamond',
+  'shape-heart', 'shape-star', 'shape-rectangle', 'shape-pentagon', 'shape-hexagon',
+]);
+
+const IDENTITY_CATEGORIES = new Set(['letters', 'numbers', 'name', 'shapes']);
+
+function cappedPathSamples(samplesByStroke, indexes, maximum = 160) {
+  const required = [];
+  const remaining = [];
+  const seen = new Set();
+  const keep = (point) => {
+    if (!point || seen.has(point)) return;
+    seen.add(point);
+    required.push(point);
+  };
+  indexes.forEach((index) => {
+    const samples = samplesByStroke[index] ?? [];
+    keep(samples[0]);
+    keep(samples.at(-1));
+    samples.slice(1, -1).forEach((point) => remaining.push(point));
+  });
+  if (required.length >= maximum) return required.slice(0, maximum);
+  const budget = maximum - required.length;
+  if (remaining.length <= budget) return [...required, ...remaining];
+  return [
+    ...required,
+    ...Array.from({ length: budget }, (_, index) => (
+      remaining[Math.floor((index * remaining.length) / budget)]
+    )),
+  ];
+}
+
+function cappedOwnedStrokeSamples(samplesByStroke, ownedSamples, maximum = 160) {
+  const owned = new Set(ownedSamples);
+  const strokes = samplesByStroke
+    .map((stroke) => stroke.filter((point) => owned.has(point)))
+    .filter((stroke) => stroke.length);
+  return cappedPathSamples(strokes, strokes.map((_, index) => index), maximum);
+}
+
+function sampleCenter(samples) {
+  return samples.reduce((center, point) => ({
+    x: center.x + point.x / samples.length,
+    y: center.y + point.y / samples.length,
+  }), { x: 0, y: 0 });
+}
+
+function rmsRadius(samples, center) {
+  return Math.sqrt(samples.reduce((sum, point) => (
+    sum + (point.x - center.x) ** 2 + (point.y - center.y) ** 2
+  ), 0) / Math.max(1, samples.length));
+}
+
+function similarityTransform(samples, sourceCenter, targetCenter, scale, angle) {
+  const cosine = Math.cos(angle);
+  const sine = Math.sin(angle);
+  return samples.map((point) => {
+    const x = (point.x - sourceCenter.x) * scale;
+    const y = (point.y - sourceCenter.y) * scale;
+    return {
+      x: targetCenter.x + x * cosine - y * sine,
+      y: targetCenter.y + x * sine + y * cosine,
+    };
+  });
+}
+
+function drawingIdentity(task, userStrokes, width, height) {
+  const expectedSamplesByStroke = task.strokes.map((stroke) => resampleStroke(stroke, width, height, 5));
+  const userSamplesByStroke = userStrokes
+    .filter((stroke) => stroke.length)
+    .map((stroke) => resampleStroke(stroke, width, height, 5));
+  const groups = task.completionGroups?.length
+    ? task.completionGroups.filter((group) => group.length)
+    : [task.strokes.map((_, index) => index)];
+  const identityTolerance = clamp(Math.min(width, height) * 0.05, 14, 22);
+  const expectedPixels = task.strokes.map((stroke) => stroke.map((point) => toPixels(point, width, height)));
+  const ownedUserSamples = groupOwnedUserSamples(
+    expectedPixels,
+    groups,
+    userSamplesByStroke,
+    identityTolerance * 0.25,
+  );
+
+  const groupMetrics = groups.map((indexes, groupIndex) => {
+    const targetCore = cappedPathSamples(expectedSamplesByStroke, indexes);
+    const userFull = ownedUserSamples[groupIndex];
+    const userCore = cappedOwnedStrokeSamples(userSamplesByStroke, userFull);
+    if (!targetCore.length || !userCore.length) {
+      return {
+        indexes: [...indexes], pass: false, coreCoverage: 0, corePrecision: 0,
+        coreMse: 9, pathMetrics: [], identityTolerance,
+      };
+    }
+    const targetCenter = sampleCenter(targetCore);
+    const userCenter = sampleCenter(userCore);
+    const targetRadius = rmsRadius(targetCore, targetCenter);
+    const userRadius = rmsRadius(userCore, userCenter);
+    const baseScale = clamp(targetRadius / Math.max(1, userRadius), 0.84, 1.18);
+    let best = null;
+    [-8, -6, -4, -2, 0, 2, 4, 6, 8].forEach((degrees) => {
+      [0.96, 1, 1.04].forEach((residualScale) => {
+        const scale = baseScale * residualScale;
+        const angle = degrees * Math.PI / 180;
+        const aligned = similarityTransform(userCore, userCenter, targetCenter, scale, angle);
+        const targetMatch = nearestDistanceMetrics(targetCore, pointStrokes(aligned), identityTolerance, 3);
+        const userMatch = nearestDistanceMetrics(aligned, pointStrokes(targetCore), identityTolerance, 3);
+        const coreMse = (targetMatch.mse + userMatch.mse) / 2;
+        const objective = coreMse + 0.4 * ((1 - targetMatch.coverage) + (1 - userMatch.coverage));
+        if (!best || objective < best.objective) {
+          best = {
+            objective,
+            scale,
+            angle,
+            coreCoverage: targetMatch.coverage,
+            corePrecision: userMatch.coverage,
+            coreMse,
+          };
+        }
+      });
+    });
+
+    const alignedFull = similarityTransform(userFull, userCenter, targetCenter, best.scale, best.angle);
+    const alignedByPath = new Map(indexes.map((index) => [index, []]));
+    alignedFull.forEach((point) => {
+      const distances = indexes.map((index) => minDistanceToStrokes(point, [expectedPixels[index]]));
+      const nearest = Math.min(...distances);
+      const sharedMargin = Math.max(1.5, identityTolerance * 0.16);
+      indexes.forEach((index, localIndex) => {
+        if (distances[localIndex] <= nearest + sharedMargin) alignedByPath.get(index).push(point);
+      });
+    });
+    const pathMetrics = indexes.map((index) => {
+      const samples = expectedSamplesByStroke[index];
+      const pathLength = pixelPolylineLength(samples);
+      const alignedPoints = pointStrokes(alignedByPath.get(index));
+      if (pathLength <= 12) {
+        const nearest = samples.reduce((value, point) => Math.min(value, minDistanceToStrokes(point, alignedPoints)), Infinity);
+        const detailTolerance = identityTolerance * 1.25;
+        return { index, coverage: nearest <= detailTolerance ? 1 : 0, longestGap: nearest <= detailTolerance ? 0 : 1, pass: nearest <= detailTolerance };
+      }
+      const coverage = bandCoverage(samples, alignedPoints, identityTolerance);
+      const longestGap = longestUncoveredRun(samples, alignedPoints, identityTolerance);
+      return { index, coverage, longestGap, pass: coverage >= 0.85 && longestGap <= 0.36 };
+    });
+    const pass = best.coreCoverage >= 0.95
+      && best.corePrecision >= 0.9
+      && best.coreMse <= 0.38
+      && pathMetrics.every((metric) => metric.pass);
+    return { indexes: [...indexes], ...best, pathMetrics, pass, identityTolerance };
+  });
+  const pass = groupMetrics.length > 0 && groupMetrics.every((metric) => metric.pass);
+  const completion = groupMetrics.length
+    ? Math.min(...groupMetrics.map((metric) => (
+      0.45 * metric.coreCoverage
+        + 0.3 * metric.corePrecision
+        + 0.25 * Math.exp(-metric.coreMse)
+    )))
+    : 0;
+  return { pass, completion, groups: groupMetrics, tolerance: identityTolerance };
+}
+
+/** Activity-aware completion keeps forgiving line distance while preventing a
+ * rounded contour from standing in for a polygon (or the reverse). */
+export function evaluateTaskDrawing(task, userStrokes, options = {}) {
+  let result = evaluateDrawing(task.strokes, userStrokes, {
+    ...options,
+    completionGroups: options.completionGroups ?? task.completionGroups,
+  });
+  let identity = null;
+  if (IDENTITY_CATEGORIES.has(task.category) && result.hasInk) {
+    identity = result.coverage >= 0.55 && result.precision >= 0.45
+      ? drawingIdentity(task, userStrokes, options.width ?? 900, options.height ?? 620)
+      : { pass: false, completion: 0, groups: [], tolerance: clamp(Math.min(options.width ?? 900, options.height ?? 620) * 0.05, 14, 22) };
+    result = {
+      ...result,
+      identity,
+      allRequired: identity.pass,
+      completion: identity.pass
+        ? Math.max(result.completion, identity.completion)
+        : Math.min(result.completion, 0.69),
+    };
+  }
+  if (task.category !== 'shapes' || !result.hasInk) return result;
+
+  let shapeStructure = true;
+  let shapeMetrics = null;
+  if (BASIC_CONTOUR_SHAPES.has(task.id.replace(/^mixed-/, ''))) {
+    const expected = contourSignature(task.strokes, options.width ?? 900, options.height ?? 620);
+    const actual = contourSignature(userStrokes, options.width ?? 900, options.height ?? 620);
+    const aspectDifference = Math.abs(Math.log(Math.max(0.05, actual.aspect / expected.aspect)));
+    const radialDifference = [-1, 0, 1].reduce((best, shift) => {
+      const mse = expected.radial.reduce((sum, value, index) => {
+        const actualIndex = (index + shift + actual.radial.length) % actual.radial.length;
+        return sum + (value - (actual.radial[actualIndex] ?? 0)) ** 2;
+      }, 0) / Math.max(1, expected.radial.length);
+      return Math.min(best, mse);
+    }, Infinity);
+    const cornerDifference = Math.abs(actual.corners - expected.corners);
+    const contourCompatible = expected.corners === 0
+      ? actual.corners < 3 && radialDifference <= 0.018
+      : expected.corners >= 3
+        ? actual.corners === 0
+          ? radialDifference <= 0.0025
+          : cornerDifference === 0
+            ? radialDifference <= 0.04
+            : cornerDifference === 1 && radialDifference <= 0.006
+        : actual.corners <= expected.corners + 1 && radialDifference <= 0.018;
+    shapeMetrics = { expectedCorners: expected.corners, actualCorners: actual.corners, aspectDifference, radialDifference };
+    shapeStructure = aspectDifference <= Math.log(1.42)
+      && contourCompatible;
+  }
+  return { ...result, shapeStructure, shapeMetrics, allRequired: result.allRequired && shapeStructure };
 }
 
 const PASS_CRITERIA = Object.freeze({
@@ -743,6 +1064,23 @@ export function visibleGuideIndexes(stages, activeStageIndex = 0) {
   return stages.slice(0, lastVisibleStage + 1).flat();
 }
 
+function inkWidthForBoard(width, height) {
+  const bounds = drawingBounds(width, height);
+  return clamp(Math.min(bounds.width, bounds.height) * 0.025, 11, 20);
+}
+
+function simplifyStroke(stroke, width, height, minimumDistance = 1.2) {
+  if (stroke.length <= 2) return stroke;
+  const simplified = [stroke[0]];
+  for (let index = 1; index < stroke.length - 1; index += 1) {
+    if (distance(toPixels(simplified.at(-1), width, height), toPixels(stroke[index], width, height)) >= minimumDistance) {
+      simplified.push(stroke[index]);
+    }
+  }
+  simplified.push(stroke.at(-1));
+  return simplified;
+}
+
 export class DrawingBoard {
   constructor(canvas, hooks = {}) {
     if (!(canvas instanceof HTMLCanvasElement)) throw new TypeError('DrawingBoard requires a canvas element.');
@@ -764,6 +1102,13 @@ export class DrawingBoard {
     this.jumpAnimation = null;
     this.jumpFrame = 0;
     this.highlightUntil = 0;
+    this.gameState = null;
+    this.gameHint = null;
+    this.gameErrorStroke = null;
+    this.gameErrorUntil = 0;
+    this.inkRevision = 0;
+    this.evaluationCache = null;
+    this.renderFrame = 0;
     this.templateImages = new Map();
     this.width = 800;
     this.height = 560;
@@ -774,10 +1119,13 @@ export class DrawingBoard {
     this.onPointerDown = this.onPointerDown.bind(this);
     this.onPointerMove = this.onPointerMove.bind(this);
     this.onPointerUp = this.onPointerUp.bind(this);
+    this.onPointerCancel = this.onPointerCancel.bind(this);
+    this.onLostPointerCapture = this.onLostPointerCapture.bind(this);
     canvas.addEventListener('pointerdown', this.onPointerDown);
     canvas.addEventListener('pointermove', this.onPointerMove);
     canvas.addEventListener('pointerup', this.onPointerUp);
-    canvas.addEventListener('pointercancel', this.onPointerUp);
+    canvas.addEventListener('pointercancel', this.onPointerCancel);
+    canvas.addEventListener('lostpointercapture', this.onLostPointerCapture);
     canvas.addEventListener('contextmenu', (event) => event.preventDefault());
     this.loadCharacterTemplateImages();
     this.resize();
@@ -798,18 +1146,23 @@ export class DrawingBoard {
     this.resizeObserver.disconnect();
     this.stopDemo({ render: false });
     cancelAnimationFrame(this.jumpFrame);
+    cancelAnimationFrame(this.renderFrame);
     this.canvas.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
-    this.canvas.removeEventListener('pointercancel', this.onPointerUp);
+    this.canvas.removeEventListener('pointercancel', this.onPointerCancel);
+    this.canvas.removeEventListener('lostpointercapture', this.onLostPointerCapture);
   }
 
   resize() {
     const rect = this.canvas.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) return;
+    const previous = { width: this.width, height: this.height };
     this.width = rect.width;
     this.height = rect.height;
-    this.dpr = clamp(window.devicePixelRatio || 1, 1, 3);
+    const sizeChanged = Math.abs(previous.width - this.width) > 0.5 || Math.abs(previous.height - this.height) > 0.5;
+    const pixelBudgetDpr = Math.sqrt(MAX_CANVAS_PIXELS / Math.max(1, this.width * this.height));
+    this.dpr = clamp(Math.min(window.devicePixelRatio || 1, pixelBudgetDpr), 1, 3);
     const pixelWidth = Math.round(this.width * this.dpr);
     const pixelHeight = Math.round(this.height * this.dpr);
     if (this.canvas.width !== pixelWidth || this.canvas.height !== pixelHeight) {
@@ -818,13 +1171,82 @@ export class DrawingBoard {
     }
     this.context.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.render();
+    if (sizeChanged) this.hooks.onResize?.({ previous, current: { width: this.width, height: this.height } });
+  }
+
+  requestRender() {
+    if (this.renderFrame) return;
+    this.renderFrame = requestAnimationFrame(() => {
+      this.renderFrame = 0;
+      this.render();
+    });
   }
 
   getViewport() {
     return { width: this.width, height: this.height };
   }
 
+  isGameTask() {
+    return this.task?.gameMode === 'maze' || this.task?.gameMode === 'connect';
+  }
+
+  isDrawing() {
+    return this.activePointerId !== null;
+  }
+
+  /**
+   * A rotation can change the canvas coordinate system while a finger is
+   * still down. Drop only that unfinished stroke before reflowing the task;
+   * completed ink remains intact and can be transformed safely.
+   */
+  cancelActiveStrokeForResize() {
+    if (this.activePointerId === null) return false;
+    const pointerId = this.activePointerId;
+    if (this.activeStroke && this.userStrokes.at(-1) === this.activeStroke) {
+      this.userStrokes.pop();
+      this.strokeColors.pop();
+    }
+    this.activePointerId = null;
+    this.activeStroke = null;
+    this.activeGuideIndex = null;
+    this.activeGuideStageAtStart = null;
+    if (this.gameState) this.gameState.status = 'ready';
+    this.inkRevision += 1;
+    this.evaluationCache = null;
+    this.releasePointer(pointerId);
+    this.hooks.onInkChange?.(this.hasInk());
+    return true;
+  }
+
+  releasePointer(pointerId) {
+    if (pointerId === null || pointerId === undefined) return;
+    try {
+      if (!this.canvas.hasPointerCapture || this.canvas.hasPointerCapture(pointerId)) {
+        this.canvas.releasePointerCapture?.(pointerId);
+      }
+    } catch {
+      // The browser may already have released capture after a system gesture.
+    }
+  }
+
+  initializeGameState() {
+    if (this.task?.gameMode === 'maze') {
+      this.gameState = { mode: 'maze', status: 'ready', collisions: 0, endpoint: null };
+    } else if (this.task?.gameMode === 'connect') {
+      this.gameState = {
+        mode: 'connect', status: 'ready', collisions: 0, reachedIndex: 0,
+        popStartedAt: performance.now(), hintUntil: 0,
+      };
+    } else {
+      this.gameState = null;
+    }
+    this.gameHint = null;
+    this.gameErrorStroke = null;
+    this.gameErrorUntil = 0;
+  }
+
   setTask(task, assist = 'easy') {
+    this.cancelActiveStrokeForResize();
     this.stopDemo({ render: false });
     this.task = task;
     this.assist = assist;
@@ -835,6 +1257,9 @@ export class DrawingBoard {
     this.demoStrokeIndexes = [];
     this.jumpAnimation = null;
     this.highlightUntil = 0;
+    this.inkRevision += 1;
+    this.evaluationCache = null;
+    this.initializeGameState();
     cancelAnimationFrame(this.demoFrame);
     cancelAnimationFrame(this.jumpFrame);
     this.render();
@@ -842,6 +1267,7 @@ export class DrawingBoard {
   }
 
   clear() {
+    this.cancelActiveStrokeForResize();
     this.stopDemo({ render: false });
     this.userStrokes = [];
     this.strokeColors = [];
@@ -849,18 +1275,32 @@ export class DrawingBoard {
     this.jumpAnimation = null;
     cancelAnimationFrame(this.jumpFrame);
     this.highlightUntil = 0;
+    this.inkRevision += 1;
+    this.evaluationCache = null;
+    this.initializeGameState();
     this.render();
     this.hooks.onInkChange?.(false);
   }
 
   undoLastStroke() {
+    this.cancelActiveStrokeForResize();
     if (!this.userStrokes.length) return false;
     this.stopDemo({ render: false });
     this.userStrokes.pop();
     this.strokeColors.pop();
+    if (this.gameState?.mode === 'maze') {
+      this.gameState.status = 'ready';
+      this.gameState.endpoint = this.userStrokes.at(-1)?.at(-1) ?? null;
+    } else if (this.gameState?.mode === 'connect') {
+      this.gameState.status = 'ready';
+      this.gameState.reachedIndex = Math.max(0, this.gameState.reachedIndex - 1);
+      this.gameState.popStartedAt = performance.now();
+    }
     this.activeStroke = null;
     this.jumpAnimation = null;
     cancelAnimationFrame(this.jumpFrame);
+    this.inkRevision += 1;
+    this.evaluationCache = null;
     this.render();
     this.hooks.onInkChange?.(this.hasInk());
     return true;
@@ -881,8 +1321,69 @@ export class DrawingBoard {
   setUserStrokes(strokes) {
     this.userStrokes = strokes.map((stroke) => stroke.map((point) => ({ x: point.x, y: point.y, pressure: point.pressure ?? 0.5 })));
     this.strokeColors = this.userStrokes.map((_, index) => this.task?.strokeColors?.[index] ?? inkColorAt(index));
+    this.inkRevision += 1;
+    this.evaluationCache = null;
+    if (this.task?.gameMode === 'maze') {
+      const endpoint = this.userStrokes.at(-1)?.at(-1) ?? null;
+      this.gameState = {
+        mode: 'maze',
+        status: endpoint && pointDistanceInPixels(endpoint, this.task.game.goal, this.width, this.height) <= this.task.game.goalRadius ? 'complete' : 'ready',
+        collisions: 0,
+        endpoint,
+      };
+    } else if (this.task?.gameMode === 'connect') {
+      const reachedIndex = Math.min(this.task.game.points.length - 1, this.userStrokes.length);
+      this.gameState = {
+        mode: 'connect', status: reachedIndex >= this.task.game.points.length - 1 ? 'complete' : 'ready',
+        collisions: 0, reachedIndex, popStartedAt: performance.now(), hintUntil: 0,
+      };
+    }
     this.render();
     this.hooks.onInkChange?.(this.hasInk());
+  }
+
+  replaceTask(task, options = {}) {
+    this.cancelActiveStrokeForResize();
+    const userStrokes = options.userStrokes ?? this.getUserStrokes();
+    const strokeColors = options.strokeColors ?? this.getUserStrokeColors();
+    const gameState = options.gameState ?? this.gameState;
+    this.task = task;
+    this.userStrokes = userStrokes.map((stroke) => stroke.map((point) => ({ ...point })));
+    this.strokeColors = [...strokeColors];
+    this.gameState = gameState ? { ...gameState } : null;
+    if (this.task?.gameMode === 'maze' && this.gameState) {
+      this.gameState.endpoint = this.userStrokes.at(-1)?.at(-1) ?? null;
+    }
+    this.activeStroke = null;
+    this.activePointerId = null;
+    this.inkRevision += 1;
+    this.evaluationCache = null;
+    this.render();
+    this.hooks.onInkChange?.(this.hasInk());
+  }
+
+  gameSnapshot() {
+    if (!this.gameState) return null;
+    return {
+      ...this.gameState,
+      total: this.task?.gameMode === 'connect' ? this.task.game.points.length - 1 : 1,
+      progress: this.task?.gameMode === 'connect'
+        ? this.gameState.reachedIndex
+        : this.gameState.status === 'complete' ? 1 : 0,
+    };
+  }
+
+  gameIsComplete() {
+    return this.gameState?.status === 'complete';
+  }
+
+  advanceTime(milliseconds = 0) {
+    const amount = Math.max(0, Number(milliseconds) || 0);
+    if (this.gameState?.popStartedAt) this.gameState.popStartedAt -= amount;
+    if (this.gameState?.hintUntil) this.gameState.hintUntil -= amount;
+    if (this.jumpAnimation?.startedAt) this.jumpAnimation.startedAt -= amount;
+    if (this.gameHint?.startedAt) this.gameHint.startedAt -= amount;
+    this.render();
   }
 
   evaluationOptions() {
@@ -911,16 +1412,26 @@ export class DrawingBoard {
   }
 
   guideStages() {
+    if (this.isGameTask()) return [];
     return guideStagesForTask(this.task);
+  }
+
+  currentEvaluation() {
+    if (!this.task || this.isGameTask()) return null;
+    if (this.evaluationCache?.revision === this.inkRevision) return this.evaluationCache.result;
+    const result = evaluateTaskDrawing(this.task, this.userStrokes, {
+      ...this.evaluationOptions(),
+      completionGroups: this.task.completionGroups,
+    });
+    this.evaluationCache = { revision: this.inkRevision, result };
+    return result;
   }
 
   activeGuideStageIndex() {
     const stages = this.guideStages();
     if (!stages.length || !this.hasInk()) return 0;
-    const result = evaluateDrawing(this.task.strokes, this.userStrokes, {
-      ...this.evaluationOptions(),
-      completionGroups: this.task.completionGroups,
-    });
+    if (this.activeStroke && Number.isInteger(this.activeGuideStageAtStart)) return this.activeGuideStageAtStart;
+    const result = this.currentEvaluation();
     const stageIndex = stages.findIndex((stage) => stage.some((index) => result.pathCoverage[index] < REQUIRED_PATH_COVERAGE));
     return stageIndex >= 0 ? stageIndex : stages.length - 1;
   }
@@ -935,10 +1446,13 @@ export class DrawingBoard {
   }
 
   nextGuideStrokeIndex() {
-    return nextGuideStrokeIndex(this.task?.strokes ?? [], this.userStrokes, {
-      ...this.evaluationOptions(),
-      completionGroups: this.task?.completionGroups ?? null,
-    });
+    if (this.task?.gameMode === 'connect') return this.gameState?.reachedIndex ?? 0;
+    if (this.task?.gameMode === 'maze') return 0;
+    if (this.activeStroke && Number.isInteger(this.activeGuideIndex)) return this.activeGuideIndex;
+    if (!this.task?.strokes?.length || !this.hasInk()) return 0;
+    const pathCoverage = this.currentEvaluation()?.pathCoverage ?? [];
+    const next = pathCoverage.findIndex((coverage) => coverage < REQUIRED_PATH_COVERAGE);
+    return next >= 0 ? next : Math.max(0, this.task.strokes.length - 1);
   }
 
   flashGuide() {
@@ -950,8 +1464,58 @@ export class DrawingBoard {
     requestAnimationFrame(tick);
   }
 
+  startGameHint() {
+    if (!this.task?.game || !this.gameState || this.demoResolve) return Promise.resolve();
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (this.task.gameMode === 'connect') {
+      this.gameState.hintUntil = performance.now() + (reducedMotion ? 220 : 900);
+      this.gameHint = { type: 'pulse' };
+      return new Promise((resolve) => {
+        this.demoResolve = resolve;
+        const finish = () => {
+          this.gameHint = null;
+          this.demoResolve = null;
+          this.render();
+          resolve();
+        };
+        const tick = () => {
+          if (!this.gameHint) return;
+          this.render();
+          if (performance.now() < this.gameState.hintUntil) this.demoFrame = requestAnimationFrame(tick);
+          else finish();
+        };
+        this.demoFrame = requestAnimationFrame(tick);
+      });
+    }
+
+    const current = this.gameState.endpoint ?? this.task.game.start;
+    const target = nextMazeSolutionPoint(this.task.game, current, this.width, this.height);
+    if (!target) return Promise.resolve();
+    const travel = pointDistanceInPixels(current, target, this.width, this.height);
+    const duration = reducedMotion ? 1 : clamp((travel / 210) * 1000, 320, 850);
+    this.gameHint = { from: current, to: target, progress: 0, startedAt: performance.now(), duration };
+    return new Promise((resolve) => {
+      this.demoResolve = resolve;
+      const finish = () => {
+        this.gameHint = null;
+        this.demoResolve = null;
+        this.render();
+        resolve();
+      };
+      const tick = (now) => {
+        if (!this.gameHint) return;
+        this.gameHint.progress = clamp((now - this.gameHint.startedAt) / this.gameHint.duration, 0, 1);
+        this.render();
+        if (this.gameHint.progress < 1) this.demoFrame = requestAnimationFrame(tick);
+        else this.demoFinishTimer = window.setTimeout(finish, reducedMotion ? 30 : 150);
+      };
+      this.demoFrame = requestAnimationFrame(tick);
+    });
+  }
+
   startDemo() {
     if (!this.task || this.demoProgress !== null) return Promise.resolve();
+    if (this.isGameTask()) return this.startGameHint();
     this.jumpAnimation = null;
     cancelAnimationFrame(this.jumpFrame);
     // Fino demonstrates one mark, then leaves the next turn to the child.
@@ -964,7 +1528,7 @@ export class DrawingBoard {
     // makes every preview exactly 50% faster while keeping it readable.
     const pathLength = demoStrokes.reduce((sum, stroke) => sum + polylineLength(stroke, this.width, this.height), 0);
     const demoSpeed = clamp(drawingBounds(this.width, this.height).height * 0.55, 70, 140) * DEMO_SPEED_MULTIPLIER;
-    const duration = reducedMotion ? 160 : clamp((pathLength / demoSpeed) * 1000, 600, 3067);
+    const duration = reducedMotion ? 1 : clamp((pathLength / demoSpeed) * 1000, 600, 3067);
     const startedAt = performance.now();
 
     return new Promise((resolve) => {
@@ -984,7 +1548,7 @@ export class DrawingBoard {
         if (this.demoProgress < 1) {
           this.demoFrame = requestAnimationFrame(frame);
         } else {
-          this.demoFinishTimer = window.setTimeout(finish, reducedMotion ? 100 : 280);
+          this.demoFinishTimer = window.setTimeout(finish, reducedMotion ? 20 : 280);
         }
       };
       this.demoFrame = requestAnimationFrame(frame);
@@ -992,13 +1556,14 @@ export class DrawingBoard {
   }
 
   stopDemo({ render = true } = {}) {
-    if (this.demoProgress === null && !this.demoResolve) return;
+    if (this.demoProgress === null && !this.demoResolve && !this.gameHint) return;
     cancelAnimationFrame(this.demoFrame);
     window.clearTimeout(this.demoFinishTimer);
     this.demoFrame = 0;
     this.demoFinishTimer = 0;
     this.demoProgress = null;
     this.demoStrokeIndexes = [];
+    this.gameHint = null;
     const resolve = this.demoResolve;
     this.demoResolve = null;
     resolve?.();
@@ -1006,6 +1571,12 @@ export class DrawingBoard {
   }
 
   demoFoxPosition() {
+    if (this.gameHint) {
+      return {
+        x: (this.gameHint.from.x + (this.gameHint.to.x - this.gameHint.from.x) * this.gameHint.progress) * this.width,
+        y: (this.gameHint.from.y + (this.gameHint.to.y - this.gameHint.from.y) * this.gameHint.progress) * this.height,
+      };
+    }
     if (this.demoProgress === null || !this.task || !this.demoStrokeIndexes.length) return null;
     const stage = demoStageAtProgress(this.demoStrokeIndexes.length, this.demoProgress);
     if (!stage) return null;
@@ -1040,14 +1611,21 @@ export class DrawingBoard {
   onPointerDown(event) {
     if (!this.task || this.activePointerId !== null) return;
     if (event.pointerType === 'touch' && (!event.isPrimary || performance.now() - this.lastPenAt < 900)) return;
+    if (event.pointerType === 'touch' && (event.width > 48 || event.height > 48)) return;
     if (event.pointerType === 'pen') this.lastPenAt = performance.now();
     event.preventDefault();
     const point = this.pointFromEvent(event);
+    if (this.isGameTask()) {
+      this.onGamePointerDown(event, point);
+      return;
+    }
     const demoPosition = this.demoFoxPosition();
     this.stopDemo({ render: false });
     if (!demoPosition) this.jumpAnimation = null;
     cancelAnimationFrame(this.jumpFrame);
     const guideStrokeIndex = this.nextGuideStrokeIndex();
+    this.activeGuideIndex = guideStrokeIndex;
+    this.activeGuideStageAtStart = this.activeGuideStageIndex();
     this.activePointerId = event.pointerId;
     this.activeStroke = [point];
     this.userStrokes.push(this.activeStroke);
@@ -1063,6 +1641,10 @@ export class DrawingBoard {
     if (event.pointerId !== this.activePointerId || !this.activeStroke) return;
     if (event.pointerType === 'pen') this.lastPenAt = performance.now();
     event.preventDefault();
+    if (this.isGameTask()) {
+      this.onGamePointerMove(event);
+      return;
+    }
     // Some browsers and automation layers expose getCoalescedEvents() but
     // return an empty list for an ordinary pointer move. Always keep the
     // dispatched event in that case, otherwise a drag is recorded as a dot.
@@ -1076,23 +1658,234 @@ export class DrawingBoard {
         toPixels(point, this.width, this.height),
       ) >= 1.4) this.activeStroke.push(point);
     }
-    this.render();
+    this.requestRender();
   }
 
   onPointerUp(event) {
     if (event.pointerId !== this.activePointerId) return;
     event.preventDefault();
+    if (this.isGameTask()) {
+      this.onGamePointerUp(event);
+      return;
+    }
     if (this.activeStroke && this.activeStroke.length === 1) {
       const start = this.activeStroke[0];
       this.activeStroke.push({ ...start, x: clamp(start.x + 0.002, 0, 1) });
     }
-    const finishedStroke = this.activeStroke;
-    this.canvas.releasePointerCapture?.(event.pointerId);
+    const finishedStroke = simplifyStroke(this.activeStroke, this.width, this.height);
+    this.userStrokes[this.userStrokes.length - 1] = finishedStroke;
     this.activePointerId = null;
     this.activeStroke = null;
+    this.activeGuideIndex = null;
+    this.activeGuideStageAtStart = null;
+    this.inkRevision += 1;
+    this.evaluationCache = null;
+    this.releasePointer(event.pointerId);
     this.startJumpToNextStroke(finishedStroke);
     this.render();
     this.hooks.onStrokeEnd?.();
+  }
+
+  onGamePointerUp(event) {
+    this.activePointerId = null;
+    if (this.task.gameMode === 'connect') {
+      if (this.userStrokes.at(-1) === this.activeStroke) {
+        this.userStrokes.pop();
+        this.strokeColors.pop();
+      }
+    } else if (this.activeStroke?.length > 1) {
+      const simplified = simplifyStroke(this.activeStroke, this.width, this.height);
+      this.userStrokes[this.userStrokes.length - 1] = simplified;
+      this.gameState.endpoint = simplified.at(-1);
+      this.inkRevision += 1;
+    } else if (this.userStrokes.at(-1) === this.activeStroke) {
+      this.userStrokes.pop();
+      this.strokeColors.pop();
+    }
+    this.activeStroke = null;
+    this.gameState.status = 'ready';
+    this.releasePointer(event.pointerId);
+    this.render();
+    this.hooks.onInkChange?.(this.hasInk());
+    this.hooks.onGameProgress?.(this.gameSnapshot());
+  }
+
+  onPointerCancel(event) {
+    if (event.pointerId !== this.activePointerId) return;
+    event.preventDefault();
+    this.cancelActiveStrokeForResize();
+    this.render();
+  }
+
+  onLostPointerCapture(event) {
+    if (event.pointerId !== this.activePointerId) return;
+    this.cancelActiveStrokeForResize();
+    this.render();
+  }
+
+  onGamePointerDown(event, point) {
+    const game = this.task.game;
+    const current = this.task.gameMode === 'maze'
+      ? this.gameState.endpoint ?? game.start
+      : game.points[this.gameState.reachedIndex];
+    const radius = this.task.gameMode === 'maze'
+      ? Math.max(game.startRadius, inkWidthForBoard(this.width, this.height) * 1.7)
+      : game.hitRadius;
+    if (pointDistanceInPixels(point, current, this.width, this.height) > radius) {
+      if (this.gameState) this.gameState.hintUntil = performance.now() + 850;
+      this.hooks.onGameMistake?.('start', this.gameState?.collisions ?? 0);
+      this.flashGuide();
+      return;
+    }
+
+    const anchoredStart = { ...current, pressure: point.pressure, time: point.time };
+    if (pointDistanceInPixels(point, current, this.width, this.height) > 1.5) {
+      const clearance = this.task.gameMode === 'maze'
+        ? game.wallWidth / 2 + inkWidthForBoard(this.width, this.height) / 2 + 2
+        : inkWidthForBoard(this.width, this.height) + 3;
+      const blocked = this.task.gameMode === 'maze'
+        ? mazeWallCollision(anchoredStart, point, game, this.width, this.height, clearance)
+        : connectTrailCollision(anchoredStart, point, {
+          lockedStrokes: this.userStrokes,
+          activeStroke: [anchoredStart],
+          anchor: current,
+          width: this.width,
+          height: this.height,
+          clearance,
+          junctionRadius: game.hitRadius + 6,
+          sharedEndpointRadius: Math.max(10, clearance * 1.15),
+        });
+      if (blocked) {
+        this.showGameError(this.task.gameMode === 'maze' ? 'wall' : 'crossing', [anchoredStart, point]);
+        return;
+      }
+    }
+
+    this.stopDemo({ render: false });
+    this.activePointerId = event.pointerId;
+    this.activeStroke = [anchoredStart];
+    if (pointDistanceInPixels(point, current, this.width, this.height) > 1.5) this.activeStroke.push(point);
+    this.userStrokes.push(this.activeStroke);
+    const colorIndex = this.task.gameMode === 'connect' ? this.gameState.reachedIndex : this.userStrokes.length - 1;
+    this.strokeColors.push(this.task.strokeColors?.[colorIndex] ?? inkColorAt(colorIndex));
+    this.gameState.status = 'drawing';
+    this.canvas.setPointerCapture?.(event.pointerId);
+    this.hooks.onStrokeStart?.();
+    this.hooks.onInkChange?.(true);
+    this.render();
+  }
+
+  onGamePointerMove(event) {
+    const coalescedEvents = event.getCoalescedEvents?.();
+    const events = coalescedEvents?.length ? coalescedEvents : [event];
+    for (const item of events) {
+      if (!this.activeStroke) return;
+      const point = this.pointFromEvent(item);
+      const last = this.activeStroke.at(-1);
+      if (pointDistanceInPixels(last, point, this.width, this.height) < 1.2) continue;
+      if (this.task.gameMode === 'maze') {
+        const clearance = this.task.game.wallWidth / 2 + inkWidthForBoard(this.width, this.height) / 2 + 2;
+        const goalHit = firstCircleHit(
+          last,
+          point,
+          this.task.game.goal,
+          this.task.game.goalRadius,
+          this.width,
+          this.height,
+        );
+        const testedPoint = goalHit ?? point;
+        if (mazeWallCollision(last, testedPoint, this.task.game, this.width, this.height, clearance)) {
+          this.activeStroke.push(testedPoint);
+          this.rejectGameStroke(event, 'wall');
+          return;
+        }
+        this.activeStroke.push(testedPoint);
+        if (goalHit) {
+          this.activeStroke.push({ ...this.task.game.goal, pressure: point.pressure, time: point.time });
+          this.finishGameStroke(event, { complete: true });
+          return;
+        }
+      } else {
+        const target = this.task.game.points[this.gameState.reachedIndex + 1];
+        const targetHit = firstCircleHit(last, point, target, this.task.game.hitRadius, this.width, this.height);
+        const testedPoint = targetHit ?? point;
+        const lockedStrokes = this.userStrokes.slice(0, -1);
+        const anchor = this.task.game.points[this.gameState.reachedIndex];
+        if (connectTrailCollision(last, testedPoint, {
+          lockedStrokes,
+          activeStroke: this.activeStroke,
+          anchor,
+          width: this.width,
+          height: this.height,
+          clearance: inkWidthForBoard(this.width, this.height) + 3,
+          junctionRadius: this.task.game.hitRadius + 6,
+        })) {
+          this.activeStroke.push(testedPoint);
+          this.rejectGameStroke(event, 'crossing');
+          return;
+        }
+        this.activeStroke.push(testedPoint);
+        if (targetHit) {
+          this.activeStroke.push({ ...target, pressure: point.pressure, time: point.time });
+          const complete = this.gameState.reachedIndex + 1 >= this.task.game.points.length - 1;
+          this.finishGameStroke(event, { complete });
+          return;
+        }
+      }
+    }
+    this.requestRender();
+  }
+
+  rejectGameStroke(event, reason) {
+    const errorStroke = this.activeStroke?.map((point) => ({ ...point })) ?? null;
+    if (this.userStrokes.at(-1) === this.activeStroke) {
+      this.userStrokes.pop();
+      this.strokeColors.pop();
+    }
+    this.activePointerId = null;
+    this.activeStroke = null;
+    this.gameState.status = 'ready';
+    this.releasePointer(event.pointerId);
+    this.showGameError(reason, errorStroke);
+  }
+
+  showGameError(reason, errorStroke = null) {
+    this.gameErrorStroke = errorStroke;
+    this.gameErrorUntil = performance.now() + 360;
+    this.gameState.collisions += 1;
+    navigator.vibrate?.(18);
+    this.hooks.onGameMistake?.(reason, this.gameState.collisions);
+    this.hooks.onInkChange?.(this.hasInk());
+    const tick = () => {
+      this.render();
+      if (performance.now() < this.gameErrorUntil) requestAnimationFrame(tick);
+      else {
+        this.gameErrorStroke = null;
+        this.render();
+      }
+    };
+    requestAnimationFrame(tick);
+  }
+
+  finishGameStroke(event, { complete = false } = {}) {
+    this.activeStroke = simplifyStroke(this.activeStroke, this.width, this.height);
+    this.userStrokes[this.userStrokes.length - 1] = this.activeStroke;
+    this.activePointerId = null;
+    this.activeStroke = null;
+    this.releasePointer(event.pointerId);
+    this.inkRevision += 1;
+    this.evaluationCache = null;
+    if (this.task.gameMode === 'maze') {
+      this.gameState.endpoint = this.task.game.goal;
+    } else {
+      this.gameState.reachedIndex += 1;
+      this.gameState.popStartedAt = performance.now();
+    }
+    this.gameState.status = complete ? 'complete' : 'ready';
+    this.render();
+    this.hooks.onInkChange?.(this.hasInk());
+    this.hooks.onGameProgress?.(this.gameSnapshot());
+    if (complete) this.hooks.onGameComplete?.(this.gameSnapshot());
   }
 
   startJumpToNextStroke(finishedStroke) {
@@ -1115,7 +1908,7 @@ export class DrawingBoard {
       progress: 0,
       travel,
       startedAt: performance.now(),
-      duration: reducedMotion ? 170 : clamp(140 + travel * 0.35, 160, maxDuration),
+      duration: reducedMotion ? 1 : clamp(140 + travel * 0.35, 160, maxDuration),
     };
 
     const frame = (now) => {
@@ -1379,11 +2172,225 @@ export class DrawingBoard {
     context.restore();
   }
 
+  drawInk(context) {
+    const width = inkWidthForBoard(this.width, this.height);
+    this.userStrokes.forEach((stroke, index) => {
+      this.drawStrokeSet(context, [stroke], {
+        color: 'rgba(255,255,255,.82)',
+        width: width + 4,
+        alpha: 0.72,
+      });
+      this.drawStrokeSet(context, [stroke], {
+        color: this.strokeColors[index] ?? inkColorAt(index),
+        width,
+        alpha: 0.98,
+      });
+    });
+    if (this.gameErrorStroke && performance.now() < this.gameErrorUntil) {
+      this.drawStrokeSet(context, [this.gameErrorStroke], {
+        color: '#D94F4F',
+        width: width + 2,
+        alpha: 0.88,
+      });
+    }
+  }
+
+  drawGoal(context, point, radius) {
+    const center = toPixels(point, this.width, this.height);
+    context.save();
+    context.shadowColor = 'rgba(199, 123, 35, .24)';
+    context.shadowBlur = 14;
+    context.fillStyle = '#FFF4C8';
+    context.strokeStyle = '#E8A72E';
+    context.lineWidth = 3;
+    context.beginPath();
+    context.arc(center.x, center.y, radius, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.shadowBlur = 0;
+    context.fillStyle = '#E8A72E';
+    context.beginPath();
+    for (let index = 0; index < 10; index += 1) {
+      const angle = -Math.PI / 2 + index * Math.PI / 5;
+      const length = index % 2 ? radius * 0.36 : radius * 0.72;
+      const x = center.x + Math.cos(angle) * length;
+      const y = center.y + Math.sin(angle) * length;
+      if (index === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    }
+    context.closePath();
+    context.fill();
+    context.restore();
+  }
+
+  drawMaze(context) {
+    const game = this.task.game;
+    const wallPoints = game.walls.flatMap((wall) => [toPixels(wall.a, this.width, this.height), toPixels(wall.b, this.width, this.height)]);
+    const minX = Math.min(...wallPoints.map((point) => point.x));
+    const maxX = Math.max(...wallPoints.map((point) => point.x));
+    const minY = Math.min(...wallPoints.map((point) => point.y));
+    const maxY = Math.max(...wallPoints.map((point) => point.y));
+    context.save();
+    const background = context.createLinearGradient(minX, minY, maxX, maxY);
+    background.addColorStop(0, '#F2F9E9');
+    background.addColorStop(1, '#E9F5E3');
+    context.fillStyle = background;
+    context.fillRect(minX, minY, maxX - minX, maxY - minY);
+    context.globalAlpha = 0.18;
+    context.fillStyle = '#7BB36B';
+    const dotStep = Math.max(26, game.cellSize * 0.72);
+    for (let y = minY + dotStep / 2; y < maxY; y += dotStep) {
+      for (let x = minX + dotStep / 2; x < maxX; x += dotStep) {
+        context.beginPath();
+        context.arc(x, y, 1.5, 0, Math.PI * 2);
+        context.fill();
+      }
+    }
+    context.restore();
+
+    this.drawGoal(context, game.goal, game.goalRadius);
+    this.drawInk(context);
+
+    context.save();
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.shadowColor = 'rgba(38, 80, 52, .18)';
+    context.shadowBlur = 4;
+    context.strokeStyle = '#316A4B';
+    context.lineWidth = game.wallWidth + 3;
+    game.walls.forEach((wall) => {
+      const a = toPixels(wall.a, this.width, this.height);
+      const b = toPixels(wall.b, this.width, this.height);
+      context.beginPath();
+      context.moveTo(a.x, a.y);
+      context.lineTo(b.x, b.y);
+      context.stroke();
+    });
+    context.shadowBlur = 0;
+    context.strokeStyle = '#75A967';
+    context.lineWidth = game.wallWidth;
+    game.walls.forEach((wall) => {
+      const a = toPixels(wall.a, this.width, this.height);
+      const b = toPixels(wall.b, this.width, this.height);
+      context.beginPath();
+      context.moveTo(a.x, a.y);
+      context.lineTo(b.x, b.y);
+      context.stroke();
+    });
+    context.restore();
+
+    let foxPoint = this.activeStroke?.at(-1) ?? this.gameState.endpoint ?? game.start;
+    let angle = 0;
+    if (this.gameHint) {
+      foxPoint = {
+        x: this.gameHint.from.x + (this.gameHint.to.x - this.gameHint.from.x) * this.gameHint.progress,
+        y: this.gameHint.from.y + (this.gameHint.to.y - this.gameHint.from.y) * this.gameHint.progress,
+      };
+      angle = Math.atan2(
+        (this.gameHint.to.y - this.gameHint.from.y) * this.height,
+        (this.gameHint.to.x - this.gameHint.from.x) * this.width,
+      );
+    } else if (this.activeStroke?.length > 1) {
+      const previous = this.activeStroke.at(-2);
+      angle = Math.atan2((foxPoint.y - previous.y) * this.height, (foxPoint.x - previous.x) * this.width);
+    }
+    this.drawGuideFox(context, toPixels(foxPoint, this.width, this.height), angle);
+  }
+
+  drawPoint(context, point, radius, { color, number, pulse = 1, complete = false } = {}) {
+    const pixel = toPixels(point, this.width, this.height);
+    const scaledRadius = radius * pulse;
+    context.save();
+    context.shadowColor = `${color}55`;
+    context.shadowBlur = complete ? 0 : 14;
+    context.fillStyle = complete ? '#E7F4EA' : '#FFFFFF';
+    context.strokeStyle = color;
+    context.lineWidth = complete ? 3 : 4;
+    context.beginPath();
+    context.arc(pixel.x, pixel.y, scaledRadius, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.shadowBlur = 0;
+    context.fillStyle = complete ? '#4F9A6A' : color;
+    context.font = `800 ${clamp(scaledRadius * 1.05, 14, 24)}px ui-rounded, system-ui, sans-serif`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(complete ? '✓' : String(number), pixel.x, pixel.y + 1);
+    context.restore();
+  }
+
+  drawConnect(context) {
+    const game = this.task.game;
+    const reached = this.gameState.reachedIndex;
+    const now = performance.now();
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const popProgress = reducedMotion ? 1 : clamp((now - this.gameState.popStartedAt) / 380, 0, 1);
+    const easedPop = 1 + Math.sin(Math.min(1, popProgress) * Math.PI) * 0.22;
+    const hinting = now < (this.gameState.hintUntil ?? 0);
+    const pulse = hinting && !reducedMotion ? 1 + Math.sin(now / 110) * 0.12 : easedPop;
+
+    context.save();
+    context.fillStyle = '#F8F4FF';
+    context.fillRect(0, 0, this.width, this.height);
+    context.fillStyle = 'rgba(140, 104, 184, .09)';
+    const spacing = clamp(Math.min(this.width, this.height) * 0.12, 38, 74);
+    for (let y = spacing / 2; y < this.height; y += spacing) {
+      for (let x = spacing / 2; x < this.width; x += spacing) {
+        context.beginPath();
+        context.arc(x, y, 1.5, 0, Math.PI * 2);
+        context.fill();
+      }
+    }
+    context.restore();
+
+    this.drawInk(context);
+    for (let index = 0; index < reached; index += 1) {
+      this.drawPoint(context, game.points[index], game.pointRadius * 0.72, {
+        color: '#55A875', number: index + 1, complete: true,
+      });
+    }
+    const current = game.points[reached];
+    const target = game.points[reached + 1];
+    if (target) {
+      this.drawPoint(context, target, game.pointRadius, {
+        color: this.task.strokeColors?.[reached] ?? inkColorAt(reached),
+        number: reached + 2,
+        pulse,
+      });
+    }
+    if (current) {
+      const currentPixel = toPixels(current, this.width, this.height);
+      this.drawPoint(context, current, game.pointRadius * 0.78, {
+        color: '#F08A45', number: reached + 1,
+      });
+      if (!this.activeStroke?.length) this.drawGuideFox(context, currentPixel, 0);
+    }
+    if (this.activeStroke?.length) {
+      const last = this.activeStroke.at(-1);
+      const previous = this.activeStroke.at(-2) ?? last;
+      this.drawGuideFox(
+        context,
+        toPixels(last, this.width, this.height),
+        Math.atan2((last.y - previous.y) * this.height, (last.x - previous.x) * this.width),
+      );
+    }
+    if (popProgress < 1 || hinting) this.requestRender();
+  }
+
+  drawGame(context) {
+    if (this.task.gameMode === 'maze') this.drawMaze(context);
+    else this.drawConnect(context);
+  }
+
   render() {
     const context = this.context;
     if (!context) return;
     context.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     context.clearRect(0, 0, this.width, this.height);
+    if (this.isGameTask()) {
+      this.drawGame(context);
+      return;
+    }
     this.drawGuidelines(context);
     if (this.task) {
       const isHighlight = performance.now() < this.highlightUntil;
@@ -1417,13 +2424,6 @@ export class DrawingBoard {
       this.drawDemo(context);
     }
 
-    this.userStrokes.forEach((stroke, index) => {
-      const bounds = drawingBounds(this.width, this.height);
-      this.drawStrokeSet(context, [stroke], {
-        color: this.strokeColors[index] ?? inkColorAt(index),
-        width: clamp(Math.min(bounds.width, bounds.height) * 0.025, 11, 20),
-        alpha: 0.98,
-      });
-    });
+    this.drawInk(context);
   }
 }

@@ -4,11 +4,13 @@ Fino schreibt ist eine statische, deutschsprachige Schreiblern-App für kurze Ü
 
 ## Enthaltene Funktionen
 
-- sechs Bereiche: **Linien**, **Formen**, **Zahlen**, **Buchstaben**, **Mein Name** und **Bunte Mischung**
+- acht Bereiche: **Linien**, **Formen**, **Zahlen**, **Buchstaben**, **Mein Name**, **Labyrinth**, **Funkelpunkte** und **Bunte Mischung**
 - drei Hilfestufen: **Leicht**, **Mittel** und **Knifflig**
 - 10 kontrolliert zufällig ausgewählte Aufgaben pro Runde; verfügbare Zahlen, Buchstaben und Vorlagen wechseln sich ab, bevor etwas wiederkommt. Bei **Mein Name** wird zuerst jeder Buchstabe und dann der ganze Name geschrieben.
 - automatischer, kurzer Abschluss-Check nach jedem abgesetzten Strich
-- 100 unterschiedliche Übungen für Wege, Zahlen, Buchstaben, Namen und bunte Mischung; dazu 36 wirklich verschiedene Formen und kleine Bilder ohne Spiegel- oder Größenkopien
+- 100 unterschiedliche Übungen für Linien, Zahlen, Buchstaben, Namen, Labyrinthe, Funkelpunkte und bunte Mischung; dazu 36 wirklich verschiedene Formen und kleine Bilder ohne Spiegel- oder Größenkopien
+- Labyrinthe sind immer lösbar und passen ihre quadratischen Gänge ohne Verzerrung an Hoch- und Querformat an
+- bei **Funkelpunkte** erscheint immer nur der nächste Punkt; eine neue Linie darf keine frühere Linie berühren
 - bei Zahlen und Buchstaben: **Alle** üben oder eine eigene Auswahl eingeben
 - Groß- und Kleinbuchstaben, einschließlich ä, ö und ü
 - Zahlen und Buchstaben verwenden eine eigene, nicht verbundene Druckschrift, die allgemein an **Kiwi School Handwriting** angelehnt ist.
@@ -92,7 +94,8 @@ Wichtige Bereiche:
 - `shapeTemplates`: Formen
 - `handwriting-stroke-data.js`: erzeugte Mittellinien für A–Z, a–z und 0–9
 - `digitStrokes` und `letterStrokes`: Einbindung der erzeugten Zeichen sowie Umlaute
-- `EXERCISE_BANKS`: die Übungsbänke für Linien, Formen, Zahlen, Buchstaben und Mischung
+- `mini-games.js`: Erzeugung und Kollisionsprüfung für Labyrinthe und Funkelpunkte
+- `EXERCISE_BANKS`: die Übungsbänke für Linien, Formen, Zahlen, Buchstaben, Labyrinthe, Funkelpunkte und Mischung
 - `createNameExerciseBank()`: 100 Übungen, die aus dem eingegebenen Namen entstehen
 - `buildSession()`: kontrollierte Zufallsauswahl und Reihenfolge
 - `assistancePlans`: Hilfestufen innerhalb einer Runde
@@ -127,6 +130,8 @@ npm test
 Diese Tests benötigen keine zusätzlichen Pakete. Sie prüfen auch, dass jede
 Zahl, jeder Buchstabe und jedes Teil einer mehrteiligen Aufgabe wirklich
 gezeichnet wurde, ohne natürliche alternative Stiftbewegungen zu verbieten.
+Zusätzlich prüfen sie alle falschen Zeichen- und Bildpaare, alle 200
+Minispiel-Felder sowie Version, PWA-Icons und Offline-Dateien.
 
 ### Browser-Smoke-Test
 
@@ -148,6 +153,7 @@ fuchsschrift/
 │   ├── app.js
 │   ├── curriculum.js
 │   ├── drawing.js
+│   ├── mini-games.js
 │   ├── handwriting-template-data.js
 │   └── handwriting-stroke-data.js
 ├── assets/
@@ -158,6 +164,10 @@ fuchsschrift/
 ├── tests/
 │   ├── curriculum.test.js
 │   ├── drawing.test.js
+│   ├── mini-games.test.js
+│   ├── recognition-robustness.test.js
+│   ├── release-readiness.test.js
+│   ├── shape-scoring.test.js
 │   └── browser_smoke.py
 ├── QA.md
 ├── LICENSE

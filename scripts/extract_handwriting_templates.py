@@ -63,25 +63,34 @@ ROUTE_HINT_OVERRIDES = {
     '2': route_hints(((.05, .16), (.23, .03), (.55, 0), (.85, .08), (1, .27), (.93, .43),
                       (.72, .59), (.48, .73), (.08, 1), (1, 1))),
     '3': route_hints(((.05, .12), (.3, 0), (.68, .02), (.96, .18), (.95, .38), (.78, .49),
-                      (.58, .52), (.8, .54), (1, .68), (.94, .88), (.68, 1), (.3, .98), (0, .83))),
+                      (.58, .52)),
+                     ((.58, .52), (.8, .54), (1, .68), (.94, .88), (.68, 1), (.3, .98), (0, .83))),
     '4': route_hints(((.12, 0), (0, .5), (1, .5)), ((.82, 0), (.82, 1))),
     '9': route_hints(((1, .4), (.92, .14), (.67, 0), (.28, .02), (.03, .2), (0, .45),
                       (.2, .61), (.62, .65), (1, .4), (.98, .67), (.84, .87), (.58, 1))),
+    'B': route_hints(((0, 0), (0, 1)),
+                     ((0, 0), (.55, 0), (1, .15), (.96, .36), (.62, .5), (0, .5)),
+                     ((0, .5), (.62, .5), (1, .66), (.96, .88), (.55, 1), (0, 1))),
     'J': route_hints(((0, 0), (1, 0)), ((.56, 0), (.56, .7), (.48, .88), (.25, 1), (0, .85))),
     'a': route_hints(((1, .08), (.72, 0), (.3, .02), (0, .3), (.02, .72), (.32, 1),
                       (.72, .98), (1, .72), (1, .08)), ((1, 0), (1, 1))),
+    'b': route_hints(((0, 0), (0, 1)),
+                     ((0, .4), (.35, .28), (.72, .3), (1, .5), (.9, .82),
+                      (.55, 1), (.18, .92), (0, .7))),
     'd': route_hints(((1, .45), (.72, .38), (.3, .42), (0, .62), (.04, .88), (.4, 1),
-                      (.78, .94), (1, .75), (1, .45)), ((1, 0), (1, 1))),
+                      (.78, .94), (1, .75)), ((1, 0), (1, 1))),
     'f': route_hints(((1, 0), (.72, 0), (.58, .12), (.52, 1)), ((0, .48), (1, .48))),
     'g': route_hints(((1, .04), (.7, 0), (.27, .03), (0, .23), (.02, .52), (.3, .65),
-                      (.72, .62), (1, .42), (1, .04), (1, .7), (.92, .9), (.62, 1), (.25, .94))),
+                      (.72, .62), (1, .42), (1, .04)),
+                     ((1, 0), (1, .7), (.92, .9), (.62, 1), (.25, .94))),
     'm': route_hints(((0, 1), (0, 0)), ((0, 0), (.2, 0), (.42, .2), (.42, 1)),
                      ((.42, .2), (.62, 0), (.83, .03), (1, .23), (1, 1))),
     'n': route_hints(((0, 1), (0, 0)), ((0, 0), (.3, 0), (.65, .08), (1, .3), (1, 1))),
     'p': route_hints(((0, 0), (0, 1)), ((0, 0), (.48, 0), (.85, .12), (1, .35),
-                      (.92, .62), (.58, .72), (0, .62), (0, 0))),
-    'r': route_hints(((0, 1), (0, 0), (.35, 0), (.72, .04), (1, .22))),
-    'u': route_hints(((0, 0), (0, .62), (.15, .9), (.48, 1), (.82, .9), (1, .62), (1, 0), (1, 1))),
+                      (.92, .62), (.58, .72), (0, .62))),
+    'r': route_hints(((0, 1), (0, 0)), ((0, .2), (.35, 0), (.72, .04), (1, .22))),
+    'u': route_hints(((0, 0), (0, .62), (.15, .9), (.48, 1), (.82, .9), (1, .72)),
+                     ((1, 0), (1, .72))),
 }
 
 
@@ -151,14 +160,22 @@ def zhang_suen(binary):
 
 def graph_for_skeleton(skeleton):
     nodes = {(int(y), int(x)) for y, x in np.argwhere(skeleton)}
-    graph = {
-        node: tuple(
-            (node[0] + dy, node[1] + dx)
-            for dy, dx in NEIGHBOURS
-            if (node[0] + dy, node[1] + dx) in nodes
-        )
-        for node in nodes
-    }
+    graph = {}
+    for node in nodes:
+        y, x = node
+        neighbours = []
+        for dy, dx in NEIGHBOURS:
+            neighbour = (y + dy, x + dx)
+            if neighbour not in nodes:
+                continue
+            # A diagonal pixel beside an orthogonal connection describes the
+            # same one-pixel line, not an extra branch.  Keeping both creates
+            # tiny triangular loops at every diagonal and makes an otherwise
+            # simple stroke look like a graph with hundreds of junctions.
+            if dy and dx and ((y + dy, x) in nodes or (y, x + dx) in nodes):
+                continue
+            neighbours.append(neighbour)
+        graph[node] = tuple(neighbours)
     component_ids = {}
     components = []
     for node in sorted(nodes):
@@ -220,6 +237,164 @@ def shortest_path(graph, start, goal, allowed):
     return [start, goal]
 
 
+def edge_key(first, second):
+    return tuple(sorted((first, second)))
+
+
+def weighted_edge_path(graph, start, goal, allowed_edges, hint_tree, used_edges):
+    """Follow one connected ink branch while staying near the reviewed hint."""
+    if start == goal:
+        return [start]
+    queue = [(math.dist(start, goal), 0.0, start)]
+    previous = {start: None}
+    costs = {start: 0.0}
+    while queue:
+        _, cost, current = heapq.heappop(queue)
+        if current == goal:
+            result = []
+            while current is not None:
+                result.append(current)
+                current = previous[current]
+            return list(reversed(result))
+        if cost > costs[current] + 1e-9:
+            continue
+        for neighbour in graph[current]:
+            edge = edge_key(current, neighbour)
+            if edge not in allowed_edges:
+                continue
+            hint_distance = float(hint_tree.query(neighbour)[0])
+            reuse_cost = 180.0 if edge in used_edges else 0.0
+            next_cost = cost + math.dist(current, neighbour) + .055 * hint_distance ** 2 + reuse_cost
+            if next_cost + 1e-9 < costs.get(neighbour, math.inf):
+                costs[neighbour] = next_cost
+                previous[neighbour] = current
+                heapq.heappush(queue, (next_cost + math.dist(neighbour, goal), next_cost, neighbour))
+    return []
+
+
+def edge_component(start, available_edges):
+    adjacency = {}
+    for first, second in available_edges:
+        adjacency.setdefault(first, []).append(second)
+        adjacency.setdefault(second, []).append(first)
+    if start not in adjacency:
+        return set()
+    result = set()
+    queue = [start]
+    while queue:
+        node = queue.pop()
+        for neighbour in adjacency.get(node, ()):
+            edge = edge_key(node, neighbour)
+            if edge in result:
+                continue
+            result.add(edge)
+            queue.append(neighbour)
+    return result
+
+
+def ordered_euler_trail(start, edges, hint_points):
+    """Consume a remaining line or loop once, in the hinted direction."""
+    if not edges:
+        return [start]
+    adjacency = {}
+    for first, second in edges:
+        adjacency.setdefault(first, set()).add(second)
+        adjacency.setdefault(second, set()).add(first)
+
+    # If this graph has two odd ends, an Euler trail must start at one of
+    # them.  Pick the end closest to the reviewed pen-down position.
+    odd = [node for node, neighbours in adjacency.items() if len(neighbours) % 2]
+    if len(odd) == 2:
+        start = min(odd, key=lambda node: math.dist(node, hint_points[0]))
+    elif start not in adjacency:
+        start = min(adjacency, key=lambda node: math.dist(node, hint_points[0]))
+
+    hint_tree = cKDTree(np.array(hint_points, dtype=float))
+    stack = [start]
+    trail = []
+    remaining = set(edges)
+    previous = None
+    while stack:
+        current = stack[-1]
+        candidates = [
+            neighbour for neighbour in adjacency.get(current, ())
+            if edge_key(current, neighbour) in remaining
+        ]
+        if not candidates:
+            trail.append(stack.pop())
+            previous = trail[-1]
+            continue
+        # Prefer the visible centre-line closest to the reviewed route.  A
+        # small turn penalty gives stable, natural movement at intersections.
+        def candidate_cost(neighbour):
+            distance = float(hint_tree.query(neighbour)[0])
+            if len(stack) < 2:
+                return distance
+            incoming = np.array(current, dtype=float) - np.array(stack[-2], dtype=float)
+            outgoing = np.array(neighbour, dtype=float) - np.array(current, dtype=float)
+            denominator = np.linalg.norm(incoming) * np.linalg.norm(outgoing)
+            cosine = 1.0 if denominator < 1e-9 else float(np.dot(incoming, outgoing) / denominator)
+            return distance + (1 - cosine) * 2.5
+
+        neighbour = min(candidates, key=candidate_cost)
+        remaining.remove(edge_key(current, neighbour))
+        stack.append(neighbour)
+
+    trail.reverse()
+    return trail
+
+
+def hinted_cycle(graph, preferred_start, edges, hint_points):
+    """Find the visible loop described by a closed teaching stroke."""
+    if not edges:
+        return []
+    hint_tree = cKDTree(np.array(hint_points, dtype=float))
+    edge_nodes = {node for edge in edges for node in edge}
+    starts = sorted(
+        edge_nodes,
+        key=lambda node: math.dist(node, preferred_start) + float(hint_tree.query(node)[0]),
+    )[:18]
+    best = None
+    target_length = sum(math.dist(first, second) for first, second in zip(hint_points, hint_points[1:]))
+    for start in starts:
+        neighbours = [
+            neighbour for neighbour in graph[start]
+            if edge_key(start, neighbour) in edges
+        ]
+        for first_index, first in enumerate(neighbours):
+            for second in neighbours[first_index + 1:]:
+                blocked = {
+                    edge for edge in edges
+                    if start in edge
+                }
+                middle = weighted_edge_path(
+                    graph, first, second, edges - blocked, hint_tree, set(),
+                )
+                if len(middle) < 3:
+                    continue
+                route = [start, *middle, start]
+                length = sum(math.dist(a, b) for a, b in zip(route, route[1:]))
+                if length < 12:
+                    continue
+                distances = [float(hint_tree.query(node)[0]) for node in route]
+                score = sum(distance ** 2 for distance in distances) / len(distances)
+                score += abs(length - target_length) * .08
+                score += math.dist(start, preferred_start) * .2
+                if best is None or score < best[0]:
+                    best = score, route
+    if best is None:
+        return []
+    route = best[1]
+    # Match the first movement to the reviewed direction.
+    if len(hint_points) > 1 and len(route) > 2:
+        wanted = np.array(hint_points[1]) - np.array(hint_points[0])
+        forward = np.array(route[1]) - np.array(route[0])
+        backward = np.array(route[-2]) - np.array(route[-1])
+        if np.dot(backward, wanted) > np.dot(forward, wanted):
+            route = [route[0], *reversed(route[1:-1]), route[-1]]
+    return route
+
+
 def rdp(points, epsilon=0.72):
     if len(points) <= 2:
         return points
@@ -241,6 +416,26 @@ def rdp(points, epsilon=0.72):
     return rdp(points[:split + 1], epsilon)[:-1] + rdp(points[split:], epsilon)
 
 
+def remove_reversal_spurs(points):
+    """Collapse raster-junction spikes while retaining genuine corners."""
+    cleaned = list(points)
+    changed = True
+    while changed and len(cleaned) >= 3:
+        changed = False
+        for index in range(1, len(cleaned) - 1):
+            first = np.array(cleaned[index], dtype=float) - np.array(cleaned[index - 1], dtype=float)
+            second = np.array(cleaned[index + 1], dtype=float) - np.array(cleaned[index], dtype=float)
+            denominator = np.linalg.norm(first) * np.linalg.norm(second)
+            if denominator < 1e-9:
+                continue
+            cosine = float(np.dot(first, second) / denominator)
+            if cosine < -0.8:
+                del cleaned[index]
+                changed = True
+                break
+    return cleaned
+
+
 def mapped_hint_routes(hints, graph, component_ids, components, skeleton_bounds):
     all_hint_points = [point for stroke in hints for point in stroke]
     hint_min_x = min(point['x'] for point in all_hint_points)
@@ -257,29 +452,131 @@ def mapped_hint_routes(hints, graph, component_ids, components, skeleton_bounds)
         return y, x
 
     component_trees = [cKDTree(np.array(component, dtype=float)) for component in components]
-    routes = []
-    visited = set()
+    component_edges = []
+    component_anchors = []
+    for component_index, component in enumerate(components):
+        nodes = set(component)
+        edges = {
+            edge_key(node, neighbour)
+            for node in component
+            for neighbour in graph[node]
+            if neighbour in nodes
+        }
+        component_edges.append(edges)
+        degrees = {
+            node: sum(edge_key(node, neighbour) in edges for neighbour in graph[node])
+            for node in component
+        }
+        y_values = [node[0] for node in component]
+        x_values = [node[1] for node in component]
+        boundary_groups = (
+            [node for node in component if node[0] == min(y_values)],
+            [node for node in component if node[0] == max(y_values)],
+            [node for node in component if node[1] == min(x_values)],
+            [node for node in component if node[1] == max(x_values)],
+        )
+        extrema = set()
+        for group in boundary_groups:
+            # Keep the corners of a flat extreme, not every pixel on a long
+            # vertical or horizontal stem.
+            extrema.add(min(group))
+            extrema.add(max(group))
+        # Pen-down and pen-up positions occur at visible ends, crossings, or
+        # outer extrema.  Restricting endpoint projection to these landmarks
+        # prevents an A leg from snapping to its nearby crossbar.
+        anchors = {node for node, degree in degrees.items() if degree != 2} | extrema
+        component_anchors.append(anchors or nodes)
+
+    mapped_strokes = []
     for hint_stroke in hints:
         mapped = densify([map_point(point) for point in hint_stroke])
         if not mapped:
             continue
-        nearest_components = []
-        for point in mapped[::max(1, len(mapped) // 40)]:
-            distances = [tree.query(point)[0] for tree in component_trees]
-            nearest_components.append(int(np.argmin(distances)))
-        component_index = Counter(nearest_components).most_common(1)[0][0]
-        component = components[component_index]
-        tree = component_trees[component_index]
-        projected = [component[int(tree.query(point)[1])] for point in mapped]
-        projected = [point for index, point in enumerate(projected) if index == 0 or point != projected[index - 1]]
-        if not projected:
+        sample = mapped[::max(1, len(mapped) // 48)]
+        component_index = min(
+            range(len(components)),
+            key=lambda index: sum(float(component_trees[index].query(point)[0]) for point in sample),
+        )
+        mapped_strokes.append((hint_stroke, mapped, component_index))
+
+    remaining_counts = Counter(component_index for _, _, component_index in mapped_strokes)
+    used_edges = [set() for _ in components]
+    endpoint_cache = {}
+    routes = []
+    visited = set()
+
+    def endpoint_key(point, component_index):
+        return component_index, round(point['x'], 5), round(point['y'], 5)
+
+    def project_endpoint(raw_point, mapped_point, component_index):
+        key = endpoint_key(raw_point, component_index)
+        if key not in endpoint_cache:
+            endpoint_cache[key] = min(
+                component_anchors[component_index],
+                key=lambda node: math.dist(node, mapped_point),
+            )
+        return endpoint_cache[key]
+
+    for hint_stroke, mapped, component_index in mapped_strokes:
+        remaining_counts[component_index] -= 1
+        edges = component_edges[component_index]
+        if not edges:
+            point = components[component_index][0]
+            routes.append([point])
+            visited.add(point)
             continue
-        allowed = set(component)
-        route = [projected[0]]
-        for goal in projected[1:]:
-            segment = shortest_path(graph, route[-1], goal, allowed)
-            route.extend(segment[1:])
+
+        start = project_endpoint(hint_stroke[0], mapped[0], component_index)
+        goal = project_endpoint(hint_stroke[-1], mapped[-1], component_index)
+        available = edges - used_edges[component_index]
+        is_last_for_component = remaining_counts[component_index] == 0
+        is_closed_hint = math.dist(
+            (hint_stroke[0]['x'], hint_stroke[0]['y']),
+            (hint_stroke[-1]['x'], hint_stroke[-1]['y']),
+        ) <= .035
+
+        route = []
+        if is_closed_hint and available:
+            if is_last_for_component:
+                remaining_piece = edge_component(start, available)
+                degrees = Counter(node for edge in remaining_piece for node in edge)
+                odd = [node for node, degree in degrees.items() if degree % 2]
+                if len(odd) in (0, 2):
+                    route = ordered_euler_trail(start, remaining_piece, mapped)
+            if not route:
+                route = hinted_cycle(graph, start, available, mapped)
+
+        if not route and is_last_for_component and available:
+            remaining_piece = edge_component(start, available)
+            if not remaining_piece:
+                nearest = min(
+                    {node for edge in available for node in edge},
+                    key=lambda node: math.dist(node, mapped[0]),
+                )
+                remaining_piece = edge_component(nearest, available)
+                start = nearest
+            piece_nodes = {node for edge in remaining_piece for node in edge}
+            degrees = Counter(node for edge in remaining_piece for node in edge)
+            odd = [node for node, degree in degrees.items() if degree % 2]
+            if goal in piece_nodes and len(odd) in (0, 2):
+                route = ordered_euler_trail(start, remaining_piece, mapped)
+            elif goal in piece_nodes:
+                route = weighted_edge_path(
+                    graph, start, goal, remaining_piece,
+                    cKDTree(np.array(mapped, dtype=float)), used_edges[component_index],
+                )
+
+        if not route:
+            route = weighted_edge_path(
+                graph, start, goal, edges,
+                cKDTree(np.array(mapped, dtype=float)), used_edges[component_index],
+            )
+        if not route:
+            route = [start] if start == goal else [start, goal]
+
         compact = [point for index, point in enumerate(route) if index == 0 or point != route[index - 1]]
+        for first, second in zip(compact, compact[1:]):
+            used_edges[component_index].add(edge_key(first, second))
         visited.update(compact)
         routes.append(compact)
     return routes, visited
@@ -356,40 +653,29 @@ def extract_routes(crop, hints):
     x_values = [node[1] for node in graph]
     bounds = (min(y_values), min(x_values), max(y_values), max(x_values))
     routes, visited = mapped_hint_routes(hints, graph, component_ids, components, bounds)
-    for residual in residual_routes(graph, components, visited):
-        endpoint_candidates = [
-            (math.dist(endpoint, node), route_index, endpoint_index, node)
-            for route_index, route in enumerate(routes)
-            for endpoint_index, endpoint in ((0, route[0]), (-1, route[-1]))
-            for node in residual
-        ]
-        nearest = min(endpoint_candidates, default=(math.inf, 0, 0, residual[0]))
-        distance_to_route, route_index, endpoint_index, _ = nearest
-        if distance_to_route <= 15:
-            endpoint = routes[route_index][endpoint_index]
-            component = components[component_ids[endpoint]]
-            target = max(residual, key=lambda node: math.dist(endpoint, node))
-            extension = shortest_path(graph, endpoint, target, set(component))
-            if endpoint_index == 0:
-                routes[route_index] = list(reversed(extension)) + routes[route_index][1:]
-            else:
-                routes[route_index].extend(extension[1:])
-        else:
-            routes.append(residual)
+    # The reviewed hints already describe every teaching stroke. Earlier
+    # versions appended uncovered skeleton twigs to the closest route. Those
+    # twigs made Fino reverse over junctions (notably A, N, p and u). Keep the
+    # exact hint-projected centre lines and use maximumRouteError below to
+    # catch any reference whose hints no longer cover the visible template.
 
     cleaned = []
     for route in routes:
         if not route:
             continue
         xy = [(float(x), float(y)) for y, x in route]
-        simplified = rdp(xy)
+        simplified = remove_reversal_spurs(rdp(xy))
         if len(route) <= 5:
             center_x = sum(point[0] for point in xy) / len(xy)
             center_y = sum(point[1] for point in xy) / len(xy)
             simplified = [(center_x, center_y)]
         cleaned.append(simplified)
 
-    route_pixels = [(y, x) for route in routes for y, x in route]
+    route_pixels = [
+        (y, x)
+        for route in cleaned
+        for x, y in densify(route, step=.75)
+    ]
     route_tree = cKDTree(np.array(route_pixels, dtype=float))
     maximum_error = max(route_tree.query(node)[0] for node in graph)
     route_x_values = [x for route in cleaned for x, _ in route]

@@ -7,9 +7,17 @@ import {
   CHARACTER_STROKES,
   CHARACTER_STROKE_GEOMETRY,
 } from './handwriting-stroke-data.js';
+import {
+  connectSolutionStrokes,
+  createConnectSpec,
+  createMazeSpec,
+  layoutConnect,
+  layoutMaze,
+} from './mini-games.js';
 
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));
+const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
 function arc(cx, cy, rx, ry, startDeg, endDeg, steps = 32) {
   const points = [];
@@ -41,6 +49,15 @@ function join(...segments) {
   return segments.flatMap((segment, index) => (index === 0 ? segment : segment.slice(1)));
 }
 
+function spiral(cx, cy, outerRadius, innerRadius, turns = 2, steps = 42) {
+  return Array.from({ length: steps + 1 }, (_, index) => {
+    const progress = index / steps;
+    const radius = outerRadius + (innerRadius - outerRadius) * progress;
+    const angle = progress * Math.PI * 2 * turns;
+    return p(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
+  });
+}
+
 function makeTask({
   id,
   category,
@@ -57,6 +74,9 @@ function makeTask({
   completionGroups = [strokes.map((_, index) => index)],
   angularStrokes = [],
   strokeColors = [],
+  gameMode = '',
+  game = null,
+  responsiveVariant = null,
 }) {
   const plannedStrokeColors = strokeColors.length
     ? strokes.map((_, index) => strokeColors[index] ?? null)
@@ -77,6 +97,9 @@ function makeTask({
     completionGroups: Object.freeze(completionGroups.map((group) => Object.freeze([...group]))),
     angularStrokes: Object.freeze([...angularStrokes]),
     strokeColors: Object.freeze(plannedStrokeColors),
+    gameMode,
+    game,
+    responsiveVariant,
   });
 }
 
@@ -166,15 +189,15 @@ const PICTURE_INK = Object.freeze({
 const shapeTemplates = [
   makeTask({
     id: 'shape-circle', category: 'shapes', title: 'Kreis', speech: 'Male einen Kreis. Starte oben.', label: '○',
-    strokes: [arc(0.5, 0.5, 0.3, 0.36, -90, 270, 44)], complexity: 1,
+    strokes: [arc(0.5, 0.5, 0.36, 0.36, -90, 270, 44)], complexity: 1,
   }),
   makeTask({
     id: 'shape-oval', category: 'shapes', title: 'Oval', speech: 'Male ein langes Oval.', label: '⬭',
     strokes: [arc(0.5, 0.5, 0.24, 0.38, -90, 270, 44)], complexity: 1,
   }),
   makeTask({
-    id: 'shape-square', category: 'shapes', title: 'Viereck', speech: 'Male ein Viereck.', label: '□',
-    strokes: [poly([0.25, 0.22], [0.75, 0.22], [0.75, 0.78], [0.25, 0.78], [0.25, 0.22])], complexity: 1, angularStrokes: [0],
+    id: 'shape-square', category: 'shapes', title: 'Quadrat', speech: 'Male ein Quadrat.', label: '□',
+    strokes: [poly([0.22, 0.22], [0.78, 0.22], [0.78, 0.78], [0.22, 0.78], [0.22, 0.22])], complexity: 1, angularStrokes: [0],
   }),
   makeTask({
     id: 'shape-triangle', category: 'shapes', title: 'Dreieck', speech: 'Male ein Dreieck.', label: '△',
@@ -219,7 +242,7 @@ const shapeTemplates = [
   }),
   makeTask({
     id: 'shape-house', category: 'shapes', title: 'Haus', speech: 'Male ein kleines Haus.', label: 'Haus',
-    strokes: [poly([0.22, 0.5], [0.5, 0.2], [0.78, 0.5]), poly([0.28, 0.47], [0.28, 0.8], [0.72, 0.8], [0.72, 0.47])], complexity: 2, angularStrokes: [0, 1],
+    strokes: [poly([0.28, 0.47], [0.5, 0.2], [0.72, 0.47]), poly([0.28, 0.47], [0.28, 0.8], [0.72, 0.8], [0.72, 0.47])], complexity: 2, angularStrokes: [0, 1],
   }),
   makeTask({
     id: 'shape-kite', category: 'shapes', title: 'Drachen', speech: 'Male einen Drachen mit Schwanz.', label: 'Drachen',
@@ -235,11 +258,22 @@ const shapeTemplates = [
   }),
   makeTask({
     id: 'shape-flower', category: 'shapes', title: 'Blume', speech: 'Male eine Blume mit Stiel.', label: 'Blume',
-    strokes: [arc(0.5, 0.36, 0.2, 0.16, -90, 270, 28), arc(0.5, 0.36, 0.1, 0.26, 0, 360, 28), poly([0.5, 0.55], [0.5, 0.86]), poly([0.5, 0.72], [0.35, 0.64]), poly([0.5, 0.78], [0.65, 0.7])], complexity: 3, angularStrokes: [2, 3, 4],
+    strokes: [
+      arc(0.5, 0.37, 0.075, 0.075, -90, 270, 22),
+      arc(0.5, 0.19, 0.1, 0.12, -90, 270, 24),
+      arc(0.67, 0.37, 0.11, 0.095, -90, 270, 24),
+      arc(0.5, 0.55, 0.1, 0.12, -90, 270, 24),
+      arc(0.33, 0.37, 0.11, 0.095, -90, 270, 24),
+      poly([0.5, 0.67], [0.5, 0.9]),
+      bezier(p(0.5, 0.76), p(0.42, 0.67), p(0.33, 0.69), p(0.31, 0.79), 16),
+      bezier(p(0.5, 0.82), p(0.58, 0.73), p(0.67, 0.75), p(0.69, 0.85), 16),
+    ],
+    complexity: 3, angularStrokes: [5],
+    strokeColors: [PICTURE_INK.yellow, PICTURE_INK.pink, PICTURE_INK.pink, PICTURE_INK.pink, PICTURE_INK.pink, PICTURE_INK.green, PICTURE_INK.green, PICTURE_INK.green],
   }),
   makeTask({
     id: 'shape-sun', category: 'shapes', title: 'Sonne', speech: 'Male eine Sonne mit Strahlen.', label: 'Sonne',
-    strokes: [arc(0.5, 0.5, 0.2, 0.2, -90, 270, 30), poly([0.5, 0.08], [0.5, 0.2]), poly([0.5, 0.8], [0.5, 0.92]), poly([0.08, 0.5], [0.2, 0.5]), poly([0.8, 0.5], [0.92, 0.5]), poly([0.2, 0.2], [0.29, 0.29]), poly([0.71, 0.71], [0.8, 0.8])], complexity: 3, angularStrokes: [1, 2, 3, 4, 5, 6],
+    strokes: [arc(0.5, 0.5, 0.2, 0.2, -90, 270, 30), poly([0.5, 0.08], [0.5, 0.2]), poly([0.5, 0.8], [0.5, 0.92]), poly([0.08, 0.5], [0.2, 0.5]), poly([0.8, 0.5], [0.92, 0.5]), poly([0.2, 0.2], [0.29, 0.29]), poly([0.71, 0.71], [0.8, 0.8]), poly([0.8, 0.2], [0.71, 0.29]), poly([0.29, 0.71], [0.2, 0.8])], complexity: 3, angularStrokes: [1, 2, 3, 4, 5, 6, 7, 8],
   }),
   makeTask({
     id: 'shape-sailboat', category: 'shapes', title: 'Segelboot', speech: 'Male ein Segelboot.', label: 'Segelboot',
@@ -247,7 +281,7 @@ const shapeTemplates = [
   }),
   makeTask({
     id: 'shape-rocket', category: 'shapes', title: 'Rakete', speech: 'Male eine Rakete.', label: 'Rakete',
-    strokes: [poly([0.5, 0.12], [0.7, 0.38], [0.66, 0.72], [0.5, 0.86], [0.34, 0.72], [0.3, 0.38], [0.5, 0.12]), arc(0.5, 0.46, 0.07, 0.07, -90, 270, 20), poly([0.42, 0.76], [0.34, 0.88]), poly([0.58, 0.76], [0.66, 0.88])], complexity: 3, angularStrokes: [0, 2, 3],
+    strokes: [poly([0.5, 0.12], [0.7, 0.38], [0.66, 0.72], [0.5, 0.86], [0.34, 0.72], [0.3, 0.38], [0.5, 0.12]), arc(0.5, 0.46, 0.07, 0.07, -90, 270, 20), poly([0.36, 0.67], [0.23, 0.84], [0.39, 0.8]), poly([0.64, 0.67], [0.77, 0.84], [0.61, 0.8]), poly([0.45, 0.82], [0.5, 0.94], [0.55, 0.82])], complexity: 3, angularStrokes: [0, 2, 3, 4],
   }),
   makeTask({
     id: 'shape-tree', category: 'shapes', title: 'Baum', speech: 'Male einen Baum mit Stamm und Krone.', label: 'Baum',
@@ -276,8 +310,14 @@ const shapeTemplates = [
   }),
   makeTask({
     id: 'shape-snail', category: 'shapes', title: 'Schnecke', speech: 'Male eine Schnecke mit Haus und Fühlern.', label: 'Schnecke',
-    strokes: [arc(0.4, 0.5, 0.2, 0.2, -90, 270, 30), bezier(p(0.18, 0.68), p(0.46, 0.77), p(0.77, 0.75), p(0.8, 0.58), 28), poly([0.8, 0.58], [0.74, 0.44]), poly([0.8, 0.58], [0.87, 0.45])],
-    complexity: 3, angularStrokes: [2, 3], strokeColors: [PICTURE_INK.purple, PICTURE_INK.green, PICTURE_INK.green, PICTURE_INK.green],
+    strokes: [
+      arc(0.4, 0.48, 0.22, 0.22, -90, 270, 34),
+      spiral(0.4, 0.48, 0.145, 0.018, 1.8, 42),
+      bezier(p(0.16, 0.7), p(0.4, 0.79), p(0.72, 0.77), p(0.8, 0.61), 30),
+      poly([0.8, 0.61], [0.75, 0.43], [0.72, 0.38]),
+      poly([0.8, 0.61], [0.87, 0.44], [0.9, 0.4]),
+    ],
+    complexity: 3, angularStrokes: [3, 4], strokeColors: [PICTURE_INK.purple, PICTURE_INK.pink, PICTURE_INK.green, PICTURE_INK.green, PICTURE_INK.green],
   }),
   makeTask({
     id: 'shape-umbrella', category: 'shapes', title: 'Regenschirm', speech: 'Male einen Regenschirm mit Griff.', label: 'Regenschirm',
@@ -291,8 +331,19 @@ const shapeTemplates = [
   }),
   makeTask({
     id: 'shape-bird', category: 'shapes', title: 'Vogel', speech: 'Male einen Vogel mit Flügel und Schnabel.', label: 'Vogel',
-    strokes: [arc(0.44, 0.52, 0.26, 0.18, -90, 270, 28), arc(0.44, 0.52, 0.12, 0.08, 180, 540, 20), poly([0.68, 0.52], [0.83, 0.57], [0.68, 0.62], [0.68, 0.52])],
-    complexity: 3, angularStrokes: [2], strokeColors: [PICTURE_INK.blue, PICTURE_INK.purple, PICTURE_INK.orange],
+    strokes: [
+      arc(0.46, 0.58, 0.25, 0.17, -90, 270, 30),
+      arc(0.67, 0.41, 0.13, 0.13, -90, 270, 26),
+      poly([0.79, 0.4], [0.91, 0.45], [0.79, 0.49], [0.79, 0.4]),
+      join(
+        bezier(p(0.52, 0.52), p(0.38, 0.43), p(0.31, 0.56), p(0.5, 0.67), 18),
+        bezier(p(0.5, 0.67), p(0.6, 0.62), p(0.61, 0.55), p(0.52, 0.52), 14),
+      ),
+      poly([0.23, 0.59], [0.09, 0.48], [0.17, 0.67], [0.23, 0.59]),
+      poly([0.42, 0.73], [0.4, 0.85], [0.34, 0.85]),
+      poly([0.53, 0.73], [0.55, 0.85], [0.61, 0.85]),
+    ],
+    complexity: 3, angularStrokes: [2, 4, 5, 6], strokeColors: [PICTURE_INK.blue, PICTURE_INK.blue, PICTURE_INK.orange, PICTURE_INK.purple, PICTURE_INK.blue, PICTURE_INK.brown, PICTURE_INK.brown],
   }),
   makeTask({
     id: 'shape-present', category: 'shapes', title: 'Geschenk', speech: 'Male ein Geschenk mit Schleife.', label: 'Geschenk',
@@ -301,7 +352,7 @@ const shapeTemplates = [
   }),
   makeTask({
     id: 'shape-crown', category: 'shapes', title: 'Krone', speech: 'Male eine Krone mit drei Spitzen.', label: 'Krone',
-    strokes: [poly([0.22, 0.72], [0.78, 0.72], [0.78, 0.82], [0.22, 0.82], [0.22, 0.72]), poly([0.22, 0.72], [0.3, 0.3], [0.5, 0.58], [0.7, 0.3], [0.78, 0.72]), poly([0.22, 0.78], [0.78, 0.78])],
+    strokes: [poly([0.22, 0.72], [0.78, 0.72], [0.78, 0.82], [0.22, 0.82], [0.22, 0.72]), poly([0.22, 0.72], [0.28, 0.34], [0.4, 0.57], [0.5, 0.25], [0.6, 0.57], [0.72, 0.34], [0.78, 0.72]), poly([0.22, 0.78], [0.78, 0.78])],
     complexity: 3, angularStrokes: [0, 1, 2], strokeColors: [PICTURE_INK.yellow, PICTURE_INK.yellow, PICTURE_INK.pink],
   }),
   makeTask({
@@ -326,8 +377,8 @@ const shapeTemplates = [
   }),
   makeTask({
     id: 'shape-bee', category: 'shapes', title: 'Biene', speech: 'Male eine Biene mit Flügeln und Streifen.', label: 'Biene',
-    strokes: [arc(0.5, 0.56, 0.18, 0.24, -90, 270, 28), poly([0.34, 0.47], [0.66, 0.47]), poly([0.32, 0.62], [0.68, 0.62]), arc(0.37, 0.38, 0.14, 0.1, 0, 360, 20), arc(0.63, 0.38, 0.14, 0.1, 0, 360, 20)],
-    complexity: 3, angularStrokes: [1, 2], strokeColors: [PICTURE_INK.yellow, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.blue, PICTURE_INK.blue],
+    strokes: [arc(0.5, 0.58, 0.18, 0.22, -90, 270, 28), arc(0.5, 0.31, 0.13, 0.11, -90, 270, 22), poly([0.34, 0.5], [0.66, 0.5]), poly([0.32, 0.63], [0.68, 0.63]), arc(0.34, 0.4, 0.14, 0.1, 0, 360, 20), arc(0.66, 0.4, 0.14, 0.1, 0, 360, 20), bezier(p(0.45, 0.23), p(0.4, 0.12), p(0.32, 0.13), p(0.31, 0.2), 12), bezier(p(0.55, 0.23), p(0.6, 0.12), p(0.68, 0.13), p(0.69, 0.2), 12), poly([0.5, 0.8], [0.5, 0.89])],
+    complexity: 3, angularStrokes: [2, 3, 8], strokeColors: [PICTURE_INK.yellow, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.blue, PICTURE_INK.blue, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal],
   }),
 ];
 
@@ -404,6 +455,8 @@ export const CATEGORY_CONFIG = Object.freeze({
   numbers: { label: 'Zahlen', speech: 'Zahlen üben', icon: 'numbers' },
   letters: { label: 'Buchstaben', speech: 'Buchstaben üben', icon: 'letters' },
   name: { label: 'Mein Name', speech: 'Deinen Namen üben', icon: 'name' },
+  maze: { label: 'Labyrinth', speech: 'Finde den Weg durchs Labyrinth', icon: 'maze' },
+  connect: { label: 'Funkelpunkte', speech: 'Verbinde die auftauchenden Punkte', icon: 'connect' },
   mixed: { label: 'Bunte Mischung', speech: 'Alles gemischt', icon: 'mixed' },
 });
 
@@ -427,18 +480,24 @@ export const OPTION_SETS = Object.freeze({
 export function normalizeName(value) {
   const protectedUmlauts = String(value ?? '')
     .trim()
-    .toLocaleUpperCase('de-DE')
     .replace(/ẞ/g, 'SS')
+    .replace(/ß/g, 'ss')
     .replace(/Ä/g, '\uE000')
     .replace(/Ö/g, '\uE001')
     .replace(/Ü/g, '\uE002')
+    .replace(/ä/g, '\uE003')
+    .replace(/ö/g, '\uE004')
+    .replace(/ü/g, '\uE005')
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
     .replace(/\uE000/g, 'Ä')
     .replace(/\uE001/g, 'Ö')
-    .replace(/\uE002/g, 'Ü');
+    .replace(/\uE002/g, 'Ü')
+    .replace(/\uE003/g, 'ä')
+    .replace(/\uE004/g, 'ö')
+    .replace(/\uE005/g, 'ü');
   return protectedUmlauts
-    .replace(/[^A-ZÄÖÜ\- ]/g, '')
+    .replace(/[^A-Za-zÄÖÜäöü\- ]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 12);
@@ -474,6 +533,9 @@ function fitStrokes(strokes, rect) {
 
 const NARROW_LETTERS = new Set(['I', 'i', 'j', 'l']);
 const WIDE_LETTERS = new Set(['M', 'W', 'm', 'w']);
+const X_HEIGHT_LETTERS = new Set([...'acemnorsuvwxzäöü']);
+const ASCENDER_LETTERS = new Set([...'bdfhkl']);
+const DESCENDER_LETTERS = new Set([...'gjpqy']);
 
 const CANONICAL_DRAWING_WIDTH = 900;
 const CANONICAL_DRAWING_HEIGHT = 620;
@@ -780,6 +842,7 @@ function createCustomSetBank(category, rawSet) {
       group: 'custom',
       family: category,
       layout: `custom-${key}`,
+      responsiveVariant: layoutIndex,
     });
   }));
 }
@@ -822,15 +885,122 @@ function createEasySymbolBank(category, option) {
       group: category === 'letters' ? letterMeta[symbol]?.[1] ?? 'all' : 'all',
       family: category,
       layout: `easy-${index}`,
+      responsiveVariant: index,
     });
   }));
 }
 
-const lineBank = variantBank('lines', lineTemplates, ROUTE_LAYOUTS);
+const lineFamilyNames = ['Gerade', 'Wellen', 'Zickzack', 'Bögen', 'Schalen', 'Schleifen', 'Spiralen', 'Slalom', 'Treppen', 'Schlangen'];
+
+function generatedMotorLine(index) {
+  const family = index % lineFamilyNames.length;
+  const variant = Math.floor(index / lineFamilyNames.length);
+  const samples = 54;
+  let strokes;
+  let angularStrokes = [];
+  if (family === 0) {
+    const angle = (-70 + variant * 17) * Math.PI / 180;
+    const physicalLength = 360 + variant * 18;
+    const dx = Math.cos(angle) * physicalLength / 2 / CANONICAL_DRAWING_WIDTH;
+    const dy = Math.sin(angle) * physicalLength / 2 / CANONICAL_DRAWING_HEIGHT;
+    strokes = [poly([0.5 - dx, 0.5 - dy], [0.5 + dx, 0.5 + dy])];
+    angularStrokes = [0];
+  } else if (family === 1) {
+    const cycles = 1.25 + variant * 0.24;
+    const amplitude = 0.16 + (variant % 3) * 0.035;
+    strokes = [Array.from({ length: samples }, (_, pointIndex) => {
+      const t = pointIndex / (samples - 1);
+      return p(0.09 + t * 0.82, 0.5 + Math.sin(t * Math.PI * 2 * cycles) * amplitude);
+    })];
+  } else if (family === 2) {
+    const teeth = 3 + (variant % 6);
+    strokes = [Array.from({ length: teeth * 2 + 1 }, (_, pointIndex) => p(
+      0.1 + (pointIndex / (teeth * 2)) * 0.8,
+      pointIndex % 2 ? 0.24 + variant * 0.012 : 0.76 - variant * 0.012,
+    ))];
+    angularStrokes = [0];
+  } else if (family === 3 || family === 4) {
+    const arches = 2 + (variant % 5);
+    const direction = family === 3 ? -1 : 1;
+    strokes = [Array.from({ length: samples }, (_, pointIndex) => {
+      const t = pointIndex / (samples - 1);
+      return p(0.09 + t * 0.82, 0.5 + direction * Math.abs(Math.sin(t * Math.PI * arches)) * (0.24 + variant * 0.008));
+    })];
+  } else if (family === 5) {
+    const loops = 2 + (variant % 5);
+    strokes = [Array.from({ length: 82 }, (_, pointIndex) => {
+      const t = pointIndex / 81;
+      const angle = t * Math.PI * 2 * loops;
+      return p(0.1 + t * 0.8 + Math.sin(angle) * (0.035 + variant * 0.0015), 0.5 + Math.cos(angle) * (0.2 + (variant % 3) * 0.025));
+    })];
+  } else if (family === 6) {
+    const turns = 1.7 + variant * 0.24;
+    const direction = variant % 2 ? -1 : 1;
+    strokes = [Array.from({ length: 76 }, (_, pointIndex) => {
+      const t = pointIndex / 75;
+      const angle = direction * t * Math.PI * 2 * turns;
+      const radius = 0.08 + t * 0.3;
+      return p(0.5 + Math.cos(angle) * radius * (CANONICAL_DRAWING_HEIGHT / CANONICAL_DRAWING_WIDTH), 0.5 + Math.sin(angle) * radius);
+    })];
+  } else if (family === 7) {
+    const turns = 1.5 + variant * 0.23;
+    strokes = [Array.from({ length: samples }, (_, pointIndex) => {
+      const t = pointIndex / (samples - 1);
+      return p(0.5 + Math.sin(t * Math.PI * 2 * turns) * (0.2 + (variant % 3) * 0.025), 0.08 + t * 0.84);
+    })];
+  } else if (family === 8) {
+    const steps = 3 + (variant % 6);
+    const startY = 0.8 - variant * 0.008;
+    const rise = 0.56 + variant * 0.006;
+    const points = [p(0.1, startY)];
+    for (let step = 0; step < steps; step += 1) {
+      const nextX = 0.1 + ((step + 1) / steps) * 0.8;
+      const nextY = startY - ((step + 1) / steps) * rise;
+      points.push(p(nextX, points.at(-1).y), p(nextX, nextY));
+    }
+    strokes = [points];
+    angularStrokes = [0];
+  } else {
+    const firstCycles = 1.1 + variant * 0.17;
+    const secondCycles = 2.1 + (variant % 4) * 0.2;
+    strokes = [Array.from({ length: 70 }, (_, pointIndex) => {
+      const t = pointIndex / 69;
+      return p(0.1 + t * 0.8, 0.5 + Math.sin(t * Math.PI * 2 * firstCycles) * 0.17 + Math.sin(t * Math.PI * 2 * secondCycles) * 0.075);
+    })];
+  }
+  const familyName = lineFamilyNames[family];
+  return makeTask({
+    id: `lines-motor-${String(index + 1).padStart(3, '0')}`,
+    category: 'lines',
+    title: `${familyName} ${variant + 1}`,
+    speech: `Folge Fino durch die ${familyName.toLocaleLowerCase('de-DE')}.`,
+    label: familyName,
+    value: familyName,
+    strokes,
+    complexity: family < 2 ? 1 : family < 6 ? 2 : 3,
+    family: 'lines',
+    layout: `motor-${family}-${variant}`,
+    angularStrokes,
+  });
+}
+
+const lineBank = Object.freeze([
+  ...lineTemplates.map((template) => makeTask({ ...template, id: `lines-${template.id}-gross`, family: 'lines', value: template.label, layout: 'gross' })),
+  ...Array.from({ length: 90 }, (_, index) => generatedMotorLine(index)),
+]);
 // Position, scale and a mirrored stroke order do not make a new shape. Keep
 // one genuinely distinct drawing for each family until we have a larger bank
 // of truly different pictures to add.
-const shapeBank = Object.freeze([...shapeTemplates]);
+const shapeBank = Object.freeze(shapeTemplates.map((task) => makeTask({
+  ...task,
+  // Shape art was designed in square authoring units. Convert x to the
+  // 900×620 physical artboard once so circles remain circles and corners do
+  // not become wide, flattened versions on real screens.
+  strokes: task.strokes.map((stroke) => stroke.map((point) => p(
+    0.5 + (point.x - 0.5) * (CANONICAL_DRAWING_HEIGHT / CANONICAL_DRAWING_WIDTH),
+    point.y,
+  ))),
+})));
 const numberBank = Object.freeze(numberTemplates.flatMap((template) => NUMBER_LAYOUTS.map(([key, title, cells]) => {
   const data = repeatedTaskData(template.strokes, cells);
   return makeTask({
@@ -906,6 +1076,48 @@ const letterBank = Object.freeze([
   }),
 ]);
 
+const mazeBank = Object.freeze(Array.from({ length: 100 }, (_, index) => {
+  const complexity = 1 + (index % 3);
+  const game = createMazeSpec(index + 1, complexity);
+  const preview = layoutMaze(game, { width: CANONICAL_DRAWING_WIDTH, height: CANONICAL_DRAWING_HEIGHT });
+  return makeTask({
+    id: `maze-${String(index + 1).padStart(3, '0')}`,
+    category: 'maze',
+    title: `Finos Labyrinth ${index + 1}`,
+    speech: 'Bring Fino sicher zum Ziel.',
+    label: `Weg ${index + 1}`,
+    value: `maze-${index + 1}`,
+    strokes: [preview.solution],
+    complexity,
+    family: 'maze',
+    layout: 'maze',
+    gameMode: 'maze',
+    game,
+  });
+}));
+
+const connectBank = Object.freeze(Array.from({ length: 100 }, (_, index) => {
+  const complexity = 1 + (index % 3);
+  const game = createConnectSpec(index + 1, complexity);
+  const preview = layoutConnect(game, { width: CANONICAL_DRAWING_WIDTH, height: CANONICAL_DRAWING_HEIGHT });
+  const strokes = connectSolutionStrokes(preview.points);
+  return makeTask({
+    id: `connect-${String(index + 1).padStart(3, '0')}`,
+    category: 'connect',
+    title: `Funkelpunkte ${index + 1}`,
+    speech: 'Verbinde die neuen Punkte, ohne deine Linien zu berühren.',
+    label: `Punkte ${index + 1}`,
+    value: `connect-${index + 1}`,
+    strokes,
+    completionGroups: strokes.map((_, strokeIndex) => [strokeIndex]),
+    complexity,
+    family: 'connect',
+    layout: 'connect',
+    gameMode: 'connect',
+    game,
+  });
+}));
+
 function nameRect(index, dx = 0) {
   const scales = [0.88, 0.76, 0.64, 0.82, 0.7];
   const scale = scales[index % scales.length];
@@ -951,13 +1163,23 @@ export function createNameExerciseBank(rawName) {
 }
 
 const mixedBank = Object.freeze([
-  ...lineBank.slice(0, 22),
-  ...shapeBank,
-  ...numberBank.slice(0, 21),
-  ...letterBank.slice(0, 21),
+  ...lineBank.slice(0, 16),
+  ...shapeBank.slice(0, 20),
+  ...numberBank.slice(0, 16),
+  ...letterBank.slice(0, 16),
+  ...mazeBank.slice(0, 16),
+  ...connectBank.slice(0, 16),
 ].map((task) => makeTask({ ...task, id: `mixed-${task.id}`, family: task.family })));
 
-export const EXERCISE_BANKS = Object.freeze({ lines: lineBank, shapes: shapeBank, numbers: numberBank, letters: letterBank, mixed: mixedBank });
+export const EXERCISE_BANKS = Object.freeze({
+  lines: lineBank,
+  shapes: shapeBank,
+  numbers: numberBank,
+  letters: letterBank,
+  maze: mazeBank,
+  connect: connectBank,
+  mixed: mixedBank,
+});
 export const TASKS = Object.freeze(Object.values(EXERCISE_BANKS).flat());
 
 export function getExerciseBank(category, { name = '', option = '' } = {}) {
@@ -1100,6 +1322,67 @@ function fitGroupToBox(strokes, box, profile) {
   )));
 }
 
+function letterPresentationBox(symbol, box) {
+  if (!/[a-zäöü]/.test(symbol)) return box;
+  let scale = 0.7;
+  let verticalOffset = 0.13;
+  if (X_HEIGHT_LETTERS.has(symbol)) {
+    scale = 0.62;
+    verticalOffset = 0.17;
+  } else if (ASCENDER_LETTERS.has(symbol)) {
+    scale = symbol === 't' ? 0.8 : 0.92;
+    verticalOffset = symbol === 't' ? 0.1 : 0.04;
+  } else if (DESCENDER_LETTERS.has(symbol)) {
+    scale = 0.88;
+    verticalOffset = 0.08;
+  }
+  return {
+    ...box,
+    centerY: box.centerY + box.height * verticalOffset,
+    width: box.width * scale,
+    height: box.height * scale,
+  };
+}
+
+function variedSymbolBox(task, box, visibleIndex, profile, groupCount) {
+  const shouldVary = ['letters', 'numbers'].includes(task.category)
+    && (task.group === 'custom' || String(task.layout).startsWith('easy-'));
+  if (!shouldVary) return box;
+  const presentations = [
+    [1, 0, 0],
+    [0.94, -0.04, 0], [0.94, 0.04, 0], [0.94, 0, -0.05], [0.94, 0, 0.05],
+    [0.88, -0.04, -0.04], [0.88, 0.04, -0.04],
+    [0.88, -0.04, 0.04], [0.88, 0.04, 0.04],
+    [0.86, 0, 0],
+  ];
+  const sourceVariant = Number.isInteger(task.slot)
+    ? task.slot
+    : Number.isInteger(task.responsiveVariant) ? task.responsiveVariant : taskHash(task.id);
+  const [scale, dx, dy] = presentations[(sourceVariant + visibleIndex) % presentations.length];
+  if (groupCount > 1) {
+    const [groupScale, groupDx, groupDy] = presentations[sourceVariant % presentations.length];
+    return {
+      ...box,
+      centerX: profile.width / 2 + (box.centerX - profile.width / 2) * groupScale + profile.width * groupDx * 0.55,
+      centerY: profile.height / 2 + (box.centerY - profile.height / 2) * groupScale + profile.height * groupDy * 0.55,
+      width: box.width * groupScale,
+      height: box.height * groupScale,
+    };
+  }
+  const width = box.width * scale;
+  const height = box.height * scale;
+  const margin = Math.min(20, Math.min(profile.width, profile.height) * 0.055);
+  const requestedX = box.centerX + box.width * dx;
+  const requestedY = box.centerY + box.height * dy;
+  return {
+    ...box,
+    centerX: clamp(requestedX, margin + width / 2, profile.width - margin - width / 2),
+    centerY: clamp(requestedY, margin + height / 2, profile.height - margin - height / 2),
+    width,
+    height,
+  };
+}
+
 /**
  * Reflow an already-authored task into the measured drawing board. Each
  * component is scaled uniformly from the 900×620 source drawing, so a circle,
@@ -1108,12 +1391,43 @@ function fitGroupToBox(strokes, box, profile) {
  */
 export function adaptTaskToViewport(task, viewport) {
   const profile = layoutProfileForViewport(viewport);
+  if (task.gameMode === 'maze') {
+    const gameSpec = task.gameSpec ?? task.game;
+    const game = layoutMaze(gameSpec, profile);
+    return Object.freeze({
+      ...task,
+      gameSpec,
+      game,
+      strokes: Object.freeze([game.solution]),
+      completionGroups: Object.freeze([Object.freeze([0])]),
+      strokeColors: Object.freeze([]),
+      angularStrokes: Object.freeze([]),
+      layout: `maze-${profile.portrait ? 'portrait' : 'landscape'}-${game.cols}x${game.rows}`,
+      viewport: Object.freeze({ width: profile.width, height: profile.height, portrait: profile.portrait }),
+    });
+  }
+  if (task.gameMode === 'connect') {
+    const gameSpec = task.gameSpec ?? task.game;
+    const game = layoutConnect(gameSpec, profile);
+    const strokes = connectSolutionStrokes(game.points);
+    return Object.freeze({
+      ...task,
+      gameSpec,
+      game,
+      strokes: Object.freeze(strokes),
+      completionGroups: Object.freeze(strokes.map((_, index) => Object.freeze([index]))),
+      strokeColors: Object.freeze(strokes.map((_, index) => Object.values(PICTURE_INK)[index % Object.keys(PICTURE_INK).length])),
+      angularStrokes: Object.freeze([]),
+      layout: `connect-${profile.portrait ? 'portrait' : 'landscape'}-${game.points.length}`,
+      viewport: Object.freeze({ width: profile.width, height: profile.height, portrait: profile.portrait }),
+    });
+  }
   const groups = task.completionGroups?.length
     ? task.completionGroups
     : [task.strokes.map((_, index) => index)];
   const groupIndexes = selectedGroupIndexes(task, profile);
   const boxes = targetBoxes(groupIndexes.length, profile);
-  if (groupIndexes.length === 1) {
+  if (groupIndexes.length === 1 && !['letters', 'numbers'].includes(task.category)) {
     const sourceIndexes = groups[groupIndexes[0]];
     const source = physicalBounds(sourceIndexes.map((index) => task.strokes[index]));
     const centerX = ((source.minX + source.maxX) / 2 / CANONICAL_DRAWING_WIDTH) * profile.width;
@@ -1129,7 +1443,11 @@ export function adaptTaskToViewport(task, viewport) {
   groupIndexes.forEach((groupIndex, visibleIndex) => {
     const sourceIndexes = groups[groupIndex];
     const sourceStrokes = sourceIndexes.map((strokeIndex) => task.strokes[strokeIndex]);
-    const fitted = fitGroupToBox(sourceStrokes, boxes[visibleIndex], profile);
+    const variedBox = variedSymbolBox(task, boxes[visibleIndex], visibleIndex, profile, groupIndexes.length);
+    const presentationBox = task.category === 'letters' || task.category === 'name'
+      ? letterPresentationBox(taskSymbols(task)[groupIndex] ?? '', variedBox)
+      : variedBox;
+    const fitted = fitGroupToBox(sourceStrokes, presentationBox, profile);
     const firstStroke = strokes.length;
     sourceIndexes.forEach((strokeIndex, index) => sourceToTarget.set(strokeIndex, firstStroke + index));
     strokes.push(...fitted);
@@ -1156,6 +1474,59 @@ export function adaptTaskToViewport(task, viewport) {
 }
 
 /**
+ * Preserve an in-progress drawing through a resize. Target geometry and the
+ * child's ink receive the same uniform pixel transform, so rotation cannot
+ * stretch a letter, shape, maze, or line.
+ */
+export function reflowTaskWithInk(task, userStrokes, viewport) {
+  if (task.gameMode) {
+    const responsiveTask = adaptTaskToViewport(task, viewport);
+    return Object.freeze({
+      task: responsiveTask,
+      // A maze or point path changes orientation as a whole. Restart just
+      // this short task rather than shrinking the old portrait playfield into
+      // a thin strip with tiny touch targets.
+      userStrokes: Object.freeze([]),
+      resetGame: true,
+    });
+  }
+  const oldWidth = Math.max(1, Number(task?.viewport?.width) || CANONICAL_DRAWING_WIDTH);
+  const oldHeight = Math.max(1, Number(task?.viewport?.height) || CANONICAL_DRAWING_HEIGHT);
+  const profile = layoutProfileForViewport(viewport);
+  const geometryPoints = task.strokes.flat();
+  const pixelPoints = geometryPoints.map((point) => ({ x: point.x * oldWidth, y: point.y * oldHeight }));
+  const bounds = pixelPoints.reduce((result, point) => ({
+    minX: Math.min(result.minX, point.x), maxX: Math.max(result.maxX, point.x),
+    minY: Math.min(result.minY, point.y), maxY: Math.max(result.maxY, point.y),
+  }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+  const sourceWidth = Math.max(1, bounds.maxX - bounds.minX);
+  const sourceHeight = Math.max(1, bounds.maxY - bounds.minY);
+  const padding = Math.min(profile.width, profile.height) * 0.055;
+  const scale = Math.min(
+    (profile.width - padding * 2) / sourceWidth,
+    (profile.height - padding * 2) / sourceHeight,
+  );
+  const sourceCenter = { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 };
+  const targetCenter = { x: profile.width / 2, y: profile.height / 2 };
+  const transform = (point) => Object.freeze({
+    ...point,
+    x: (targetCenter.x + (point.x * oldWidth - sourceCenter.x) * scale) / profile.width,
+    y: (targetCenter.y + (point.y * oldHeight - sourceCenter.y) * scale) / profile.height,
+  });
+  const transformStrokes = (strokes) => Object.freeze(strokes.map((stroke) => Object.freeze(stroke.map(transform))));
+  const transformedStrokes = transformStrokes(task.strokes);
+  const transformedUserStrokes = userStrokes.map((stroke) => stroke.map((point) => ({ ...transform(point) })));
+  return Object.freeze({
+    task: Object.freeze({
+      ...task,
+      strokes: transformedStrokes,
+      viewport: Object.freeze({ width: profile.width, height: profile.height, portrait: profile.portrait }),
+    }),
+    userStrokes: Object.freeze(transformedUserStrokes.map((stroke) => Object.freeze(stroke))),
+  });
+}
+
+/**
  * Creates a 10-task playthrough sampled without repeating a task.
  */
 export function buildSession({ category, difficulty = 'easy', option = '', name = '', viewport, rng = Math.random }) {
@@ -1172,13 +1543,21 @@ export function buildSession({ category, difficulty = 'easy', option = '', name 
     }));
   }
 
-  const primary = ['numbers', 'letters'].includes(category) && difficulty === 'easy'
+  let primary = ['numbers', 'letters'].includes(category) && difficulty === 'easy'
     ? createEasySymbolBank(category, option)
     : taskPool(category, option, name);
+  const allowedGameComplexity = difficulty === 'easy' ? [1] : difficulty === 'medium' ? [1, 2] : [2, 3];
+  if (['maze', 'connect'].includes(category)) {
+    const allowedComplexity = allowedGameComplexity;
+    primary = primary.filter((task) => allowedComplexity.includes(task.complexity));
+  }
   const sampled = category === 'mixed'
-    ? shuffle(['lines', 'shapes', 'numbers', 'letters'].flatMap((family, index) => (
-      sampleVariedTasks(primary.filter((task) => task.family === family), index < 2 ? 3 : 2, rng)
-    )), rng)
+    ? shuffle([
+      ['lines', 2], ['shapes', 2], ['numbers', 2], ['letters', 2], ['maze', 1], ['connect', 1],
+    ].flatMap(([family, count]) => sampleVariedTasks(primary.filter((task) => (
+      task.family === family
+      && (!['maze', 'connect'].includes(family) || allowedGameComplexity.includes(task.complexity))
+    )), count, rng)), rng)
     : sampleVariedTasks(primary, SESSION_SIZE, rng);
 
   if (category !== 'lines' && sampled[0]?.family === 'lines') {

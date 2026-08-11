@@ -2,8 +2,8 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <meta name="theme-color" content="#FFF7EC">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#FFF8EF">
   <meta name="description" content="Fino schreibt – kurze Schreibübungen für Kinder mit Finger oder Stift.">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -35,7 +35,7 @@
         <div class="welcome-card">
           <div class="welcome-copy">
             <span class="speech-kicker">Hallo, ich bin Fino!</span>
-            <h2 id="home-title">Was möchtest du üben?</h2>
+            <h2 id="home-title" tabindex="-1">Was möchtest du üben?</h2>
             <p>In jeder Runde warten 10 Aufgaben auf dich. Deinen Namen übst du Buchstabe für Buchstabe.</p>
           </div>
           <img src="./assets/fox-mentor.svg" alt="Fino, der freundliche Fuchs" class="mentor-large" width="340" height="292">
@@ -76,6 +76,20 @@
                 <span>Mein Name</span>
                 <span class="card-check" aria-hidden="true">✓</span>
               </button>
+              <button class="activity-card" type="button" data-category="maze" aria-pressed="false">
+                <span class="activity-icon icon-maze" aria-hidden="true">
+                  <svg viewBox="0 0 80 64"><path d="M12 10h24v12H24v11h28V21h16v31H45V42H24v10H12V10Z"/><circle cx="18" cy="16" r="3"/><path d="m60 45 3 3 6-7"/></svg>
+                </span>
+                <span>Labyrinth</span>
+                <span class="card-check" aria-hidden="true">✓</span>
+              </button>
+              <button class="activity-card" type="button" data-category="connect" aria-pressed="false">
+                <span class="activity-icon icon-connect" aria-hidden="true">
+                  <svg viewBox="0 0 80 64"><path d="M13 45 31 18l18 28 18-29"/><circle cx="13" cy="45" r="6"/><circle cx="31" cy="18" r="6"/><circle cx="49" cy="46" r="6"/><circle cx="67" cy="17" r="6"/></svg>
+                </span>
+                <span>Funkelpunkte</span>
+                <span class="card-check" aria-hidden="true">✓</span>
+              </button>
               <button class="activity-card" type="button" data-category="mixed" aria-pressed="false">
                 <span class="activity-icon icon-mixed" aria-hidden="true">
                   <svg viewBox="0 0 80 64"><path d="m40 7 5 15 16-4-9 13 12 10-16 1-1 16-10-12-13 9 4-16-15-5 14-7-3-16 13 10 3-14Z"/></svg>
@@ -93,7 +107,7 @@
             </fieldset>
             <fieldset class="selection-group option-panel" data-options-for="shapes" hidden>
               <legend>In dieser Runde</legend>
-              <p class="option-note">Kreise, Ecken und einfache Formen werden gemischt.</p>
+              <p class="option-note">Formen und kleine Bilder werden gemischt.</p>
             </fieldset>
             <fieldset class="selection-group option-panel" data-options-for="numbers" hidden>
               <legend>Welche Zahlen?</legend>
@@ -123,13 +137,21 @@
               <legend>Wie heißt du?</legend>
               <label class="name-field">
                 <span class="sr-only">Vorname des Kindes</span>
-                <input id="child-name" type="text" inputmode="text" enterkeyhint="go" autocomplete="off" autocapitalize="characters" maxlength="12" placeholder="Vorname" aria-describedby="name-help">
+                <input id="child-name" type="text" inputmode="text" enterkeyhint="go" autocomplete="off" autocapitalize="words" maxlength="12" placeholder="Vorname" aria-describedby="name-help">
               </label>
               <p class="field-help" id="name-help">Der Name bleibt nur bis zum Neuladen der Seite erhalten.</p>
             </fieldset>
+            <fieldset class="selection-group option-panel" data-options-for="maze" hidden>
+              <legend>Deine Aufgabe</legend>
+              <p class="option-note">Führe Fino durch den Weg. Die Wände dürfen nicht berührt werden.</p>
+            </fieldset>
+            <fieldset class="selection-group option-panel" data-options-for="connect" hidden>
+              <legend>Deine Aufgabe</legend>
+              <p class="option-note">Verbinde immer den neuen Punkt. Alte Linien dürfen sich nicht berühren.</p>
+            </fieldset>
             <fieldset class="selection-group option-panel" data-options-for="mixed" hidden>
               <legend>In dieser Runde</legend>
-              <p class="option-note">Linien, Formen, Zahlen und Buchstaben werden bunt gemischt.</p>
+              <p class="option-note">Schreiben, Zeichnen, Labyrinthe und Funkelpunkte werden bunt gemischt.</p>
             </fieldset>
           </div>
 
@@ -165,7 +187,7 @@
       </main>
       <footer class="privacy-line">
         <span>Ohne Konto · Ohne Werbung · Keine Datenübertragung</span>
-        <small class="app-version" aria-label="App-Version 1.1.0">v1.1.0</small>
+        <small class="app-version" aria-label="App-Version 1.2.1">v1.2.1</small>
       </footer>
     </section>
 
@@ -202,7 +224,7 @@
       <main class="practice-layout">
         <section class="drawing-section" aria-label="Zeichenfläche">
           <div class="drawing-card" id="drawing-card">
-            <canvas id="drawing-canvas" aria-label="Zeichenfläche. Zeichne mit Finger oder Stift." role="img"></canvas>
+            <canvas id="drawing-canvas" aria-label="Zeichenfläche. Zeichne mit Finger oder Stift." role="img" tabindex="-1"></canvas>
             <div class="canvas-hint" id="canvas-hint" aria-hidden="true">
               <svg viewBox="0 0 48 48"><path d="M31 5 10 26l-2 10 10-2L39 13 31 5Z"/><path d="m27 9 8 8M10 26l8 8"/></svg>
               <span>Hier schreiben</span>
@@ -210,13 +232,14 @@
           </div>
         </section>
       </main>
+      <p class="sr-only" id="practice-status" aria-live="polite"></p>
     </section>
 
     <section class="screen finish-screen" id="finish-screen" aria-labelledby="finish-title" hidden>
       <div class="finish-card">
         <img src="./assets/fox-mentor.svg" alt="Fino der Fuchs freut sich" class="finish-fox" width="320" height="274">
         <p class="eyebrow">Runde geschafft</p>
-        <h2 id="finish-title">Super geübt!</h2>
+        <h2 id="finish-title" tabindex="-1">Super geübt!</h2>
         <p id="finish-summary">Du hast 10 Aufgaben geschafft.</p>
         <div class="finish-actions">
           <button class="primary-button" id="repeat-button" type="button">

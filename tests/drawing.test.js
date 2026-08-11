@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   demoStageAtProgress,
   DEMO_SPEED_MULTIPLIER,
+  DrawingBoard,
   drawingBounds,
   evaluateDrawing,
   feedbackForEvaluation,
@@ -184,6 +185,33 @@ test('the drawing board uses the full measured rectangle in portrait and landsca
   const landscape = drawingBounds(844, 390);
   assert.deepEqual(portrait, { x: 0, y: 0, width: 366, height: 608 });
   assert.deepEqual(landscape, { x: 0, y: 0, width: 844, height: 390 });
+});
+
+test('rotation discards only the unfinished stroke before responsive reflow', () => {
+  const finished = [{ x: 0.2, y: 0.2 }, { x: 0.4, y: 0.4 }];
+  const unfinished = [{ x: 0.5, y: 0.5 }, { x: 0.6, y: 0.62 }];
+  let inkState = null;
+  const board = Object.assign(Object.create(DrawingBoard.prototype), {
+    canvas: { releasePointerCapture: () => {} },
+    hooks: { onInkChange: (value) => { inkState = value; } },
+    activePointerId: 17,
+    activeStroke: unfinished,
+    activeGuideIndex: 1,
+    activeGuideStageAtStart: 1,
+    userStrokes: [finished, unfinished],
+    strokeColors: ['#111111', '#222222'],
+    gameState: null,
+    inkRevision: 3,
+    evaluationCache: { revision: 3 },
+  });
+  assert.equal(board.cancelActiveStrokeForResize(), true);
+  assert.deepEqual(board.userStrokes, [finished]);
+  assert.deepEqual(board.strokeColors, ['#111111']);
+  assert.equal(board.activePointerId, null);
+  assert.equal(board.activeStroke, null);
+  assert.equal(board.inkRevision, 4);
+  assert.equal(board.evaluationCache, null);
+  assert.equal(inkState, true);
 });
 
 test('complex pictures and multi-symbol tasks reveal guides in small stages', () => {

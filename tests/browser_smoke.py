@@ -100,7 +100,7 @@ def main() -> None:
             page.on("pageerror", lambda error: errors.append(f"phone pageerror: {error}"))
             page.goto(base_url, wait_until="networkidle")
             assert page.title() == "Fino schreibt"
-            assert page.locator(".activity-card").count() == 6
+            assert page.locator(".activity-card").count() == 8
             assert_no_horizontal_overflow(page, "phone home")
             page.screenshot(path=str(ARTIFACTS / "phone-home.png"), full_page=True)
 
@@ -119,7 +119,7 @@ def main() -> None:
             page.evaluate("window.__fuchsschrift.failCurrent()")
             page.wait_for_timeout(120)
             assert page.evaluate("window.__fuchsschrift.getState().index") == before
-            assert page.locator("#mentor-message").inner_text() != ""
+            assert page.locator("#toast:not([hidden])").inner_text() != ""
             solve_session(page)
             page.wait_for_selector("#finish-screen:not([hidden])")
             assert "10 Aufgaben" in page.locator("#finish-summary").inner_text()
@@ -177,7 +177,7 @@ def main() -> None:
             page.reload(wait_until="domcontentloaded", timeout=15_000)
             page.wait_for_timeout(250)
             assert page.title() == "Fino schreibt"
-            assert page.locator(".activity-card").count() == 6
+            assert page.locator(".activity-card").count() == 8
             context.close()
 
             browser.close()
