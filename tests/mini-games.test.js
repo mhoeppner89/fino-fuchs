@@ -74,7 +74,9 @@ test('all shipped point paths fit every screen and their intended route never cr
     const spec = createConnectSpec(seed, complexity);
     VIEWPORTS.forEach((viewport) => {
       const game = layoutConnect(spec, viewport);
-      const strokes = connectSolutionStrokes(game.points);
+      const strokes = connectSolutionStrokes(game);
+      assert.equal(game.points.length, spec.count, `point path ${seed} ended early`);
+      assert.equal(strokes.length, game.points.length - 1);
       assert.ok(game.pointRadius >= 16);
       assert.ok(game.hitRadius >= 30);
       assert.ok(game.hitRadius > game.pointRadius, 'touch target must extend beyond the visible number circle');
@@ -85,15 +87,20 @@ test('all shipped point paths fit every screen and their intended route never cr
         const from = game.points[index - 1];
         const to = game.points[index];
         const lockedStrokes = strokes.slice(0, index - 1);
-        assert.equal(connectTrailCollision(from, to, {
-          lockedStrokes,
-          activeStroke: [from],
-          anchor: from,
-          width: viewport.width,
-          height: viewport.height,
-          clearance: 8,
-          junctionRadius: game.hitRadius,
-        }), false, `point solution ${seed} crosses itself at ${index}`);
+        const route = strokes[index - 1];
+        const activeStroke = [route[0]];
+        for (let routeIndex = 1; routeIndex < route.length; routeIndex += 1) {
+          assert.equal(connectTrailCollision(route[routeIndex - 1], route[routeIndex], {
+            lockedStrokes,
+            activeStroke,
+            anchor: from,
+            width: viewport.width,
+            height: viewport.height,
+            clearance: game.clearance,
+            junctionRadius: game.hitRadius + 6,
+          }), false, `planned point solution ${seed} crosses itself at ${index}:${routeIndex}`);
+          activeStroke.push(route[routeIndex]);
+        }
         assert.ok(pointDistanceInPixels(from, to, viewport.width, viewport.height) > game.pointRadius * 1.35);
       }
       if (viewport.width === 1024 && viewport.height === 768) signatures.add(JSON.stringify(game.points));
@@ -125,7 +132,7 @@ test('labyrinth difficulty has clearly separated route lengths', () => {
   assert.ok(Math.max(...lengths[2]) < Math.min(...lengths[3]), 'hard and very hard labyrinths overlap');
 });
 
-test('higher Funkelpunkte levels add both length and winding challenge', () => {
+test('higher Funkelpunkte levels put targets behind old lines with safe detours', () => {
   const counts = [1, 2, 3, 4].map((complexity) => (
     Array.from({ length: 100 }, (_, index) => createConnectSpec(index + 1, complexity).count)
   ));
@@ -133,21 +140,26 @@ test('higher Funkelpunkte levels add both length and winding challenge', () => {
     assert.ok(Math.max(...counts[index - 1]) < Math.min(...counts[index]), `connect tiers ${index} and ${index + 1} overlap`);
   }
 
-  const turnAmount = (points, width, height) => {
-    const angles = points.slice(1).map((point, index) => Math.atan2(
-      (point.y - points[index].y) * height,
-      (point.x - points[index].x) * width,
-    ));
-    return angles.slice(1).reduce((sum, angle, index) => {
-      let delta = angle - angles[index];
-      while (delta > Math.PI) delta -= Math.PI * 2;
-      while (delta < -Math.PI) delta += Math.PI * 2;
-      return sum + Math.abs(delta);
-    }, 0);
-  };
-  for (let seed = 1; seed <= 40; seed += 1) {
-    const hard = layoutConnect(createConnectSpec(seed, 4), { width: 900, height: 620 });
-    assert.ok(turnAmount(hard.points, 900, 620) > Math.PI * 3, `hard path ${seed} is not winding enough`);
+  const requiredDetours = { 2: 1, 3: 2, 4: 4 };
+  for (let complexity = 2; complexity <= 4; complexity += 1) {
+    for (let seed = 1; seed <= 100; seed += 1) {
+      const game = layoutConnect(createConnectSpec(seed, complexity), { width: 900, height: 620 });
+      const strokes = connectSolutionStrokes(game);
+      assert.ok(game.detourStages.filter(Boolean).length >= requiredDetours[complexity], `${complexity}/${seed} lacks detours`);
+      game.detourStages.forEach((detour, stage) => {
+        if (!detour) return;
+        assert.ok(strokes[stage].length >= 3, `detour ${complexity}/${seed}/${stage} has no corridor route`);
+        assert.equal(connectTrailCollision(game.points[stage], game.points[stage + 1], {
+          lockedStrokes: strokes.slice(0, stage),
+          activeStroke: [game.points[stage]],
+          anchor: game.points[stage],
+          width: 900,
+          height: 620,
+          clearance: game.clearance,
+          junctionRadius: game.hitRadius + 6,
+        }), true, `target ${complexity}/${seed}/${stage} is not actually behind an old line`);
+      });
+    }
   }
 });
 

@@ -1364,9 +1364,15 @@ export class DrawingBoard {
 
   gameSnapshot() {
     if (!this.gameState) return null;
+    const reachedIndex = this.gameState.reachedIndex ?? 0;
     return {
       ...this.gameState,
       complexity: this.task?.game?.complexity ?? 1,
+      detourRequired: this.task?.gameMode === 'connect'
+        ? Boolean(this.task.game.detourStages?.[reachedIndex])
+        : false,
+      currentPoint: this.task?.gameMode === 'connect' ? this.task.game.points[reachedIndex] : undefined,
+      targetPoint: this.task?.gameMode === 'connect' ? this.task.game.points[reachedIndex + 1] : undefined,
       total: this.task?.gameMode === 'connect' ? this.task.game.points.length - 1 : 1,
       progress: this.task?.gameMode === 'connect'
         ? this.gameState.reachedIndex
@@ -1469,8 +1475,12 @@ export class DrawingBoard {
     if (!this.task?.game || !this.gameState || this.demoResolve) return Promise.resolve();
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (this.task.gameMode === 'connect') {
-      this.gameState.hintUntil = performance.now() + (reducedMotion ? 220 : 900);
-      this.gameHint = { type: 'pulse' };
+      const route = this.task.game.solutionStrokes?.[this.gameState.reachedIndex]
+        ?? [this.task.game.points[this.gameState.reachedIndex], this.task.game.points[this.gameState.reachedIndex + 1]];
+      const routeLength = polylineLength(route, this.width, this.height);
+      const duration = reducedMotion ? 1 : clamp((routeLength / 250) * 1000, 450, 1900);
+      this.gameState.hintUntil = performance.now() + duration;
+      this.gameHint = { type: 'connect-route', route, progress: 0, startedAt: performance.now(), duration };
       return new Promise((resolve) => {
         this.demoResolve = resolve;
         const finish = () => {
@@ -1479,10 +1489,11 @@ export class DrawingBoard {
           this.render();
           resolve();
         };
-        const tick = () => {
+        const tick = (now) => {
           if (!this.gameHint) return;
+          this.gameHint.progress = clamp((now - this.gameHint.startedAt) / this.gameHint.duration, 0, 1);
           this.render();
-          if (performance.now() < this.gameState.hintUntil) this.demoFrame = requestAnimationFrame(tick);
+          if (this.gameHint.progress < 1) this.demoFrame = requestAnimationFrame(tick);
           else finish();
         };
         this.demoFrame = requestAnimationFrame(tick);
@@ -1743,7 +1754,7 @@ export class DrawingBoard {
     if (pointDistanceInPixels(point, current, this.width, this.height) > 1.5) {
       const clearance = this.task.gameMode === 'maze'
         ? game.wallWidth / 2 + inkWidthForBoard(this.width, this.height) / 2 + 2
-        : inkWidthForBoard(this.width, this.height) + (game.complexity >= 4 ? 7 : game.complexity >= 3 ? 5 : 3);
+        : game.clearance ?? inkWidthForBoard(this.width, this.height) + (game.complexity >= 4 ? 7 : game.complexity >= 3 ? 5 : 3);
       const blocked = this.task.gameMode === 'maze'
         ? mazeWallCollision(anchoredStart, point, game, this.width, this.height, clearance)
         : connectTrailCollision(anchoredStart, point, {
@@ -1818,7 +1829,7 @@ export class DrawingBoard {
           anchor,
           width: this.width,
           height: this.height,
-          clearance: inkWidthForBoard(this.width, this.height)
+          clearance: this.task.game.clearance ?? inkWidthForBoard(this.width, this.height)
             + (this.task.game.complexity >= 4 ? 7 : this.task.game.complexity >= 3 ? 5 : 3),
           junctionRadius: this.task.game.hitRadius + 6,
         })) {
@@ -2353,6 +2364,9 @@ export class DrawingBoard {
     }
     const current = game.points[reached];
     const target = game.points[reached + 1];
+    const routeHint = this.gameHint?.type === 'connect-route'
+      ? pointAlongGuidePath(this.gameHint.route, this.gameHint.progress, this.width, this.height, false)
+      : null;
     if (target) {
       this.drawPoint(context, target, game.pointRadius, {
         color: this.task.strokeColors?.[reached] ?? inkColorAt(reached),
@@ -2365,8 +2379,9 @@ export class DrawingBoard {
       this.drawPoint(context, current, game.pointRadius * 0.78, {
         color: '#F08A45', number: reached + 1,
       });
-      if (!this.activeStroke?.length) this.drawGuideFox(context, currentPixel, 0);
+      if (!this.activeStroke?.length && !routeHint) this.drawGuideFox(context, currentPixel, 0);
     }
+    if (routeHint && !this.activeStroke?.length) this.drawGuideFox(context, routeHint.point, routeHint.angle);
     if (this.activeStroke?.length) {
       const last = this.activeStroke.at(-1);
       const previous = this.activeStroke.at(-2) ?? last;

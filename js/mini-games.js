@@ -223,11 +223,152 @@ export function createConnectSpec(seed = 1, complexity = 1 + (seed % 4)) {
   const level = clamp(Math.round(complexity), 1, 4);
   const count = {
     1: 5 + (seed % 2),
-    2: 8 + (seed % 3),
-    3: 12 + (seed % 3),
-    4: 17 + (seed % 4),
+    2: 8,
+    3: 9 + (seed % 3),
+    4: 12 + (seed % 3),
   }[level];
   return Object.freeze({ kind: 'connect', seed, complexity: level, count });
+}
+
+function simplifyGridRoute(route) {
+  if (route.length < 3) return route;
+  const simplified = [route[0]];
+  for (let index = 1; index < route.length - 1; index += 1) {
+    const previous = simplified.at(-1);
+    const current = route[index];
+    const next = route[index + 1];
+    const firstDx = Math.sign(current.x - previous.x);
+    const firstDy = Math.sign(current.y - previous.y);
+    const secondDx = Math.sign(next.x - current.x);
+    const secondDy = Math.sign(next.y - current.y);
+    if (firstDx !== secondDx || firstDy !== secondDy) simplified.push(current);
+  }
+  simplified.push(route.at(-1));
+  return simplified;
+}
+
+function buildConnectChallenge(spec, { width, height, margin, pointRadius, hitRadius, clearance, rng }) {
+  const level = clamp(Math.round(spec.complexity), 2, 4);
+  const cols = level === 4 ? 23 : level === 3 ? 19 : 15;
+  const rows = level === 4 ? 16 : level === 3 ? 13 : 10;
+  const pointForNode = ({ x, y }) => normalizedPoint({
+    x: margin + (x / (cols - 1)) * (width - margin * 2),
+    y: margin + (y / (rows - 1)) * (height - margin * 2),
+  }, width, height);
+  const key = ({ x, y }) => `${x}:${y}`;
+  const mirrorX = spec.seed % 2 === 1;
+  const transformNode = ({ x, y }) => ({
+    x: mirrorX ? cols - 1 - x : x,
+    y,
+  });
+  const barrierRow = 2 + (spec.seed % Math.max(1, Math.floor(rows / 4)));
+  const scaffold = [
+    transformNode({ x: 1, y: barrierRow }),
+    transformNode({ x: cols - 2, y: barrierRow }),
+    transformNode({ x: cols - 2, y: rows - 3 }),
+  ];
+  const nodes = [];
+  for (let y = 1; y < rows - 1; y += 1) {
+    for (let x = 1; x < cols - 1; x += 1) nodes.push({ x, y });
+  }
+
+  const points = scaffold.map(pointForNode);
+  const pointNodes = [...scaffold];
+  const solutionStrokes = [
+    Object.freeze([points[0], points[1]]),
+    Object.freeze([points[1], points[2]]),
+  ];
+  const detourStages = [false, false];
+  const lockedStrokes = [...solutionStrokes];
+  const used = new Set(scaffold.map(key));
+
+  const segmentIsClear = (from, to, anchor) => !connectTrailCollision(from, to, {
+    lockedStrokes,
+    anchor,
+    width,
+    height,
+    clearance,
+    junctionRadius: hitRadius + 6,
+  });
+
+  const targetHasRoom = (target, anchor) => {
+    if (pointDistanceInPixels(target, anchor, width, height) < Math.max(58, pointRadius * 2.05)) return false;
+    const targetPixel = pixelPoint(target, width, height);
+    return lockedStrokes.every((stroke) => segmentsOf(stroke).every(([from, to]) => (
+      pointToSegmentDistance(targetPixel, pixelPoint(from, width, height), pixelPoint(to, width, height))
+        > pointRadius + clearance * 0.18
+    )));
+  };
+
+  const findRoute = (startNode, targetNode, anchor) => {
+    const startKey = key(startNode);
+    const targetKey = key(targetNode);
+    const queue = [startNode];
+    const parent = new Map([[startKey, null]]);
+    const directionOffset = (spec.seed + solutionStrokes.length) % 4;
+    const directions = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+    while (queue.length && !parent.has(targetKey)) {
+      const current = queue.shift();
+      for (let offset = 0; offset < directions.length; offset += 1) {
+        const [dx, dy] = directions[(offset + directionOffset) % directions.length];
+        const next = { x: current.x + dx, y: current.y + dy };
+        const nextKey = key(next);
+        if (next.x < 1 || next.x >= cols - 1 || next.y < 1 || next.y >= rows - 1 || parent.has(nextKey)) continue;
+        if (!segmentIsClear(pointForNode(current), pointForNode(next), anchor)) continue;
+        parent.set(nextKey, current);
+        queue.push(next);
+      }
+    }
+    if (!parent.has(targetKey)) return null;
+    const routeNodes = [];
+    for (let current = targetNode; current; current = parent.get(key(current))) routeNodes.push(current);
+    routeNodes.reverse();
+    return simplifyGridRoute(routeNodes.map(pointForNode));
+  };
+
+  while (points.length < spec.count) {
+    const stage = solutionStrokes.length;
+    const challengeEvery = level === 4 ? 2 : level === 3 ? 3 : 4;
+    const wantsDetour = stage >= 2 && (stage - 2) % challengeEvery === 0;
+    const currentNode = pointNodes.at(-1);
+    const current = points.at(-1);
+    let choice = null;
+    const candidates = shuffled(nodes.filter((node) => !used.has(key(node))), rng);
+
+    for (const targetNode of candidates) {
+      const target = pointForNode(targetNode);
+      if (!targetHasRoom(target, current)) continue;
+      const directBlocked = !segmentIsClear(current, target, current);
+      if (directBlocked !== wantsDetour) continue;
+      const route = directBlocked ? findRoute(currentNode, targetNode, current) : [current, target];
+      if (!route || (directBlocked && route.length < 3)) continue;
+      choice = { targetNode, target, route, directBlocked };
+      break;
+    }
+
+    if (!choice) {
+      for (const targetNode of candidates) {
+        const target = pointForNode(targetNode);
+        if (!targetHasRoom(target, current)) continue;
+        const directBlocked = !segmentIsClear(current, target, current);
+        const route = directBlocked ? findRoute(currentNode, targetNode, current) : [current, target];
+        if (!route) continue;
+        choice = { targetNode, target, route, directBlocked };
+        break;
+      }
+    }
+    if (!choice) break;
+
+    used.add(key(choice.targetNode));
+    pointNodes.push(choice.targetNode);
+    points.push(Object.freeze(choice.target));
+    const frozenRoute = Object.freeze(choice.route.map((point) => Object.freeze({ ...point })));
+    solutionStrokes.push(frozenRoute);
+    detourStages.push(choice.directBlocked);
+    lockedStrokes.push(frozenRoute);
+  }
+
+  return { points, solutionStrokes, detourStages };
 }
 
 export function layoutConnect(spec, viewport = {}) {
@@ -243,28 +384,36 @@ export function layoutConnect(spec, viewport = {}) {
   const rng = randomFor(spec.seed * 3571 + 91);
   const phase = rng() * Math.PI * 2;
   const frequency = 1.45 + rng() * 1.35;
-  const points = [];
+  let points = [];
+  let solutionStrokes = [];
+  let detourStages = [];
   let previousCross = 0.5;
 
-  if (level >= 3) {
-    // Higher levels wind inward. The authored route never crosses itself, but
-    // every new segment runs closer to older ones, so the no-touch rule starts
-    // to matter instead of merely adding more repetitions.
-    const turns = level === 4 ? 2.25 + rng() * 0.35 : 1.25 + rng() * 0.25;
-    const direction = seedDirection(spec.seed);
-    const outerRadius = 0.94;
-    const innerRadius = level === 4 ? 0.28 : 0.34;
-    const radiusX = (width - margin * 2) / 2;
-    const radiusY = (height - margin * 2) / 2;
-    for (let index = 0; index < spec.count; index += 1) {
-      const t = index / (spec.count - 1);
-      const theta = phase + direction * turns * Math.PI * 2 * t;
-      const radius = outerRadius + (innerRadius - outerRadius) * t;
-      points.push(Object.freeze(normalizedPoint({
-        x: width / 2 + Math.cos(theta) * radiusX * radius,
-        y: height / 2 + Math.sin(theta) * radiusY * radius,
-      }, width, height)));
+  const pointRadius = clamp(Math.min(width, height) * 0.043, 16, 28);
+  const hitRadius = clamp(Math.min(width, height) * 0.078, 30, 50);
+  const inkWidth = clamp(Math.min(width, height) * 0.025, 11, 20);
+  const clearance = inkWidth + (level >= 4 ? 7 : level >= 3 ? 5 : 3);
+
+  if (level >= 2) {
+    const requiredDetours = level === 4 ? 4 : level === 3 ? 2 : 1;
+    let best = null;
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const candidate = buildConnectChallenge(spec, {
+        width,
+        height,
+        margin,
+        pointRadius,
+        hitRadius,
+        clearance,
+        rng: randomFor((Math.imul(spec.seed + 17, 0x9E3779B1) + Math.imul(attempt + 1, 0x85EBCA6B)) >>> 0),
+      });
+      const candidateDetours = candidate.detourStages.filter(Boolean).length;
+      const bestDetours = best?.detourStages.filter(Boolean).length ?? -1;
+      if (!best || candidate.points.length > best.points.length
+        || (candidate.points.length === best.points.length && candidateDetours > bestDetours)) best = candidate;
+      if (candidate.points.length === spec.count && candidateDetours >= requiredDetours) break;
     }
+    ({ points, solutionStrokes, detourStages } = best);
   } else {
     for (let index = 0; index < spec.count; index += 1) {
       const t = spec.count === 1 ? 0.5 : index / (spec.count - 1);
@@ -281,6 +430,8 @@ export function layoutConnect(spec, viewport = {}) {
       const pixel = portrait ? { x: crossPixel, y: major } : { x: major, y: crossPixel };
       points.push(Object.freeze(normalizedPoint(pixel, width, height)));
     }
+    solutionStrokes = connectSolutionStrokes(points);
+    detourStages = solutionStrokes.map(() => false);
   }
 
   return Object.freeze({
@@ -288,16 +439,15 @@ export function layoutConnect(spec, viewport = {}) {
     seed: spec.seed,
     complexity: spec.complexity,
     points: Object.freeze(points),
+    solutionStrokes: Object.freeze(solutionStrokes),
+    detourStages: Object.freeze(detourStages),
     // The visible ring and its forgiving touch target are deliberately
     // larger than the ink. Children can lift at one number and continue at
     // the next without being rejected for landing near the ring edge.
-    pointRadius: clamp(Math.min(width, height) * 0.043, 16, 28),
-    hitRadius: clamp(Math.min(width, height) * 0.078, 30, 50),
+    pointRadius,
+    hitRadius,
+    clearance,
   });
-}
-
-function seedDirection(seed) {
-  return seed % 2 ? 1 : -1;
 }
 
 function pixelPoint(point, width, height) {
@@ -484,7 +634,9 @@ export function connectTrailCollision(from, to, {
   return olderActiveSegments.some(([first, second]) => segmentDistance(a, b, first, second) <= clearance);
 }
 
-export function connectSolutionStrokes(points) {
+export function connectSolutionStrokes(source) {
+  if (source?.solutionStrokes) return source.solutionStrokes;
+  const points = Array.isArray(source) ? source : source?.points ?? [];
   return points.slice(1).map((point, index) => Object.freeze([
     Object.freeze({ ...points[index] }),
     Object.freeze({ ...point }),

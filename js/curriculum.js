@@ -1099,8 +1099,13 @@ const mazeBank = Object.freeze(Array.from({ length: 100 }, (_, index) => {
 const connectBank = Object.freeze(Array.from({ length: 100 }, (_, index) => {
   const complexity = 1 + (index % 4);
   const game = createConnectSpec(index + 1, complexity);
-  const preview = layoutConnect(game, { width: CANONICAL_DRAWING_WIDTH, height: CANONICAL_DRAWING_HEIGHT });
-  const strokes = connectSolutionStrokes(preview.points);
+  // The expensive barrier-aware route is generated only for a selected task
+  // and its measured board. A tiny placeholder keeps the 100-item catalogue
+  // cheap to load; adaptTaskToViewport replaces it before play.
+  const strokes = [[
+    p(0.16, 0.1 + (index % 10) * 0.08),
+    p(0.84, 0.1 + Math.floor(index / 10) * 0.08),
+  ]];
   return makeTask({
     id: `connect-${String(index + 1).padStart(3, '0')}`,
     category: 'connect',
@@ -1409,7 +1414,7 @@ export function adaptTaskToViewport(task, viewport) {
   if (task.gameMode === 'connect') {
     const gameSpec = task.gameSpec ?? task.game;
     const game = layoutConnect(gameSpec, profile);
-    const strokes = connectSolutionStrokes(game.points);
+    const strokes = connectSolutionStrokes(game);
     return Object.freeze({
       ...task,
       gameSpec,

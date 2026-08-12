@@ -155,3 +155,11 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Standardized the practice page at the iPad-tuned 900:620 ratio. It scales without changing shape on every device. Portrait phones show a quiet rotate suggestion in the spare space; landscape phones move exit, progress, navigation, erase, undo, and Fino into a right-side rail so the board can use the full screen height.
 - Browser QA confirmed a 990×682 iPad board, a 537×370 landscape-phone board with all controls at the side, and a 376×259 portrait-phone board with the rotate suggestion. All measured ratios were 900:620, there was no page overflow, and no console errors were recorded. The standard game client was attempted as required but its bundled headless Chromium exited at launch on this host; the connected browser supplied the full interaction and screenshot checks instead.
 - Prepared release `v1.3.0` with expanded generator, layout, difficulty, target-size, and interaction regression coverage.
+
+## 2026-08-12 Funkelpunkte corridor difficulty
+
+- Reworked Funkelpunkte difficulty so it is no longer mainly a point-count ladder. Medium, hard, and very hard layouts first create blocking lines, then deliberately place later numbered targets behind those lines.
+- The child must guide the new line around an endpoint or through an open corridor. The straight shortcut is rejected because it touches an older line, while every generated task has a verified safe route. Difficulty tiers guarantee at least one, two, or four such detours.
+- Fino now previews the actual safe route for the current point instead of pointing straight through a blocking line. The task snapshot reports whether the current target needs a detour, which makes this behavior testable.
+- Reduced the upper point counts to 8, 9–11, and 12–14 so the challenge comes from spatial planning rather than repetitive length. The visible circles and forgiving touch targets remain large.
+- Prepared release `v1.3.1`. The full test suite passes. A real pointer playtest drew the first barrier, rejected a straight line to the hidden target with the correct feedback, displayed Fino inside the corridor, and accepted the safe bent route. The standard game client also rendered a live canvas without console errors.
