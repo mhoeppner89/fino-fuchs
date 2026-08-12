@@ -2493,4 +2493,84 @@ body.immersive-fallback .practice-screen {
   .rotate-suggestion {
     display: none;
   }
+
+  /* Compact phone menu: keep every label inside its button and centre the
+     practice back control after the toolbar changes from grid to a side rail. */
+  .selection-panel,
+  .selection-panel > * {
+    min-width: 0;
+  }
+
+  .activity-card {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .activity-icon strong {
+    display: block;
+    max-width: 100%;
+    font-size: .78rem;
+    line-height: 1;
+    letter-spacing: -.12em;
+    white-space: nowrap;
+  }
+
+  .activity-icon {
+    overflow: hidden;
+  }
+
+  .activity-card > span:nth-child(2) {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #exit-button {
+    display: grid;
+    place-items: center;
+    padding: 0;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 430px) and (max-width: 740px) {
+  .home-header {
+    position: absolute;
+    width: auto;
+    margin: 0;
+  }
+
+  .brand .eyebrow {
+    display: none;
+  }
+
+  .brand h1 {
+    font-size: 1rem;
+  }
+
+  .brand-fox {
+    width: 32px;
+    height: 32px;
+  }
+
+  .selection-panel {
+    margin-top: 38px;
+    grid-template-columns: minmax(0, 1fr) minmax(190px, .72fr);
+  }
+
+  .activity-card {
+    min-height: 56px;
+    padding-inline: 2px;
+    font-size: .63rem;
+  }
+
+  .activity-card > span:nth-child(2) {
+    line-height: 1.05;
+    white-space: normal;
+  }
+
+  .difficulty-option {
+    min-width: 0;
+    font-size: .76rem;
+  }
 }

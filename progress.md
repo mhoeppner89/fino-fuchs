@@ -177,3 +177,10 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 
 - Changed the accelerated drawing canvas from transparent to opaque and painted a warm-white paper background into every frame. This prevents mobile Safari, fullscreen, and dark-mode compositors from showing the board as black.
 - Added a matching CSS fallback and an explicit light color-scheme declaration. Prepared release `v1.3.3` with a regression check for all three safeguards.
+
+## 2026-08-12 landscape-phone and labyrinth fix
+
+- Reworked the compact landscape menu so activity icons and labels stay inside their cards down to a 667×375 phone. Number and letter samples no longer wrap into the label, and very narrow layouts use smaller two-line labels where needed.
+- Restored exact centring for the practice back arrow after the toolbar changes into a landscape side rail.
+- Split the labyrinth into cached background and wall layers. Static gradients, dots, shadows, and wall geometry are built once per task/size instead of once per pointer move, and the cached art is capped at 2× resolution to reduce memory bandwidth on 3× mobile screens.
+- A real 82-point phone drag completed an easy labyrinth in about 90 ms without console warnings or visible flicker. Prepared release `v1.3.4`.

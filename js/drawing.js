@@ -1120,6 +1120,7 @@ export class DrawingBoard {
     this.inkRevision = 0;
     this.evaluationCache = null;
     this.renderFrame = 0;
+    this.mazeLayers = null;
     this.templateImages = new Map();
     this.width = 800;
     this.height = 560;
@@ -1179,6 +1180,7 @@ export class DrawingBoard {
     if (this.canvas.width !== pixelWidth || this.canvas.height !== pixelHeight) {
       this.canvas.width = pixelWidth;
       this.canvas.height = pixelHeight;
+      this.mazeLayers = null;
     }
     this.context.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.render();
@@ -1271,6 +1273,7 @@ export class DrawingBoard {
     this.inkRevision += 1;
     this.evaluationCache = null;
     this.initializeGameState();
+    this.mazeLayers = null;
     cancelAnimationFrame(this.demoFrame);
     cancelAnimationFrame(this.jumpFrame);
     this.render();
@@ -1289,6 +1292,7 @@ export class DrawingBoard {
     this.inkRevision += 1;
     this.evaluationCache = null;
     this.initializeGameState();
+    this.mazeLayers = null;
     this.render();
     this.hooks.onInkChange?.(false);
   }
@@ -1359,6 +1363,7 @@ export class DrawingBoard {
     const strokeColors = options.strokeColors ?? this.getUserStrokeColors();
     const gameState = options.gameState ?? this.gameState;
     this.task = task;
+    this.mazeLayers = null;
     this.userStrokes = userStrokes.map((stroke) => stroke.map((point) => ({ ...point })));
     this.strokeColors = [...strokeColors];
     this.gameState = gameState ? { ...gameState } : null;
@@ -2264,61 +2269,89 @@ export class DrawingBoard {
     context.restore();
   }
 
-  drawMaze(context) {
+  buildMazeLayers() {
     const game = this.task.game;
+    // Static maze art does not need the full pen-layer resolution. Capping it
+    // at 2x saves substantial memory bandwidth on 3x iPhones and iPads.
+    const layerDpr = Math.min(this.dpr, 2);
+    const cacheKey = `${this.task.id}:${this.width.toFixed(1)}:${this.height.toFixed(1)}:${layerDpr.toFixed(2)}`;
+    if (this.mazeLayers?.key === cacheKey) return this.mazeLayers;
+
+    const createLayer = (alpha) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(this.width * layerDpr);
+      canvas.height = Math.round(this.height * layerDpr);
+      const layerContext = canvas.getContext('2d', { alpha });
+      layerContext.setTransform(layerDpr, 0, 0, layerDpr, 0, 0);
+      return { canvas, context: layerContext };
+    };
+    const base = createLayer(false);
+    const walls = createLayer(true);
     const wallPoints = game.walls.flatMap((wall) => [toPixels(wall.a, this.width, this.height), toPixels(wall.b, this.width, this.height)]);
     const minX = Math.min(...wallPoints.map((point) => point.x));
     const maxX = Math.max(...wallPoints.map((point) => point.x));
     const minY = Math.min(...wallPoints.map((point) => point.y));
     const maxY = Math.max(...wallPoints.map((point) => point.y));
-    context.save();
-    const background = context.createLinearGradient(minX, minY, maxX, maxY);
+
+    base.context.fillStyle = CANVAS_PAPER;
+    base.context.fillRect(0, 0, this.width, this.height);
+    base.context.save();
+    const background = base.context.createLinearGradient(minX, minY, maxX, maxY);
     background.addColorStop(0, '#F2F9E9');
     background.addColorStop(1, '#E9F5E3');
-    context.fillStyle = background;
-    context.fillRect(minX, minY, maxX - minX, maxY - minY);
-    context.globalAlpha = 0.18;
-    context.fillStyle = '#7BB36B';
+    base.context.fillStyle = background;
+    base.context.fillRect(minX, minY, maxX - minX, maxY - minY);
+    base.context.globalAlpha = 0.18;
+    base.context.fillStyle = '#7BB36B';
     const dotStep = Math.max(26, game.cellSize * 0.72);
     for (let y = minY + dotStep / 2; y < maxY; y += dotStep) {
       for (let x = minX + dotStep / 2; x < maxX; x += dotStep) {
-        context.beginPath();
-        context.arc(x, y, 1.5, 0, Math.PI * 2);
-        context.fill();
+        base.context.beginPath();
+        base.context.arc(x, y, 1.5, 0, Math.PI * 2);
+        base.context.fill();
       }
     }
-    context.restore();
+    base.context.restore();
+    this.drawGoal(base.context, game.goal, game.goalRadius);
 
-    this.drawGoal(context, game.goal, game.goalRadius);
+    walls.context.save();
+    walls.context.lineCap = 'round';
+    walls.context.lineJoin = 'round';
+    walls.context.shadowColor = 'rgba(38, 80, 52, .18)';
+    walls.context.shadowBlur = 4;
+    walls.context.strokeStyle = '#316A4B';
+    walls.context.lineWidth = game.wallWidth + 3;
+    game.walls.forEach((wall) => {
+      const a = toPixels(wall.a, this.width, this.height);
+      const b = toPixels(wall.b, this.width, this.height);
+      walls.context.beginPath();
+      walls.context.moveTo(a.x, a.y);
+      walls.context.lineTo(b.x, b.y);
+      walls.context.stroke();
+    });
+    walls.context.shadowBlur = 0;
+    walls.context.strokeStyle = '#75A967';
+    walls.context.lineWidth = game.wallWidth;
+    game.walls.forEach((wall) => {
+      const a = toPixels(wall.a, this.width, this.height);
+      const b = toPixels(wall.b, this.width, this.height);
+      walls.context.beginPath();
+      walls.context.moveTo(a.x, a.y);
+      walls.context.lineTo(b.x, b.y);
+      walls.context.stroke();
+    });
+    walls.context.restore();
+
+    this.mazeLayers = { key: cacheKey, base: base.canvas, walls: walls.canvas };
+    return this.mazeLayers;
+  }
+
+  drawMaze(context) {
+    const game = this.task.game;
+    const layers = this.buildMazeLayers();
+    context.drawImage(layers.base, 0, 0, this.width, this.height);
     this.drawInk(context);
-
-    context.save();
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
-    context.shadowColor = 'rgba(38, 80, 52, .18)';
-    context.shadowBlur = 4;
-    context.strokeStyle = '#316A4B';
-    context.lineWidth = game.wallWidth + 3;
-    game.walls.forEach((wall) => {
-      const a = toPixels(wall.a, this.width, this.height);
-      const b = toPixels(wall.b, this.width, this.height);
-      context.beginPath();
-      context.moveTo(a.x, a.y);
-      context.lineTo(b.x, b.y);
-      context.stroke();
-    });
-    context.shadowBlur = 0;
-    context.strokeStyle = '#75A967';
-    context.lineWidth = game.wallWidth;
-    game.walls.forEach((wall) => {
-      const a = toPixels(wall.a, this.width, this.height);
-      const b = toPixels(wall.b, this.width, this.height);
-      context.beginPath();
-      context.moveTo(a.x, a.y);
-      context.lineTo(b.x, b.y);
-      context.stroke();
-    });
-    context.restore();
+    context.drawImage(layers.walls, 0, 0, this.width, this.height);
 
     let foxPoint = this.activeStroke?.at(-1) ?? this.gameState.endpoint ?? game.start;
     let angle = 0;

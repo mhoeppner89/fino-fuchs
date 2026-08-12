@@ -38,6 +38,16 @@ test('the drawing board stays light in mobile Safari and fullscreen', () => {
   assert.match(drawing, /context\.fillStyle = CANVAS_PAPER;\s*context\.fillRect\(0, 0, this\.width, this\.height\);/);
 });
 
+test('landscape phones keep their compact menu and maze renderer cheap', () => {
+  const drawing = read('js/drawing.js');
+  assert.match(styles, /\.activity-icon strong\s*{[\s\S]*?font-size:\s*\.78rem;/);
+  assert.match(styles, /#exit-button\s*{\s*display:\s*grid;\s*place-items:\s*center;/);
+  assert.match(drawing, /buildMazeLayers\(\)/);
+  assert.match(drawing, /this\.mazeLayers\?\.key === cacheKey/);
+  assert.match(drawing, /context\.drawImage\(layers\.base/);
+  assert.match(drawing, /context\.drawImage\(layers\.walls/);
+});
+
 test('practice mode provides a phone-friendly fullscreen control', () => {
   const app = read('js/app.js');
   assert.match(html, /id="fullscreen-button"[^>]*aria-label="Vollbild einschalten"/);
