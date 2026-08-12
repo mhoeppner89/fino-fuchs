@@ -56,6 +56,16 @@ test('Funkelpunkte reuses a cached backdrop while drawing', () => {
   assert.match(drawing, /sharedEndpointRadius:\s*game\.hitRadius \+ clearance \+ 6/);
 });
 
+test('Safari drawing avoids spiky joins and expensive unstable samples', () => {
+  const drawing = read('js/drawing.js');
+  assert.match(drawing, /const WEBKIT_ENGINE = [^;]+AppleWebKit/);
+  assert.match(drawing, /if \(webkit\) return \[event\];/);
+  assert.match(drawing, /desynchronized:\s*!this\.isWebKit/);
+  assert.match(drawing, /const dprLimit = this\.isWebKit \? 2 : 3/);
+  assert.match(drawing, /context\.miterLimit = 2/);
+  assert.match(drawing, /angular:\s*true,\s*lineJoin:\s*'round'/);
+});
+
 test('practice mode provides a phone-friendly fullscreen control', () => {
   const app = read('js/app.js');
   assert.match(html, /id="fullscreen-button"[^>]*aria-label="Vollbild einschalten"/);

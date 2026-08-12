@@ -197,3 +197,11 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Matched the collision-free start area to the full forgiving number target. A child can now begin near the number ring without immediately colliding with the line that ends at that number.
 - Added a separate Funkelpunkte ink scale: about 7 px on a landscape phone instead of the former 11 px, with a smaller white halo. Hard phone grids use wider physical cells while retaining four required behind-the-line route challenges.
 - Verified all 100 hard phone layouts retain their task count and detours. A real phone playtest accepted an edge-of-ring start, advanced through two segments without warnings, and processed the second 35-point drag in about 35 ms. Prepared release `v1.3.6`.
+
+## 2026-08-12 Safari drawing stability
+
+- Prevented Safari/WebKit pointer spikes by ignoring its unreliable coalesced sample list and using the dispatched pointer event in timestamp order.
+- Child ink now keeps straight segments but uses safe round joins; all mitered guide paths have a finite limit so nearly straight points cannot create long visual spikes.
+- Reduced Safari canvas work with a 2x device-pixel-ratio ceiling and disabled its unstable desynchronized canvas mode. Other browsers retain their existing higher-resolution path.
+- Added focused regression tests for Safari samples, joins, canvas settings, and the versioned offline release. Prepared release `v1.3.7`.
+- Verification: the complete `npm test` suite, focused 36-test drawing/release run, JavaScript syntax check, and `git diff --check` pass. A landscape-phone browser drag with many sharp turns rendered without spikes and produced no console warnings or errors.

@@ -20,6 +20,10 @@ const DEMO_JUMP_UNITS = 0.42;
 const REQUIRED_PATH_COVERAGE = 0.8;
 const MAX_CANVAS_PIXELS = 3_200_000;
 const CANVAS_PAPER = '#FFFCF7';
+const WEBKIT_ENGINE = typeof navigator !== 'undefined'
+  && /AppleWebKit/i.test(navigator.userAgent)
+  && (!/(Chrome|Chromium|Edg|OPR|SamsungBrowser)/i.test(navigator.userAgent)
+    || /iPhone|iPad|iPod/i.test(navigator.userAgent));
 export const DEMO_SPEED_MULTIPLIER = 1.5;
 export const INK_COLORS = Object.freeze(['#284B73', '#C75C7B', '#2A9D8F', '#9A63BA', '#DD8530']);
 // The guide remains easy to find at every difficulty. Difficulty comes from
@@ -49,6 +53,20 @@ export function guidePresentationForTask(task, assist = 'easy') {
 
 export function inkColorAt(strokeIndex) {
   return INK_COLORS[strokeIndex % INK_COLORS.length];
+}
+
+/**
+ * WebKit's coalesced pointer list can contain stale or out-of-order samples,
+ * which produce long spikes when connected. Its dispatched pointer event is
+ * already frame-rate limited and is the reliable source on Safari.
+ */
+export function pointerSamples(event, webkit = WEBKIT_ENGINE) {
+  if (webkit) return [event];
+  const coalesced = event.getCoalescedEvents?.();
+  if (!coalesced?.length) return [event];
+  return [...coalesced]
+    .filter((sample) => Number.isFinite(sample.clientX) && Number.isFinite(sample.clientY))
+    .sort((first, second) => (first.timeStamp ?? 0) - (second.timeStamp ?? 0));
 }
 
 export function drawingBounds(width, height) {
@@ -1098,7 +1116,8 @@ export class DrawingBoard {
     // Keep the drawing surface opaque. Mobile Safari can composite a
     // transparent, accelerated canvas as black in fullscreen or dark mode,
     // even when the element behind it is light.
-    this.context = canvas.getContext('2d', { alpha: false, desynchronized: true });
+    this.isWebKit = WEBKIT_ENGINE;
+    this.context = canvas.getContext('2d', { alpha: false, desynchronized: !this.isWebKit });
     this.hooks = hooks;
     this.task = null;
     this.assist = 'easy';
@@ -1177,7 +1196,8 @@ export class DrawingBoard {
     this.height = rect.height;
     const sizeChanged = Math.abs(previous.width - this.width) > 0.5 || Math.abs(previous.height - this.height) > 0.5;
     const pixelBudgetDpr = Math.sqrt(MAX_CANVAS_PIXELS / Math.max(1, this.width * this.height));
-    this.dpr = clamp(Math.min(window.devicePixelRatio || 1, pixelBudgetDpr), 1, 3);
+    const dprLimit = this.isWebKit ? 2 : 3;
+    this.dpr = clamp(Math.min(window.devicePixelRatio || 1, pixelBudgetDpr), 1, dprLimit);
     const pixelWidth = Math.round(this.width * this.dpr);
     const pixelHeight = Math.round(this.height * this.dpr);
     if (this.canvas.width !== pixelWidth || this.canvas.height !== pixelHeight) {
@@ -1650,7 +1670,7 @@ export class DrawingBoard {
     return {
       ...normalized,
       pressure: event.pressure > 0 ? event.pressure : event.pointerType === 'mouse' ? 0.5 : 0.45,
-      time: performance.now(),
+      time: Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now(),
     };
   }
 
@@ -1694,8 +1714,7 @@ export class DrawingBoard {
     // Some browsers and automation layers expose getCoalescedEvents() but
     // return an empty list for an ordinary pointer move. Always keep the
     // dispatched event in that case, otherwise a drag is recorded as a dot.
-    const coalescedEvents = event.getCoalescedEvents?.();
-    const events = coalescedEvents?.length ? coalescedEvents : [event];
+    const events = pointerSamples(event, this.isWebKit);
     for (const item of events) {
       const point = this.pointFromEvent(item);
       const last = this.activeStroke[this.activeStroke.length - 1];
@@ -1824,8 +1843,7 @@ export class DrawingBoard {
   }
 
   onGamePointerMove(event) {
-    const coalescedEvents = event.getCoalescedEvents?.();
-    const events = coalescedEvents?.length ? coalescedEvents : [event];
+    const events = pointerSamples(event, this.isWebKit);
     for (const item of events) {
       if (!this.activeStroke) return;
       const point = this.pointFromEvent(item);
@@ -2053,6 +2071,7 @@ export class DrawingBoard {
     alpha = 1,
     angular = false,
     angularForStroke = null,
+    lineJoin = null,
   }) {
     context.save();
     context.strokeStyle = color;
@@ -2060,9 +2079,12 @@ export class DrawingBoard {
     context.lineWidth = width;
     context.lineCap = 'round';
     context.setLineDash(dash);
+    // A low finite limit preserves ordinary square corners while preventing
+    // WebKit from turning almost-collinear points into very long miter spikes.
+    context.miterLimit = 2;
     strokes.forEach((stroke, index) => {
       const useAngular = angularForStroke ? angularForStroke(stroke, index) : angular;
-      context.lineJoin = useAngular ? 'miter' : 'round';
+      context.lineJoin = lineJoin ?? (useAngular ? 'miter' : 'round');
       context.beginPath();
       if (useAngular) angularPath(context, stroke, this.width, this.height);
       else roundedPath(context, stroke, this.width, this.height);
@@ -2233,6 +2255,7 @@ export class DrawingBoard {
         width: width + halo,
         alpha: 0.72,
         angular: true,
+        lineJoin: 'round',
       });
       this.drawStrokeSet(context, [stroke], {
         color: this.strokeColors[index] ?? inkColorAt(index),
@@ -2242,6 +2265,7 @@ export class DrawingBoard {
         // quadratic smoothing here turned intentional corners in squares,
         // houses and picture outlines into swollen curves.
         angular: true,
+        lineJoin: 'round',
       });
     });
     if (this.gameErrorStroke && performance.now() < this.gameErrorUntil) {
@@ -2249,6 +2273,7 @@ export class DrawingBoard {
         color: '#D94F4F',
         width: width + 2,
         alpha: 0.88,
+        lineJoin: 'round',
       });
     }
   }
