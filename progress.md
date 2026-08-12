@@ -184,3 +184,9 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Restored exact centring for the practice back arrow after the toolbar changes into a landscape side rail.
 - Split the labyrinth into cached background and wall layers. Static gradients, dots, shadows, and wall geometry are built once per task/size instead of once per pointer move, and the cached art is capped at 2× resolution to reduce memory bandwidth on 3× mobile screens.
 - A real 82-point phone drag completed an easy labyrinth in about 90 ms without console warnings or visible flicker. Prepared release `v1.3.4`.
+
+## 2026-08-12 fullscreen completion and rotate action
+
+- Rebuilt the completed-round card as a short two-column landscape layout. At 667×375, the complete card, Fino, summary, and both buttons fit in the fullscreen viewport without scrolling.
+- Turned the portrait rotate suggestion into one large accessible button covering the spare area. It pulses subtly, respects reduced-motion settings, and launches the same fullscreen plus orientation-lock flow as the toolbar control.
+- Prepared release `v1.3.5` with regression checks for the interactive rotate prompt and compact finish layout.

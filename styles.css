@@ -2339,6 +2339,9 @@ p {
 
 .rotate-suggestion {
   display: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
 }
 
 .fullscreen-exit-icon {
@@ -2386,6 +2389,21 @@ body.immersive-fallback .practice-screen {
     gap: 12px;
     color: var(--ink-soft);
     text-align: left;
+    border-radius: 24px;
+    cursor: pointer;
+    animation: rotate-invite 2.6s ease-in-out infinite;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .rotate-suggestion:focus-visible {
+    outline: 0;
+    box-shadow: var(--focus);
+  }
+
+  .rotate-suggestion:active {
+    animation: none;
+    background: rgba(245, 139, 69, .08);
+    transform: scale(.985);
   }
 
   .rotate-suggestion svg {
@@ -2413,6 +2431,11 @@ body.immersive-fallback .practice-screen {
   .rotate-suggestion span {
     font-size: .78rem;
   }
+}
+
+@keyframes rotate-invite {
+  0%, 100% { background: rgba(255, 255, 255, 0); transform: scale(1); }
+  50% { background: rgba(255, 255, 255, .44); transform: scale(1.015); }
 }
 
 /* On a phone held sideways, height is the scarce dimension. Put every tool
@@ -2530,6 +2553,83 @@ body.immersive-fallback .practice-screen {
     display: grid;
     place-items: center;
     padding: 0;
+  }
+}
+
+/* The round reward is a compact two-column card on short landscape phones.
+   It must never require scrolling after the child has entered fullscreen. */
+@media (orientation: landscape) and (max-height: 620px) {
+  .finish-screen {
+    height: 100dvh;
+    min-height: 0;
+    padding-top: max(7px, env(safe-area-inset-top));
+    padding-right: max(9px, env(safe-area-inset-right));
+    padding-bottom: max(7px, env(safe-area-inset-bottom));
+    padding-left: max(9px, env(safe-area-inset-left));
+    overflow: hidden;
+  }
+
+  .finish-card {
+    width: min(720px, 100%);
+    max-height: 100%;
+    padding: clamp(12px, 3dvh, 20px) clamp(16px, 3vw, 28px);
+    display: grid;
+    grid-template-columns: minmax(110px, .58fr) minmax(0, 1.42fr);
+    grid-template-areas:
+      "fox eyebrow"
+      "fox title"
+      "fox summary"
+      "fox actions";
+    align-items: center;
+    column-gap: clamp(14px, 3vw, 28px);
+    row-gap: 2px;
+    border-radius: clamp(22px, 6dvh, 30px);
+    text-align: left;
+  }
+
+  .finish-card::before {
+    width: min(260px, 44vw);
+    height: min(260px, 44vw);
+    left: 18%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .finish-fox {
+    grid-area: fox;
+    width: min(190px, 42dvh, 100%);
+    margin: 0 auto;
+  }
+
+  .finish-card .eyebrow {
+    grid-area: eyebrow;
+    margin: 0 0 2px;
+    font-size: clamp(.64rem, 2.4dvh, .78rem);
+  }
+
+  .finish-card h2 {
+    grid-area: title;
+    margin: 0;
+    font-size: clamp(1.65rem, 8dvh, 2.65rem);
+  }
+
+  .finish-card > p:not(.eyebrow) {
+    grid-area: summary;
+    margin: 2px 0 clamp(8px, 2dvh, 14px);
+    font-size: clamp(.82rem, 3.2dvh, 1rem);
+  }
+
+  .finish-actions {
+    grid-area: actions;
+    grid-template-columns: 1.25fr 1fr;
+    gap: 8px;
+  }
+
+  .finish-actions button {
+    min-width: 0;
+    min-height: clamp(44px, 13dvh, 52px);
+    padding-inline: clamp(10px, 2vw, 18px);
+    font-size: clamp(.78rem, 3.2dvh, .96rem);
   }
 }
 

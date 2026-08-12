@@ -55,6 +55,15 @@ test('practice mode provides a phone-friendly fullscreen control', () => {
   assert.match(app, /webkitRequestFullscreen/);
   assert.match(app, /screen\.orientation\?\.lock/);
   assert.match(app, /immersive-fallback/);
+  assert.match(html, /id="rotate-suggestion"[^>]*aria-label="Vollbild öffnen und ins Querformat wechseln"/);
+  assert.match(app, /elements\.rotateSuggestion\.addEventListener\('click', toggleFullscreen\)/);
+  assert.match(styles, /@keyframes rotate-invite/);
+});
+
+test('the completed-round screen fits a short landscape phone', () => {
+  assert.match(styles, /@media \(orientation: landscape\) and \(max-height: 620px\)[\s\S]*?\.finish-screen\s*{[\s\S]*?height:\s*100dvh;[\s\S]*?overflow:\s*hidden;/);
+  assert.match(styles, /\.finish-card\s*{[\s\S]*?grid-template-areas:[\s\S]*?"fox actions";/);
+  assert.match(styles, /\.finish-fox\s*{[\s\S]*?width:\s*min\(190px, 42dvh, 100%\);/);
 });
 
 test('an installed older release cannot mix its scripts with the current menu', () => {

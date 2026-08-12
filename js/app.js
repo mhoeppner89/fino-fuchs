@@ -45,6 +45,7 @@ const elements = {
   practiceStatus: $('#practice-status'),
   drawingCanvas: $('#drawing-canvas'),
   fullscreenButton: $('#fullscreen-button'),
+  rotateSuggestion: $('#rotate-suggestion'),
   canvasHint: $('#canvas-hint'),
   clearButton: $('#clear-button'),
   undoButton: $('#undo-button'),
@@ -718,6 +719,7 @@ elements.showButton.addEventListener('click', async () => {
 });
 
 elements.fullscreenButton.addEventListener('click', toggleFullscreen);
+elements.rotateSuggestion.addEventListener('click', toggleFullscreen);
 document.addEventListener('fullscreenchange', updateFullscreenButton);
 document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
 
