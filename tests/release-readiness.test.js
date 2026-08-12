@@ -30,6 +30,14 @@ test('release version, theme, and offline cache stay in sync', () => {
   assert.equal(manifest.orientation, 'any');
 });
 
+test('an installed older release cannot mix its scripts with the current menu', () => {
+  assert.match(html, /navigator\.serviceWorker\.addEventListener\('controllerchange'/);
+  assert.match(html, /register\('\.\/sw\.js', \{ updateViaCache: 'none' \}\)/);
+  assert.match(html, /location\.reload\(\)/);
+  assert.doesNotMatch(read('js/app.js'), /serviceWorker\.register/);
+  assert.match(serviceWorker, /const versionSensitive = \['script', 'style', 'worker'\]/);
+});
+
 test('every offline shell entry and local runtime dependency exists', () => {
   const shell = shellPaths();
   assert.ok(shell.has('index.html'));

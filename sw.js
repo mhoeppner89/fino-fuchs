@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'fino-schreibt-';
-const CACHE_NAME = `${CACHE_PREFIX}v1.2.1`;
+const CACHE_NAME = `${CACHE_PREFIX}v1.2.2`;
 const APP_SHELL = [
   './',
   './index.html',
@@ -54,6 +54,21 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(async () => (await caches.match(request)) || caches.match(new URL('./index.html', self.location).href)),
+    );
+    return;
+  }
+
+  const versionSensitive = ['script', 'style', 'worker'].includes(request.destination)
+    || url.pathname.endsWith('.webmanifest');
+
+  if (versionSensitive) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
+          return response;
+        })
+        .catch(() => caches.match(request)),
     );
     return;
   }
