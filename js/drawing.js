@@ -18,6 +18,7 @@ const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const DEMO_JUMP_UNITS = 0.42;
 const REQUIRED_PATH_COVERAGE = 0.8;
 const MAX_CANVAS_PIXELS = 3_200_000;
+const CANVAS_PAPER = '#FFFCF7';
 export const DEMO_SPEED_MULTIPLIER = 1.5;
 export const INK_COLORS = Object.freeze(['#284B73', '#C75C7B', '#2A9D8F', '#9A63BA', '#DD8530']);
 // The guide remains easy to find at every difficulty. Difficulty comes from
@@ -1092,7 +1093,10 @@ export class DrawingBoard {
   constructor(canvas, hooks = {}) {
     if (!(canvas instanceof HTMLCanvasElement)) throw new TypeError('DrawingBoard requires a canvas element.');
     this.canvas = canvas;
-    this.context = canvas.getContext('2d', { alpha: true, desynchronized: true });
+    // Keep the drawing surface opaque. Mobile Safari can composite a
+    // transparent, accelerated canvas as black in fullscreen or dark mode,
+    // even when the element behind it is light.
+    this.context = canvas.getContext('2d', { alpha: false, desynchronized: true });
     this.hooks = hooks;
     this.task = null;
     this.assist = 'easy';
@@ -2427,7 +2431,10 @@ export class DrawingBoard {
     const context = this.context;
     if (!context) return;
     context.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    context.clearRect(0, 0, this.width, this.height);
+    context.globalCompositeOperation = 'source-over';
+    context.globalAlpha = 1;
+    context.fillStyle = CANVAS_PAPER;
+    context.fillRect(0, 0, this.width, this.height);
     if (this.isGameTask()) {
       this.drawGame(context);
       return;

@@ -172,3 +172,8 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Ran a visual catalogue review over all 36 shapes/pictures plus representative digits, letters, and names. Found and removed a renderer bug that rounded every finished child stroke, which had distorted squares, triangles, polygons, houses, vehicles, crowns, and castles. Refined the arrow, leafy tree, and butterfly silhouettes.
 - Added a reusable visual catalogue at `qa-visual-2026-08-12/catalog.html`. Phone portrait, phone landscape, home, every activity, full-name writing, the fullscreen control, and the compact side rail were checked in the browser without console errors.
 - Prepared release `v1.3.2`. The expanded full test suite, JavaScript syntax checks, diff checks, and the required game-client canvas run pass; its final screenshot and text state were inspected.
+
+## 2026-08-12 mobile black-canvas fix
+
+- Changed the accelerated drawing canvas from transparent to opaque and painted a warm-white paper background into every frame. This prevents mobile Safari, fullscreen, and dark-mode compositors from showing the board as black.
+- Added a matching CSS fallback and an explicit light color-scheme declaration. Prepared release `v1.3.3` with a regression check for all three safeguards.

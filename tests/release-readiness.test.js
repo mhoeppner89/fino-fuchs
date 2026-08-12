@@ -30,6 +30,14 @@ test('release version, theme, and offline cache stay in sync', () => {
   assert.equal(manifest.orientation, 'any');
 });
 
+test('the drawing board stays light in mobile Safari and fullscreen', () => {
+  const drawing = read('js/drawing.js');
+  assert.match(html, /<meta name="color-scheme" content="light">/);
+  assert.match(styles, /#drawing-canvas\s*{[\s\S]*?background-color:\s*#fffcf7;/);
+  assert.match(drawing, /getContext\('2d',\s*{\s*alpha:\s*false/);
+  assert.match(drawing, /context\.fillStyle = CANVAS_PAPER;\s*context\.fillRect\(0, 0, this\.width, this\.height\);/);
+});
+
 test('practice mode provides a phone-friendly fullscreen control', () => {
   const app = read('js/app.js');
   assert.match(html, /id="fullscreen-button"[^>]*aria-label="Vollbild einschalten"/);
