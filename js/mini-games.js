@@ -230,6 +230,11 @@ export function createConnectSpec(seed = 1, complexity = 1 + (seed % 4)) {
   return Object.freeze({ kind: 'connect', seed, complexity: level, count });
 }
 
+/** A slimmer trail leaves a real finger-sized corridor on narrow phones. */
+export function connectInkWidthForBoard(width, height) {
+  return clamp(Math.min(Math.max(1, width), Math.max(1, height)) * 0.018, 7, 14);
+}
+
 function simplifyGridRoute(route) {
   if (route.length < 3) return route;
   const simplified = [route[0]];
@@ -249,8 +254,11 @@ function simplifyGridRoute(route) {
 
 function buildConnectChallenge(spec, { width, height, margin, pointRadius, hitRadius, clearance, rng }) {
   const level = clamp(Math.round(spec.complexity), 2, 4);
-  const cols = level === 4 ? 23 : level === 3 ? 19 : 15;
-  const rows = level === 4 ? 16 : level === 3 ? 13 : 10;
+  const compactPhone = Math.min(width, height) < 430;
+  // Keep hard phone corridors physically wider. Challenge still comes from
+  // routing behind old lines, not from squeezing through a 20px grid cell.
+  const cols = level === 4 ? compactPhone ? 19 : 23 : level === 3 ? 19 : 15;
+  const rows = level === 4 ? compactPhone ? 13 : 16 : level === 3 ? 13 : 10;
   const pointForNode = ({ x, y }) => normalizedPoint({
     x: margin + (x / (cols - 1)) * (width - margin * 2),
     y: margin + (y / (rows - 1)) * (height - margin * 2),
@@ -391,7 +399,7 @@ export function layoutConnect(spec, viewport = {}) {
 
   const pointRadius = clamp(Math.min(width, height) * 0.043, 16, 28);
   const hitRadius = clamp(Math.min(width, height) * 0.078, 30, 50);
-  const inkWidth = clamp(Math.min(width, height) * 0.025, 11, 20);
+  const inkWidth = connectInkWidthForBoard(width, height);
   const clearance = inkWidth + (level >= 4 ? 7 : level >= 3 ? 5 : 3);
 
   if (level >= 2) {

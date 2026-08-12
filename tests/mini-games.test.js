@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  connectInkWidthForBoard,
   connectSolutionStrokes,
   connectTrailCollision,
   createConnectSpec,
@@ -12,6 +13,12 @@ import {
   nextMazeSolutionPoint,
   pointDistanceInPixels,
 } from '../js/mini-games.js';
+
+test('phone Funkelpunkte trails stay slim enough for hard corridors', () => {
+  assert.equal(connectInkWidthForBoard(537, 370), 7);
+  assert.ok(connectInkWidthForBoard(900, 620) > 10);
+  assert.ok(connectInkWidthForBoard(900, 620) <= 14);
+});
 
 const VIEWPORTS = [
   { width: 280, height: 653 },
@@ -161,6 +168,13 @@ test('higher Funkelpunkte levels put targets behind old lines with safe detours'
       });
     }
   }
+
+  for (let seed = 1; seed <= 100; seed += 1) {
+    const phone = layoutConnect(createConnectSpec(seed, 4), { width: 537, height: 370 });
+    assert.equal(phone.points.length, createConnectSpec(seed, 4).count, `hard phone ${seed} ended early`);
+    assert.ok(phone.detourStages.filter(Boolean).length >= 4, `hard phone ${seed} lost its route challenge`);
+    assert.ok(phone.clearance <= 14, `hard phone ${seed} kept an oversized collision band`);
+  }
 });
 
 test('labyrinth hints always choose a reachable neighbouring cell', () => {
@@ -210,6 +224,25 @@ test('sparse point paths still collide away from the shared anchor', () => {
       sharedEndpointRadius: 11,
     },
   ), true);
+});
+
+test('starting near a number ring does not hit the line that ends there', () => {
+  const anchor = { x: 0.5, y: 0.5 };
+  const lockedStrokes = [[{ x: 0.1, y: 0.5 }, anchor]];
+  assert.equal(connectTrailCollision(
+    anchor,
+    { x: 0.5, y: 0.59 },
+    {
+      lockedStrokes,
+      activeStroke: [anchor],
+      anchor,
+      width: 537,
+      height: 370,
+      clearance: 14,
+      junctionRadius: 42,
+      sharedEndpointRadius: 50,
+    },
+  ), false);
 });
 
 test('a new sparse segment cannot cross an old line far from its anchor', () => {

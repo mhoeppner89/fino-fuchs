@@ -6,6 +6,7 @@ import {
 } from './handwriting-template-data.js';
 import { characterStrokeGeometry } from './handwriting-stroke-data.js';
 import {
+  connectInkWidthForBoard,
   connectTrailCollision,
   firstCircleHit,
   mazeWallCollision,
@@ -1072,7 +1073,8 @@ export function visibleGuideIndexes(stages, activeStageIndex = 0) {
   return stages.slice(0, lastVisibleStage + 1).flat();
 }
 
-function inkWidthForBoard(width, height) {
+function inkWidthForBoard(width, height, task = null) {
+  if (task?.gameMode === 'connect') return connectInkWidthForBoard(width, height);
   const bounds = drawingBounds(width, height);
   return clamp(Math.min(bounds.width, bounds.height) * 0.025, 11, 20);
 }
@@ -1121,6 +1123,7 @@ export class DrawingBoard {
     this.evaluationCache = null;
     this.renderFrame = 0;
     this.mazeLayers = null;
+    this.connectBackdrop = null;
     this.templateImages = new Map();
     this.width = 800;
     this.height = 560;
@@ -1181,6 +1184,7 @@ export class DrawingBoard {
       this.canvas.width = pixelWidth;
       this.canvas.height = pixelHeight;
       this.mazeLayers = null;
+      this.connectBackdrop = null;
     }
     this.context.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.render();
@@ -1274,6 +1278,7 @@ export class DrawingBoard {
     this.evaluationCache = null;
     this.initializeGameState();
     this.mazeLayers = null;
+    this.connectBackdrop = null;
     cancelAnimationFrame(this.demoFrame);
     cancelAnimationFrame(this.jumpFrame);
     this.render();
@@ -1364,6 +1369,7 @@ export class DrawingBoard {
     const gameState = options.gameState ?? this.gameState;
     this.task = task;
     this.mazeLayers = null;
+    this.connectBackdrop = null;
     this.userStrokes = userStrokes.map((stroke) => stroke.map((point) => ({ ...point })));
     this.strokeColors = [...strokeColors];
     this.gameState = gameState ? { ...gameState } : null;
@@ -1769,7 +1775,7 @@ export class DrawingBoard {
       ? this.gameState.endpoint ?? game.start
       : game.points[this.gameState.reachedIndex];
     const radius = this.task.gameMode === 'maze'
-      ? Math.max(game.startRadius, inkWidthForBoard(this.width, this.height) * 1.7)
+      ? Math.max(game.startRadius, inkWidthForBoard(this.width, this.height, this.task) * 1.7)
       : game.hitRadius * 1.12;
     if (pointDistanceInPixels(point, current, this.width, this.height) > radius) {
       if (this.gameState) this.gameState.hintUntil = performance.now() + 850;
@@ -1781,8 +1787,8 @@ export class DrawingBoard {
     const anchoredStart = { ...current, pressure: point.pressure, time: point.time };
     if (pointDistanceInPixels(point, current, this.width, this.height) > 1.5) {
       const clearance = this.task.gameMode === 'maze'
-        ? game.wallWidth / 2 + inkWidthForBoard(this.width, this.height) / 2 + 2
-        : game.clearance ?? inkWidthForBoard(this.width, this.height) + (game.complexity >= 4 ? 7 : game.complexity >= 3 ? 5 : 3);
+        ? game.wallWidth / 2 + inkWidthForBoard(this.width, this.height, this.task) / 2 + 2
+        : game.clearance ?? inkWidthForBoard(this.width, this.height, this.task) + (game.complexity >= 4 ? 7 : game.complexity >= 3 ? 5 : 3);
       const blocked = this.task.gameMode === 'maze'
         ? mazeWallCollision(anchoredStart, point, game, this.width, this.height, clearance)
         : connectTrailCollision(anchoredStart, point, {
@@ -1793,7 +1799,9 @@ export class DrawingBoard {
           height: this.height,
           clearance,
           junctionRadius: game.hitRadius + 6,
-          sharedEndpointRadius: Math.max(10, clearance * 1.15),
+          // The child may begin anywhere inside the generous number target.
+          // Keep that whole first movement clear of the line ending there.
+          sharedEndpointRadius: game.hitRadius + clearance + 6,
         });
       if (blocked) {
         this.showGameError(this.task.gameMode === 'maze' ? 'wall' : 'crossing', [anchoredStart, point]);
@@ -1822,9 +1830,12 @@ export class DrawingBoard {
       if (!this.activeStroke) return;
       const point = this.pointFromEvent(item);
       const last = this.activeStroke.at(-1);
-      if (pointDistanceInPixels(last, point, this.width, this.height) < 1.2) continue;
+      const minimumSampleDistance = this.task.gameMode === 'connect'
+        ? Math.max(2.2, Math.min(this.width, this.height) / 280)
+        : 1.2;
+      if (pointDistanceInPixels(last, point, this.width, this.height) < minimumSampleDistance) continue;
       if (this.task.gameMode === 'maze') {
-        const clearance = this.task.game.wallWidth / 2 + inkWidthForBoard(this.width, this.height) / 2 + 2;
+        const clearance = this.task.game.wallWidth / 2 + inkWidthForBoard(this.width, this.height, this.task) / 2 + 2;
         const goalHit = firstCircleHit(
           last,
           point,
@@ -1857,7 +1868,7 @@ export class DrawingBoard {
           anchor,
           width: this.width,
           height: this.height,
-          clearance: this.task.game.clearance ?? inkWidthForBoard(this.width, this.height)
+          clearance: this.task.game.clearance ?? inkWidthForBoard(this.width, this.height, this.task)
             + (this.task.game.complexity >= 4 ? 7 : this.task.game.complexity >= 3 ? 5 : 3),
           junctionRadius: this.task.game.hitRadius + 6,
         })) {
@@ -2214,11 +2225,12 @@ export class DrawingBoard {
   }
 
   drawInk(context) {
-    const width = inkWidthForBoard(this.width, this.height);
+    const width = inkWidthForBoard(this.width, this.height, this.task);
+    const halo = this.task?.gameMode === 'connect' ? 2 : 4;
     this.userStrokes.forEach((stroke, index) => {
       this.drawStrokeSet(context, [stroke], {
         color: 'rgba(255,255,255,.82)',
-        width: width + 4,
+        width: width + halo,
         alpha: 0.72,
         angular: true,
       });
@@ -2393,17 +2405,15 @@ export class DrawingBoard {
     context.restore();
   }
 
-  drawConnect(context) {
-    const game = this.task.game;
-    const reached = this.gameState.reachedIndex;
-    const now = performance.now();
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const popProgress = reducedMotion ? 1 : clamp((now - this.gameState.popStartedAt) / 380, 0, 1);
-    const easedPop = 1 + Math.sin(Math.min(1, popProgress) * Math.PI) * 0.22;
-    const hinting = now < (this.gameState.hintUntil ?? 0);
-    const pulse = hinting && !reducedMotion ? 1 + Math.sin(now / 110) * 0.12 : easedPop;
-
-    context.save();
+  buildConnectBackdrop() {
+    const layerDpr = Math.min(this.dpr, 2);
+    const cacheKey = `${this.width.toFixed(1)}:${this.height.toFixed(1)}:${layerDpr.toFixed(2)}`;
+    if (this.connectBackdrop?.key === cacheKey) return this.connectBackdrop.canvas;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(this.width * layerDpr);
+    canvas.height = Math.round(this.height * layerDpr);
+    const context = canvas.getContext('2d', { alpha: false });
+    context.setTransform(layerDpr, 0, 0, layerDpr, 0, 0);
     context.fillStyle = '#F8F4FF';
     context.fillRect(0, 0, this.width, this.height);
     context.fillStyle = 'rgba(140, 104, 184, .09)';
@@ -2415,7 +2425,21 @@ export class DrawingBoard {
         context.fill();
       }
     }
-    context.restore();
+    this.connectBackdrop = { key: cacheKey, canvas };
+    return canvas;
+  }
+
+  drawConnect(context) {
+    const game = this.task.game;
+    const reached = this.gameState.reachedIndex;
+    const now = performance.now();
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const popProgress = reducedMotion ? 1 : clamp((now - this.gameState.popStartedAt) / 380, 0, 1);
+    const easedPop = 1 + Math.sin(Math.min(1, popProgress) * Math.PI) * 0.22;
+    const hinting = now < (this.gameState.hintUntil ?? 0);
+    const pulse = hinting && !reducedMotion ? 1 + Math.sin(now / 110) * 0.12 : easedPop;
+
+    context.drawImage(this.buildConnectBackdrop(), 0, 0, this.width, this.height);
 
     this.drawInk(context);
     for (let index = 0; index < reached; index += 1) {

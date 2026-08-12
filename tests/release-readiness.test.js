@@ -48,6 +48,14 @@ test('landscape phones keep their compact menu and maze renderer cheap', () => {
   assert.match(drawing, /context\.drawImage\(layers\.walls/);
 });
 
+test('Funkelpunkte reuses a cached backdrop while drawing', () => {
+  const drawing = read('js/drawing.js');
+  assert.match(drawing, /buildConnectBackdrop\(\)/);
+  assert.match(drawing, /this\.connectBackdrop\?\.key === cacheKey/);
+  assert.match(drawing, /context\.drawImage\(this\.buildConnectBackdrop\(\)/);
+  assert.match(drawing, /sharedEndpointRadius:\s*game\.hitRadius \+ clearance \+ 6/);
+});
+
 test('practice mode provides a phone-friendly fullscreen control', () => {
   const app = read('js/app.js');
   assert.match(html, /id="fullscreen-button"[^>]*aria-label="Vollbild einschalten"/);

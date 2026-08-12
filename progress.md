@@ -190,3 +190,10 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Rebuilt the completed-round card as a short two-column landscape layout. At 667×375, the complete card, Fino, summary, and both buttons fit in the fullscreen viewport without scrolling.
 - Turned the portrait rotate suggestion into one large accessible button covering the spare area. It pulses subtly, respects reduced-motion settings, and launches the same fullscreen plus orientation-lock flow as the toolbar control.
 - Prepared release `v1.3.5` with regression checks for the interactive rotate prompt and compact finish layout.
+
+## 2026-08-12 Funkelpunkte phone performance and tolerance
+
+- Cached the purple Funkelpunkte paper and dot texture at a mobile-friendly resolution, so they are no longer rebuilt on every pointer movement. Slightly coarser pen sampling also reduces growing-stroke redraw cost without allowing a fast line to cross an old trail.
+- Matched the collision-free start area to the full forgiving number target. A child can now begin near the number ring without immediately colliding with the line that ends at that number.
+- Added a separate Funkelpunkte ink scale: about 7 px on a landscape phone instead of the former 11 px, with a smaller white halo. Hard phone grids use wider physical cells while retaining four required behind-the-line route challenges.
+- Verified all 100 hard phone layouts retain their task count and detours. A real phone playtest accepted an edge-of-ring start, advanced through two segments without warnings, and processed the second 35-point drag in about 35 ms. Prepared release `v1.3.6`.
