@@ -205,3 +205,9 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Reduced Safari canvas work with a 2x device-pixel-ratio ceiling and disabled its unstable desynchronized canvas mode. Other browsers retain their existing higher-resolution path.
 - Added focused regression tests for Safari samples, joins, canvas settings, and the versioned offline release. Prepared release `v1.3.7`.
 - Verification: the complete `npm test` suite, focused 36-test drawing/release run, JavaScript syntax check, and `git diff --check` pass. A landscape-phone browser drag with many sharp turns rendered without spikes and produced no console warnings or errors.
+
+## 2026-08-12 Funkelpunkte iPad corridor tolerance
+
+- Separated route-building clearance from collision judging. Generated corridors retain a wide safety margin, while the live warning now fires only for a visible overlap instead of harmless finger wobble near an old line.
+- Fixed the anchor exemption so a wider planning margin cannot silently enlarge the collision-free start circle. Portrait phone challenge grids now follow the screen orientation and retain every required point and detour.
+- Verified all 100 layouts at seven phone/tablet sizes, all difficulty tiers, intended routes, true crossings, and required hard detours. A 1024×768 iPad playtest completed a deliberately wobbly stroke through the narrow space beside an old line without warnings or console errors. Prepared release `v1.3.8`.

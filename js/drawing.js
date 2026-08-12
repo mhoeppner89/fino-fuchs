@@ -1889,6 +1889,8 @@ export class DrawingBoard {
           clearance: this.task.game.clearance ?? inkWidthForBoard(this.width, this.height, this.task)
             + (this.task.game.complexity >= 4 ? 7 : this.task.game.complexity >= 3 ? 5 : 3),
           junctionRadius: this.task.game.hitRadius + 6,
+          sharedEndpointRadius: this.task.game.hitRadius
+            + (this.task.game.clearance ?? inkWidthForBoard(this.width, this.height, this.task)) + 6,
         })) {
           this.activeStroke.push(testedPoint);
           this.rejectGameStroke(event, 'crossing');

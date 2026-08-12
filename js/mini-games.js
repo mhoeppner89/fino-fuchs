@@ -235,6 +235,18 @@ export function connectInkWidthForBoard(width, height) {
   return clamp(Math.min(Math.max(1, width), Math.max(1, height)) * 0.018, 7, 14);
 }
 
+/**
+ * Judge only a visible overlap, not the larger spacing used to build routes.
+ * A small overlap allowance keeps normal finger wobble from closing an
+ * apparently open corridor, especially on iPad-sized boards.
+ */
+export function connectCollisionClearanceForBoard(width, height, complexity = 1) {
+  const level = clamp(Math.round(complexity), 1, 4);
+  const inkWidth = connectInkWidthForBoard(width, height);
+  const difficultyBuffer = level >= 4 ? 2 : level >= 3 ? 1.5 : 1;
+  return Math.max(7, inkWidth * 0.78 + difficultyBuffer);
+}
+
 function simplifyGridRoute(route) {
   if (route.length < 3) return route;
   const simplified = [route[0]];
@@ -252,13 +264,18 @@ function simplifyGridRoute(route) {
   return simplified;
 }
 
-function buildConnectChallenge(spec, { width, height, margin, pointRadius, hitRadius, clearance, rng }) {
+function buildConnectChallenge(spec, {
+  width, height, margin, pointRadius, hitRadius, clearance, routeClearance, rng,
+}) {
   const level = clamp(Math.round(spec.complexity), 2, 4);
   const compactPhone = Math.min(width, height) < 430;
+  const compactPortrait = compactPhone && height > width * 1.08;
   // Keep hard phone corridors physically wider. Challenge still comes from
   // routing behind old lines, not from squeezing through a 20px grid cell.
-  const cols = level === 4 ? compactPhone ? 19 : 23 : level === 3 ? 19 : 15;
-  const rows = level === 4 ? compactPhone ? 13 : 16 : level === 3 ? 13 : 10;
+  const landscapeCols = level === 4 ? compactPhone ? 19 : 23 : level === 3 ? 19 : 15;
+  const landscapeRows = level === 4 ? compactPhone ? 13 : 16 : level === 3 ? 13 : 10;
+  const cols = compactPortrait ? landscapeRows : landscapeCols;
+  const rows = compactPortrait ? landscapeCols : landscapeRows;
   const pointForNode = ({ x, y }) => normalizedPoint({
     x: margin + (x / (cols - 1)) * (width - margin * 2),
     y: margin + (y / (rows - 1)) * (height - margin * 2),
@@ -289,14 +306,18 @@ function buildConnectChallenge(spec, { width, height, margin, pointRadius, hitRa
   const detourStages = [false, false];
   const lockedStrokes = [...solutionStrokes];
   const used = new Set(scaffold.map(key));
+  const sharedEndpointRadius = hitRadius + clearance + 6;
 
-  const segmentIsClear = (from, to, anchor) => !connectTrailCollision(from, to, {
+  const segmentIsClear = (from, to, anchor, collisionClearance = clearance) => !connectTrailCollision(from, to, {
     lockedStrokes,
     anchor,
     width,
     height,
-    clearance,
+    clearance: collisionClearance,
     junctionRadius: hitRadius + 6,
+    // Keep the free area around the numbered anchor constant. A wider route
+    // planning margin must not accidentally enlarge this exemption.
+    sharedEndpointRadius,
   });
 
   const targetHasRoom = (target, anchor) => {
@@ -304,7 +325,7 @@ function buildConnectChallenge(spec, { width, height, margin, pointRadius, hitRa
     const targetPixel = pixelPoint(target, width, height);
     return lockedStrokes.every((stroke) => segmentsOf(stroke).every(([from, to]) => (
       pointToSegmentDistance(targetPixel, pixelPoint(from, width, height), pixelPoint(to, width, height))
-        > pointRadius + clearance * 0.18
+        > pointRadius + routeClearance * 0.18
     )));
   };
 
@@ -322,7 +343,7 @@ function buildConnectChallenge(spec, { width, height, margin, pointRadius, hitRa
         const next = { x: current.x + dx, y: current.y + dy };
         const nextKey = key(next);
         if (next.x < 1 || next.x >= cols - 1 || next.y < 1 || next.y >= rows - 1 || parent.has(nextKey)) continue;
-        if (!segmentIsClear(pointForNode(current), pointForNode(next), anchor)) continue;
+        if (!segmentIsClear(pointForNode(current), pointForNode(next), anchor, routeClearance)) continue;
         parent.set(nextKey, current);
         queue.push(next);
       }
@@ -348,7 +369,8 @@ function buildConnectChallenge(spec, { width, height, margin, pointRadius, hitRa
       if (!targetHasRoom(target, current)) continue;
       const directBlocked = !segmentIsClear(current, target, current);
       if (directBlocked !== wantsDetour) continue;
-      const route = directBlocked ? findRoute(currentNode, targetNode, current) : [current, target];
+      const directHasWideMargin = segmentIsClear(current, target, current, routeClearance);
+      const route = directHasWideMargin ? [current, target] : findRoute(currentNode, targetNode, current);
       if (!route || (directBlocked && route.length < 3)) continue;
       choice = { targetNode, target, route, directBlocked };
       break;
@@ -359,7 +381,8 @@ function buildConnectChallenge(spec, { width, height, margin, pointRadius, hitRa
         const target = pointForNode(targetNode);
         if (!targetHasRoom(target, current)) continue;
         const directBlocked = !segmentIsClear(current, target, current);
-        const route = directBlocked ? findRoute(currentNode, targetNode, current) : [current, target];
+        const directHasWideMargin = segmentIsClear(current, target, current, routeClearance);
+        const route = directHasWideMargin ? [current, target] : findRoute(currentNode, targetNode, current);
         if (!route) continue;
         choice = { targetNode, target, route, directBlocked };
         break;
@@ -400,12 +423,15 @@ export function layoutConnect(spec, viewport = {}) {
   const pointRadius = clamp(Math.min(width, height) * 0.043, 16, 28);
   const hitRadius = clamp(Math.min(width, height) * 0.078, 30, 50);
   const inkWidth = connectInkWidthForBoard(width, height);
-  const clearance = inkWidth + (level >= 4 ? 7 : level >= 3 ? 5 : 3);
+  const clearance = connectCollisionClearanceForBoard(width, height, level);
+  // Route generation stays deliberately more conservative than collision
+  // judging. The visible path therefore has room for a child's hand wobble.
+  const routeClearance = clearance + clamp(inkWidth * 0.45, 3.5, 6);
 
   if (level >= 2) {
     const requiredDetours = level === 4 ? 4 : level === 3 ? 2 : 1;
     let best = null;
-    for (let attempt = 0; attempt < 10; attempt += 1) {
+    for (let attempt = 0; attempt < 16; attempt += 1) {
       const candidate = buildConnectChallenge(spec, {
         width,
         height,
@@ -413,6 +439,7 @@ export function layoutConnect(spec, viewport = {}) {
         pointRadius,
         hitRadius,
         clearance,
+        routeClearance,
         rng: randomFor((Math.imul(spec.seed + 17, 0x9E3779B1) + Math.imul(attempt + 1, 0x85EBCA6B)) >>> 0),
       });
       const candidateDetours = candidate.detourStages.filter(Boolean).length;
@@ -455,6 +482,7 @@ export function layoutConnect(spec, viewport = {}) {
     pointRadius,
     hitRadius,
     clearance,
+    routeClearance,
   });
 }
 

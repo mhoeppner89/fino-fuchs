@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  connectCollisionClearanceForBoard,
   connectInkWidthForBoard,
   connectSolutionStrokes,
   connectTrailCollision,
@@ -18,6 +19,7 @@ test('phone Funkelpunkte trails stay slim enough for hard corridors', () => {
   assert.equal(connectInkWidthForBoard(537, 370), 7);
   assert.ok(connectInkWidthForBoard(900, 620) > 10);
   assert.ok(connectInkWidthForBoard(900, 620) <= 14);
+  assert.ok(connectCollisionClearanceForBoard(1024, 768, 4) < 14);
 });
 
 const VIEWPORTS = [
@@ -103,14 +105,20 @@ test('all shipped point paths fit every screen and their intended route never cr
             anchor: from,
             width: viewport.width,
             height: viewport.height,
-            clearance: game.clearance,
+            clearance: game.routeClearance,
             junctionRadius: game.hitRadius + 6,
+            sharedEndpointRadius: game.hitRadius + game.clearance + 6,
           }), false, `planned point solution ${seed} crosses itself at ${index}:${routeIndex}`);
           activeStroke.push(route[routeIndex]);
         }
         assert.ok(pointDistanceInPixels(from, to, viewport.width, viewport.height) > game.pointRadius * 1.35);
       }
-      if (viewport.width === 1024 && viewport.height === 768) signatures.add(JSON.stringify(game.points));
+      if (viewport.width === 1024 && viewport.height === 768) {
+        signatures.add(JSON.stringify(game.points));
+        if (complexity === 4) {
+          assert.ok(game.routeClearance - game.clearance >= 5.9, 'hard iPad corridor lacks a child-friendly margin');
+        }
+      }
     });
   }
   assert.equal(signatures.size, 100);
@@ -164,6 +172,7 @@ test('higher Funkelpunkte levels put targets behind old lines with safe detours'
           height: 620,
           clearance: game.clearance,
           junctionRadius: game.hitRadius + 6,
+          sharedEndpointRadius: game.hitRadius + game.clearance + 6,
         }), true, `target ${complexity}/${seed}/${stage} is not actually behind an old line`);
       });
     }
@@ -243,6 +252,34 @@ test('starting near a number ring does not hit the line that ends there', () => 
       sharedEndpointRadius: 50,
     },
   ), false);
+});
+
+test('an open iPad corridor tolerates finger wobble but still rejects a visible overlap', () => {
+  const width = 1024;
+  const height = 768;
+  const clearance = connectCollisionClearanceForBoard(width, height, 4);
+  const lockedStrokes = [
+    [{ x: 0.48, y: 0.1 }, { x: 0.48, y: 0.9 }],
+    [{ x: 0.52, y: 0.1 }, { x: 0.52, y: 0.9 }],
+  ];
+  const options = {
+    lockedStrokes,
+    anchor: { x: 0.5, y: 0.05 },
+    width,
+    height,
+    clearance,
+    sharedEndpointRadius: 0,
+  };
+  assert.equal(connectTrailCollision(
+    { x: 0.5, y: 0.2 },
+    { x: 0.5, y: 0.8 },
+    options,
+  ), false, 'the visually open middle of the corridor was rejected');
+  assert.equal(connectTrailCollision(
+    { x: 0.49, y: 0.2 },
+    { x: 0.49, y: 0.8 },
+    options,
+  ), true, 'a line visibly overlapping the old trail was accepted');
 });
 
 test('a new sparse segment cannot cross an old line far from its anchor', () => {
