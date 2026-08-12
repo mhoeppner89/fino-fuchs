@@ -1366,6 +1366,7 @@ export class DrawingBoard {
     if (!this.gameState) return null;
     return {
       ...this.gameState,
+      complexity: this.task?.game?.complexity ?? 1,
       total: this.task?.gameMode === 'connect' ? this.task.game.points.length - 1 : 1,
       progress: this.task?.gameMode === 'connect'
         ? this.gameState.reachedIndex
@@ -1730,7 +1731,7 @@ export class DrawingBoard {
       : game.points[this.gameState.reachedIndex];
     const radius = this.task.gameMode === 'maze'
       ? Math.max(game.startRadius, inkWidthForBoard(this.width, this.height) * 1.7)
-      : game.hitRadius;
+      : game.hitRadius * 1.12;
     if (pointDistanceInPixels(point, current, this.width, this.height) > radius) {
       if (this.gameState) this.gameState.hintUntil = performance.now() + 850;
       this.hooks.onGameMistake?.('start', this.gameState?.collisions ?? 0);
@@ -1742,7 +1743,7 @@ export class DrawingBoard {
     if (pointDistanceInPixels(point, current, this.width, this.height) > 1.5) {
       const clearance = this.task.gameMode === 'maze'
         ? game.wallWidth / 2 + inkWidthForBoard(this.width, this.height) / 2 + 2
-        : inkWidthForBoard(this.width, this.height) + 3;
+        : inkWidthForBoard(this.width, this.height) + (game.complexity >= 4 ? 7 : game.complexity >= 3 ? 5 : 3);
       const blocked = this.task.gameMode === 'maze'
         ? mazeWallCollision(anchoredStart, point, game, this.width, this.height, clearance)
         : connectTrailCollision(anchoredStart, point, {
@@ -1817,7 +1818,8 @@ export class DrawingBoard {
           anchor,
           width: this.width,
           height: this.height,
-          clearance: inkWidthForBoard(this.width, this.height) + 3,
+          clearance: inkWidthForBoard(this.width, this.height)
+            + (this.task.game.complexity >= 4 ? 7 : this.task.game.complexity >= 3 ? 5 : 3),
           junctionRadius: this.task.game.hitRadius + 6,
         })) {
           this.activeStroke.push(testedPoint);

@@ -2312,3 +2312,158 @@ p {
     padding-left: max(4px, env(safe-area-inset-left));
   }
 }
+
+/* One physical writing page everywhere. The 900:620 page was tuned around an
+   iPad in landscape and now scales as a whole instead of changing shape with
+   each screen. This keeps circles round and handwriting proportions stable. */
+.practice-layout {
+  align-items: center;
+  justify-content: center;
+}
+
+.drawing-section {
+  width: min(100%, calc((100dvh - 86px) * 900 / 620));
+  min-height: 0;
+  flex: 0 0 auto;
+  aspect-ratio: 900 / 620;
+}
+
+.drawing-card {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: none;
+  aspect-ratio: 900 / 620;
+}
+
+.rotate-suggestion {
+  display: none;
+}
+
+@media (orientation: portrait) and (max-width: 640px) {
+  .practice-layout {
+    justify-content: flex-start;
+  }
+
+  .drawing-section {
+    width: 100%;
+  }
+
+  .rotate-suggestion {
+    min-height: 0;
+    padding: clamp(14px, 4vh, 28px) 12px;
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--ink-soft);
+    text-align: left;
+  }
+
+  .rotate-suggestion svg {
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+    fill: none;
+    stroke: var(--orange-deep);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: .82;
+  }
+
+  .rotate-suggestion div {
+    display: grid;
+    gap: 2px;
+  }
+
+  .rotate-suggestion strong {
+    color: var(--ink);
+    font-size: .92rem;
+  }
+
+  .rotate-suggestion span {
+    font-size: .78rem;
+  }
+}
+
+/* On a phone held sideways, height is the scarce dimension. Put every tool
+   in a side rail so the iPad-shaped drawing page can use the full height. */
+@media (orientation: landscape) and (max-height: 620px) {
+  .practice-screen {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 112px;
+    grid-template-rows: minmax(0, 1fr);
+    column-gap: 6px;
+  }
+
+  .practice-layout {
+    width: 100%;
+    height: 100%;
+    grid-column: 1;
+    grid-row: 1;
+    justify-content: center;
+  }
+
+  .drawing-section {
+    width: min(100%, calc((100dvh - max(10px, env(safe-area-inset-top)) - max(10px, env(safe-area-inset-bottom))) * 900 / 620));
+    max-height: 100%;
+  }
+
+  .practice-header {
+    width: 112px;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3px;
+  }
+
+  #exit-button,
+  .session-progress,
+  .practice-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .session-progress,
+  .practice-actions {
+    gap: 3px;
+  }
+
+  .progress-status {
+    order: -1;
+    min-height: 18px;
+  }
+
+  .progress-dots {
+    display: none;
+  }
+
+  .progress-text {
+    display: inline;
+    min-width: 0;
+    font-size: .7rem;
+  }
+
+  .practice-header .icon-button,
+  .round-nav-button {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+  }
+
+  .rotate-suggestion {
+    display: none;
+  }
+}

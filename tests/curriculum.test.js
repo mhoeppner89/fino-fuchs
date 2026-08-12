@@ -322,6 +322,27 @@ test('every category creates a 10-task session', () => {
   });
 });
 
+test('the two path games reserve genuinely harder content for higher difficulties', () => {
+  for (const category of ['maze', 'connect']) {
+    const easy = buildSession({ category, difficulty: 'easy', rng: seededRandom(701) });
+    const medium = buildSession({ category, difficulty: 'medium', rng: seededRandom(702) });
+    const hard = buildSession({ category, difficulty: 'hard', rng: seededRandom(703) });
+    assert.ok(easy.every((task) => task.complexity === 1), `${category} easy leaked a harder task`);
+    assert.ok(medium.every((task) => [2, 3].includes(task.complexity)), `${category} medium leaked an easy task`);
+    assert.ok(hard.every((task) => task.complexity === 4), `${category} hard is not the very-hard tier`);
+  }
+});
+
+test('practice canvas keeps the iPad writing-page ratio and phone orientation layouts', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  assert.match(html, /class="rotate-suggestion"[\s\S]*Dreh das Gerät ins Querformat/);
+  assert.match(styles, /\.drawing-section\s*\{[\s\S]*?aspect-ratio:\s*900\s*\/\s*620/s);
+  assert.match(styles, /@media \(orientation: portrait\) and \(max-width: 640px\)[\s\S]*?\.rotate-suggestion\s*\{[\s\S]*?display:\s*flex/s);
+  assert.match(styles, /@media \(orientation: landscape\) and \(max-height: 620px\)[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 112px/s);
+  assert.match(styles, /@media \(orientation: landscape\) and \(max-height: 620px\)[\s\S]*?\.practice-header\s*\{[\s\S]*?flex-direction:\s*column/s);
+});
+
 test('name rounds adapt to the name: each character comes first, then the whole name', () => {
   const session = buildSession({ category: 'name', difficulty: 'medium', name: 'Anna', rng: seededRandom(17) });
   assert.equal(session.length, 5);

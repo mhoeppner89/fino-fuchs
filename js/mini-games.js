@@ -94,18 +94,19 @@ function cellPoint(index, cols) {
   return { x: (index % cols) + 0.5, y: Math.floor(index / cols) + 0.5 };
 }
 
-export function createMazeSpec(seed = 1, complexity = 1 + (seed % 3)) {
+export function createMazeSpec(seed = 1, complexity = 1 + (seed % 4)) {
   const mixedSeed = (Math.imul(seed, 0x9E3779B1) ^ Math.imul(seed + complexity, 0x85EBCA6B)) >>> 0;
-  const level = clamp(Math.round(complexity), 1, 3);
+  const level = clamp(Math.round(complexity), 1, 4);
   const sizes = {
     1: [[4, 3], [5, 3], [4, 4]],
     2: [[6, 4], [6, 5], [7, 4]],
-    3: [[7, 6], [8, 5], [8, 6]],
+    3: [[8, 6], [9, 6], [9, 7]],
+    4: [[11, 8], [12, 8], [11, 9]],
   }[level];
   const [cols, rows] = sizes[Math.floor((seed - 1) / 3) % sizes.length];
   const corners = [0, cols - 1, (rows - 1) * cols, rows * cols - 1];
-  const startCell = corners[seed % corners.length];
-  const routeRanges = { 1: [0, 14], 2: [18, 27], 3: [30, Infinity] };
+  const startCell = corners[Math.floor(randomFor(mixedSeed ^ 0xA5A5A5A5)() * corners.length)];
+  const routeRanges = { 1: [0, 14], 2: [18, 28], 3: [34, 52], 4: [58, Infinity] };
   const [minimumRoute, maximumRoute] = routeRanges[level];
   let selected = null;
   let bestPenalty = Infinity;
@@ -218,14 +219,21 @@ export function layoutMaze(spec, viewport = {}) {
   });
 }
 
-export function createConnectSpec(seed = 1, complexity = 1 + (seed % 3)) {
-  const count = complexity === 1 ? 5 + (seed % 2) : complexity === 2 ? 7 + (seed % 3) : 9 + (seed % 4);
-  return Object.freeze({ kind: 'connect', seed, complexity, count });
+export function createConnectSpec(seed = 1, complexity = 1 + (seed % 4)) {
+  const level = clamp(Math.round(complexity), 1, 4);
+  const count = {
+    1: 5 + (seed % 2),
+    2: 8 + (seed % 3),
+    3: 12 + (seed % 3),
+    4: 17 + (seed % 4),
+  }[level];
+  return Object.freeze({ kind: 'connect', seed, complexity: level, count });
 }
 
 export function layoutConnect(spec, viewport = {}) {
   const width = Math.max(240, Number(viewport.width) || 900);
   const height = Math.max(220, Number(viewport.height) || 620);
+  const level = clamp(Math.round(spec.complexity), 1, 4);
   const portrait = height > width * 1.08;
   const margin = clamp(Math.min(width, height) * 0.09, 24, 52);
   const majorStart = margin;
@@ -238,20 +246,41 @@ export function layoutConnect(spec, viewport = {}) {
   const points = [];
   let previousCross = 0.5;
 
-  for (let index = 0; index < spec.count; index += 1) {
-    const t = spec.count === 1 ? 0.5 : index / (spec.count - 1);
-    let cross = 0.5
-      + Math.sin(phase + index * frequency) * (0.22 + rng() * 0.1)
-      + (rng() - 0.5) * 0.12;
-    cross = clamp(cross, 0.1, 0.9);
-    if (index && Math.abs(cross - previousCross) < 0.13) {
-      cross = clamp(previousCross + (index % 2 ? 0.2 : -0.2), 0.1, 0.9);
+  if (level >= 3) {
+    // Higher levels wind inward. The authored route never crosses itself, but
+    // every new segment runs closer to older ones, so the no-touch rule starts
+    // to matter instead of merely adding more repetitions.
+    const turns = level === 4 ? 2.25 + rng() * 0.35 : 1.25 + rng() * 0.25;
+    const direction = seedDirection(spec.seed);
+    const outerRadius = 0.94;
+    const innerRadius = level === 4 ? 0.28 : 0.34;
+    const radiusX = (width - margin * 2) / 2;
+    const radiusY = (height - margin * 2) / 2;
+    for (let index = 0; index < spec.count; index += 1) {
+      const t = index / (spec.count - 1);
+      const theta = phase + direction * turns * Math.PI * 2 * t;
+      const radius = outerRadius + (innerRadius - outerRadius) * t;
+      points.push(Object.freeze(normalizedPoint({
+        x: width / 2 + Math.cos(theta) * radiusX * radius,
+        y: height / 2 + Math.sin(theta) * radiusY * radius,
+      }, width, height)));
     }
-    previousCross = cross;
-    const major = majorStart + t * majorLength;
-    const crossPixel = crossStart + cross * crossLength;
-    const pixel = portrait ? { x: crossPixel, y: major } : { x: major, y: crossPixel };
-    points.push(Object.freeze(normalizedPoint(pixel, width, height)));
+  } else {
+    for (let index = 0; index < spec.count; index += 1) {
+      const t = spec.count === 1 ? 0.5 : index / (spec.count - 1);
+      let cross = 0.5
+        + Math.sin(phase + index * frequency) * (0.22 + rng() * 0.1)
+        + (rng() - 0.5) * 0.12;
+      cross = clamp(cross, 0.1, 0.9);
+      if (index && Math.abs(cross - previousCross) < 0.13) {
+        cross = clamp(previousCross + (index % 2 ? 0.2 : -0.2), 0.1, 0.9);
+      }
+      previousCross = cross;
+      const major = majorStart + t * majorLength;
+      const crossPixel = crossStart + cross * crossLength;
+      const pixel = portrait ? { x: crossPixel, y: major } : { x: major, y: crossPixel };
+      points.push(Object.freeze(normalizedPoint(pixel, width, height)));
+    }
   }
 
   return Object.freeze({
@@ -259,9 +288,16 @@ export function layoutConnect(spec, viewport = {}) {
     seed: spec.seed,
     complexity: spec.complexity,
     points: Object.freeze(points),
-    pointRadius: clamp(Math.min(width, height) * 0.035, 12, 22),
-    hitRadius: clamp(Math.min(width, height) * 0.06, 22, 38),
+    // The visible ring and its forgiving touch target are deliberately
+    // larger than the ink. Children can lift at one number and continue at
+    // the next without being rejected for landing near the ring edge.
+    pointRadius: clamp(Math.min(width, height) * 0.043, 16, 28),
+    hitRadius: clamp(Math.min(width, height) * 0.078, 30, 50),
   });
+}
+
+function seedDirection(seed) {
+  return seed % 2 ? 1 : -1;
 }
 
 function pixelPoint(point, width, height) {

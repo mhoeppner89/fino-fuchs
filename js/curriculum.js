@@ -1077,7 +1077,7 @@ const letterBank = Object.freeze([
 ]);
 
 const mazeBank = Object.freeze(Array.from({ length: 100 }, (_, index) => {
-  const complexity = 1 + (index % 3);
+  const complexity = 1 + (index % 4);
   const game = createMazeSpec(index + 1, complexity);
   const preview = layoutMaze(game, { width: CANONICAL_DRAWING_WIDTH, height: CANONICAL_DRAWING_HEIGHT });
   return makeTask({
@@ -1097,7 +1097,7 @@ const mazeBank = Object.freeze(Array.from({ length: 100 }, (_, index) => {
 }));
 
 const connectBank = Object.freeze(Array.from({ length: 100 }, (_, index) => {
-  const complexity = 1 + (index % 3);
+  const complexity = 1 + (index % 4);
   const game = createConnectSpec(index + 1, complexity);
   const preview = layoutConnect(game, { width: CANONICAL_DRAWING_WIDTH, height: CANONICAL_DRAWING_HEIGHT });
   const strokes = connectSolutionStrokes(preview.points);
@@ -1546,7 +1546,7 @@ export function buildSession({ category, difficulty = 'easy', option = '', name 
   let primary = ['numbers', 'letters'].includes(category) && difficulty === 'easy'
     ? createEasySymbolBank(category, option)
     : taskPool(category, option, name);
-  const allowedGameComplexity = difficulty === 'easy' ? [1] : difficulty === 'medium' ? [1, 2] : [2, 3];
+  const allowedGameComplexity = difficulty === 'easy' ? [1] : difficulty === 'medium' ? [2, 3] : [4];
   if (['maze', 'connect'].includes(category)) {
     const allowedComplexity = allowedGameComplexity;
     primary = primary.filter((task) => allowedComplexity.includes(task.complexity));

@@ -26,7 +26,7 @@ const VIEWPORTS = [
 test('all shipped labyrinths are deterministic, distinct, bounded, and solvable', () => {
   const signatures = new Set();
   for (let seed = 1; seed <= 100; seed += 1) {
-    const complexity = 1 + ((seed - 1) % 3);
+    const complexity = 1 + ((seed - 1) % 4);
     const spec = createMazeSpec(seed, complexity);
     assert.deepEqual(createMazeSpec(seed, complexity), spec);
     assert.notEqual(spec.startCell, spec.goalCell);
@@ -36,7 +36,8 @@ test('all shipped labyrinths are deterministic, distinct, bounded, and solvable'
 
     VIEWPORTS.forEach((viewport) => {
       const game = layoutMaze(spec, viewport);
-      assert.ok(game.cellSize >= 36, `${seed} corridors became too small on ${viewport.width}x${viewport.height}`);
+      const minimumCell = complexity === 4 ? 18 : complexity === 3 ? 23 : 30;
+      assert.ok(game.cellSize >= minimumCell, `${seed} corridors became too small on ${viewport.width}x${viewport.height}`);
       assert.ok(game.start.x > 0 && game.start.x < 1 && game.start.y > 0 && game.start.y < 1);
       assert.ok(game.goal.x > 0 && game.goal.x < 1 && game.goal.y > 0 && game.goal.y < 1);
       game.solution.slice(1).forEach((point, index) => {
@@ -69,12 +70,14 @@ test('all shipped labyrinths are deterministic, distinct, bounded, and solvable'
 test('all shipped point paths fit every screen and their intended route never crosses itself', () => {
   const signatures = new Set();
   for (let seed = 1; seed <= 100; seed += 1) {
-    const complexity = 1 + ((seed - 1) % 3);
+    const complexity = 1 + ((seed - 1) % 4);
     const spec = createConnectSpec(seed, complexity);
     VIEWPORTS.forEach((viewport) => {
       const game = layoutConnect(spec, viewport);
       const strokes = connectSolutionStrokes(game.points);
-      assert.ok(game.hitRadius >= 22);
+      assert.ok(game.pointRadius >= 16);
+      assert.ok(game.hitRadius >= 30);
+      assert.ok(game.hitRadius > game.pointRadius, 'touch target must extend beyond the visible number circle');
       game.points.forEach((point) => {
         assert.ok(point.x > 0.02 && point.x < 0.98 && point.y > 0.02 && point.y < 0.98);
       });
@@ -91,7 +94,7 @@ test('all shipped point paths fit every screen and their intended route never cr
           clearance: 8,
           junctionRadius: game.hitRadius,
         }), false, `point solution ${seed} crosses itself at ${index}`);
-        assert.ok(pointDistanceInPixels(from, to, viewport.width, viewport.height) > game.hitRadius * 1.6);
+        assert.ok(pointDistanceInPixels(from, to, viewport.width, viewport.height) > game.pointRadius * 1.35);
       }
       if (viewport.width === 1024 && viewport.height === 768) signatures.add(JSON.stringify(game.points));
     });
@@ -114,17 +117,44 @@ test('point collision ignores its shared endpoint but catches an old crossing', 
 });
 
 test('labyrinth difficulty has clearly separated route lengths', () => {
-  const lengths = [1, 2, 3].map((complexity) => (
+  const lengths = [1, 2, 3, 4].map((complexity) => (
     Array.from({ length: 100 }, (_, index) => createMazeSpec(index + 1, complexity).solutionCells.length)
   ));
   assert.ok(Math.max(...lengths[0]) < Math.min(...lengths[1]), 'easy and medium labyrinths overlap');
   assert.ok(Math.max(...lengths[1]) < Math.min(...lengths[2]), 'medium and hard labyrinths overlap');
+  assert.ok(Math.max(...lengths[2]) < Math.min(...lengths[3]), 'hard and very hard labyrinths overlap');
+});
+
+test('higher Funkelpunkte levels add both length and winding challenge', () => {
+  const counts = [1, 2, 3, 4].map((complexity) => (
+    Array.from({ length: 100 }, (_, index) => createConnectSpec(index + 1, complexity).count)
+  ));
+  for (let index = 1; index < counts.length; index += 1) {
+    assert.ok(Math.max(...counts[index - 1]) < Math.min(...counts[index]), `connect tiers ${index} and ${index + 1} overlap`);
+  }
+
+  const turnAmount = (points, width, height) => {
+    const angles = points.slice(1).map((point, index) => Math.atan2(
+      (point.y - points[index].y) * height,
+      (point.x - points[index].x) * width,
+    ));
+    return angles.slice(1).reduce((sum, angle, index) => {
+      let delta = angle - angles[index];
+      while (delta > Math.PI) delta -= Math.PI * 2;
+      while (delta < -Math.PI) delta += Math.PI * 2;
+      return sum + Math.abs(delta);
+    }, 0);
+  };
+  for (let seed = 1; seed <= 40; seed += 1) {
+    const hard = layoutConnect(createConnectSpec(seed, 4), { width: 900, height: 620 });
+    assert.ok(turnAmount(hard.points, 900, 620) > Math.PI * 3, `hard path ${seed} is not winding enough`);
+  }
 });
 
 test('labyrinth hints always choose a reachable neighbouring cell', () => {
   for (let seed = 1; seed <= 100; seed += 1) {
     const viewport = VIEWPORTS[seed % VIEWPORTS.length];
-    const complexity = 1 + ((seed - 1) % 3);
+    const complexity = 1 + ((seed - 1) % 4);
     const game = layoutMaze(createMazeSpec(seed, complexity), viewport);
     game.cellCenters.forEach((current, cell) => {
       const next = nextMazeSolutionPoint(game, current, viewport.width, viewport.height);
