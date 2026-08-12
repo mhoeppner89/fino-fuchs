@@ -30,6 +30,15 @@ test('release version, theme, and offline cache stay in sync', () => {
   assert.equal(manifest.orientation, 'any');
 });
 
+test('practice mode provides a phone-friendly fullscreen control', () => {
+  const app = read('js/app.js');
+  assert.match(html, /id="fullscreen-button"[^>]*aria-label="Vollbild einschalten"/);
+  assert.match(app, /requestFullscreen/);
+  assert.match(app, /webkitRequestFullscreen/);
+  assert.match(app, /screen\.orientation\?\.lock/);
+  assert.match(app, /immersive-fallback/);
+});
+
 test('an installed older release cannot mix its scripts with the current menu', () => {
   assert.match(html, /navigator\.serviceWorker\.addEventListener\('controllerchange'/);
   assert.match(html, /register\('\.\/sw\.js', \{ updateViaCache: 'none' \}\)/);

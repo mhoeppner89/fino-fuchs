@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Fino visual QA</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;padding:24px;background:#efe9df;color:#283447;font:600 15px/1.3 system-ui,sans-serif}
+    h1,h2{margin:0 0 18px}h2{margin-top:30px}.grid{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:16px}
+    article{overflow:hidden;border:1px solid #d7cec1;border-radius:16px;background:#fff;box-shadow:0 4px 12px #56463012}
+    header{padding:9px 12px;background:#fff8ef;border-bottom:1px solid #eadfd2}canvas{display:block;width:100%;aspect-ratio:900/620;background:#faf8ff}
+    .names article{grid-column:span 2}@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}
+  </style>
+</head>
+<body>
+  <h1>Fino schreibt – visual QA</h1>
+  <h2>Alle Formen und Bilder</h2><div class="grid" id="shapes"></div>
+  <h2>Schrift- und Zahlenauswahl</h2><div class="grid" id="writing"></div>
+  <h2>Namenszeilen</h2><div class="grid names" id="names"></div>
+  <script type="module">
+    import { DrawingBoard } from '../js/drawing.js';
+    import { EXERCISE_BANKS, adaptTaskToViewport, createWordTask } from '../js/curriculum.js';
+    const boards=[];
+    function card(root, source, label=source.title){
+      const article=document.createElement('article');
+      article.innerHTML=`<header>${label}</header><canvas></canvas>`;
+      root.append(article);
+      const canvas=article.querySelector('canvas');
+      const board=new DrawingBoard(canvas);
+      const task=adaptTaskToViewport(source,{width:900,height:620});
+      board.setTask(task,'easy'); board.setUserStrokes(task.strokes); board.render(); boards.push(board);
+    }
+    EXERCISE_BANKS.shapes.forEach(task=>card(document.querySelector('#shapes'),task,`${task.title} · ${task.strokes.length} Striche`));
+    ['number-1-gross','number-7-gross','number-9-gross','letter-M-gross','letter-i-gross','letter-t-gross','letter-a-gross','letter-r-gross']
+      .forEach(id=>{const bank=id.startsWith('number')?EXERCISE_BANKS.numbers:EXERCISE_BANKS.letters;card(document.querySelector('#writing'),bank.find(task=>task.id===id),id)});
+    ['Mia','Martin','Elisabeth','Lilli','Wilhelm'].forEach(name=>card(document.querySelector('#names'),createWordTask(name),name));
+    window.__qaReady=true;
+  </script>
+</body>
+</html>

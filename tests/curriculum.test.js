@@ -442,6 +442,24 @@ test('name spacing keeps narrow I centred between its neighbours', () => {
   assert.ok(Math.abs(before - after) < 0.035, `uneven gaps around I: ${before} / ${after}`);
 });
 
+test('a complete name uses one shared type scale and baseline', () => {
+  const word = createWordTask('Lilli');
+  const groupBounds = word.completionGroups.map((group) => {
+    const points = group.flatMap((index) => word.strokes[index]);
+    return {
+      minY: Math.min(...points.map((point) => point.y)),
+      maxY: Math.max(...points.map((point) => point.y)),
+    };
+  });
+  const baselines = groupBounds.map((bounds) => bounds.maxY);
+  assert.ok(Math.max(...baselines) - Math.min(...baselines) < 0.012, `name baselines differ: ${baselines.join(', ')}`);
+  const capitalHeight = groupBounds[0].maxY - groupBounds[0].minY;
+  const lowerLHeight = groupBounds[1].maxY - groupBounds[1].minY;
+  const lowerIHeight = groupBounds[2].maxY - groupBounds[2].minY;
+  assert.ok(Math.abs(capitalHeight - lowerLHeight) < 0.035, 'capital and ascender should share a visual line height');
+  assert.ok(lowerIHeight < lowerLHeight * 0.78, 'lowercase i should keep its natural source proportions');
+});
+
 test('long names become shorter as a whole instead of squeezing tall letters into narrow slots', () => {
   const shortName = createWordTask('MIA');
   const longName = createWordTask('ELISABETH');
@@ -460,6 +478,17 @@ test('straight-edged shape guides preserve hard corners', () => {
   const circle = EXERCISE_BANKS.shapes.find((task) => task.id === 'shape-circle');
   assert.deepEqual(cross.angularStrokes, [0, 1]);
   assert.deepEqual(circle.angularStrokes, []);
+});
+
+test('the refined picture catalogue keeps clear child-readable silhouettes', () => {
+  const arrow = EXERCISE_BANKS.shapes.find((task) => task.id === 'shape-arrow');
+  const tree = EXERCISE_BANKS.shapes.find((task) => task.id === 'shape-tree');
+  const butterfly = EXERCISE_BANKS.shapes.find((task) => task.id === 'shape-butterfly');
+  assert.deepEqual(arrow.strokes[0].map((point) => point.y), [0.5, 0.5]);
+  assert.equal(tree.strokes.length, 3);
+  assert.ok(tree.strokes[1].length > 60, 'tree crown should be a smooth leafy silhouette');
+  assert.ok(Math.max(...butterfly.strokes[0].map((point) => point.x)) <= 0.5);
+  assert.ok(Math.min(...butterfly.strokes[1].map((point) => point.x)) >= 0.5);
 });
 
 test('measured board space chooses fewer targets in portrait and a row in landscape', () => {

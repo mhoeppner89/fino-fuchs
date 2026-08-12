@@ -5,7 +5,6 @@
 
 import {
   CHARACTER_STROKES,
-  CHARACTER_STROKE_GEOMETRY,
 } from './handwriting-stroke-data.js';
 import {
   connectSolutionStrokes,
@@ -238,7 +237,7 @@ const shapeTemplates = [
   }),
   makeTask({
     id: 'shape-arrow', category: 'shapes', title: 'Pfeil', speech: 'Male einen Pfeil nach rechts.', label: 'Pfeil',
-    strokes: [poly([0.16, 0.5], [0.7, 0.5], [0.53, 0.32]), poly([0.7, 0.5], [0.53, 0.68])], complexity: 2, angularStrokes: [0, 1],
+    strokes: [poly([0.14, 0.5], [0.76, 0.5]), poly([0.56, 0.28], [0.78, 0.5], [0.56, 0.72])], complexity: 2, angularStrokes: [0, 1],
   }),
   makeTask({
     id: 'shape-house', category: 'shapes', title: 'Haus', speech: 'Male ein kleines Haus.', label: 'Haus',
@@ -285,8 +284,19 @@ const shapeTemplates = [
   }),
   makeTask({
     id: 'shape-tree', category: 'shapes', title: 'Baum', speech: 'Male einen Baum mit Stamm und Krone.', label: 'Baum',
-    strokes: [poly([0.5, 0.84], [0.5, 0.55]), poly([0.5, 0.16], [0.27, 0.58], [0.73, 0.58], [0.5, 0.16]), poly([0.2, 0.84], [0.8, 0.84])],
-    complexity: 3, angularStrokes: [0, 1, 2], strokeColors: [PICTURE_INK.brown, PICTURE_INK.green, PICTURE_INK.green],
+    strokes: [
+      poly([0.43, 0.82], [0.43, 0.58], [0.57, 0.58], [0.57, 0.82], [0.43, 0.82]),
+      join(
+        bezier(p(0.5, 0.16), p(0.4, 0.11), p(0.31, 0.2), p(0.33, 0.3), 14),
+        bezier(p(0.33, 0.3), p(0.18, 0.29), p(0.17, 0.48), p(0.31, 0.5), 14),
+        bezier(p(0.31, 0.5), p(0.34, 0.64), p(0.48, 0.62), p(0.5, 0.55), 14),
+        bezier(p(0.5, 0.55), p(0.58, 0.64), p(0.72, 0.59), p(0.7, 0.49), 14),
+        bezier(p(0.7, 0.49), p(0.84, 0.44), p(0.78, 0.28), p(0.67, 0.29), 14),
+        bezier(p(0.67, 0.29), p(0.68, 0.19), p(0.58, 0.12), p(0.5, 0.16), 14),
+      ),
+      poly([0.24, 0.83], [0.76, 0.83]),
+    ],
+    complexity: 3, angularStrokes: [0, 2], strokeColors: [PICTURE_INK.brown, PICTURE_INK.green, PICTURE_INK.green],
   }),
   makeTask({
     id: 'shape-ice-cream', category: 'shapes', title: 'Eis', speech: 'Male eine Kugel Eis in einer Waffel.', label: 'Eis',
@@ -305,7 +315,19 @@ const shapeTemplates = [
   }),
   makeTask({
     id: 'shape-butterfly', category: 'shapes', title: 'Schmetterling', speech: 'Male einen Schmetterling mit Flügeln.', label: 'Schmetterling',
-    strokes: [arc(0.37, 0.48, 0.16, 0.27, -90, 270, 28), arc(0.63, 0.48, 0.16, 0.27, -90, 270, 28), poly([0.5, 0.18], [0.5, 0.78]), poly([0.5, 0.22], [0.42, 0.12]), poly([0.5, 0.22], [0.58, 0.12])],
+    strokes: [
+      join(
+        bezier(p(0.48, 0.3), p(0.34, 0.12), p(0.15, 0.22), p(0.25, 0.48), 18),
+        bezier(p(0.25, 0.48), p(0.15, 0.72), p(0.37, 0.84), p(0.48, 0.62), 18),
+      ),
+      join(
+        bezier(p(0.52, 0.3), p(0.66, 0.12), p(0.85, 0.22), p(0.75, 0.48), 18),
+        bezier(p(0.75, 0.48), p(0.85, 0.72), p(0.63, 0.84), p(0.52, 0.62), 18),
+      ),
+      bezier(p(0.5, 0.22), p(0.46, 0.38), p(0.46, 0.66), p(0.5, 0.8), 20),
+      bezier(p(0.49, 0.24), p(0.44, 0.14), p(0.38, 0.11), p(0.35, 0.15), 12),
+      bezier(p(0.51, 0.24), p(0.56, 0.14), p(0.62, 0.11), p(0.65, 0.15), 12),
+    ],
     complexity: 3, angularStrokes: [2, 3, 4], strokeColors: [PICTURE_INK.purple, PICTURE_INK.purple, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal],
   }),
   makeTask({
@@ -531,8 +553,6 @@ function fitStrokes(strokes, rect) {
   return fitStrokesToBounds(strokes, rect, boundsOf(strokes));
 }
 
-const NARROW_LETTERS = new Set(['I', 'i', 'j', 'l']);
-const WIDE_LETTERS = new Set(['M', 'W', 'm', 'w']);
 const X_HEIGHT_LETTERS = new Set([...'acemnorsuvwxzäöü']);
 const ASCENDER_LETTERS = new Set([...'bdfhkl']);
 const DESCENDER_LETTERS = new Set([...'gjpqy']);
@@ -571,14 +591,6 @@ function fitLetterStrokes(letter, rect) {
   return fitStrokesToBounds(letterStrokes[letter], rect, boundsOf(letterStrokes[letter]));
 }
 
-function letterAdvance(letter) {
-  const base = ({ Ä: 'A', Ö: 'O', Ü: 'U', ä: 'a', ö: 'o', ü: 'u' })[letter] ?? letter;
-  const geometry = CHARACTER_STROKE_GEOMETRY[base];
-  if (!geometry) return NARROW_LETTERS.has(letter) ? 0.5 : WIDE_LETTERS.has(letter) ? 1.15 : 0.9;
-  const aspect = geometry.inkWidth / Math.max(1, geometry.inkHeight);
-  return Math.min(1.35, Math.max(0.34, 0.18 + aspect * 1.35));
-}
-
 function transformStrokes(strokes, { scale = 1, dx = 0, dy = 0, mirrorX = false, mirrorY = false } = {}) {
   return strokes.map((stroke) => stroke.map((point) => p(
     0.5 + (point.x - 0.5) * scale * (mirrorX ? -1 : 1) + dx,
@@ -590,49 +602,64 @@ function textCharacters(rawText) {
   return [...normalizeName(rawText).replace(/[- ]/g, '')].filter((character) => letterStrokes[character]);
 }
 
+function characterDesignTop(character) {
+  const base = ({ Ä: 'A', Ö: 'O', Ü: 'U', ä: 'a', ö: 'o', ü: 'u' })[character] ?? character;
+  if (/[A-Z]/.test(base)) return 0;
+  if (base === 'i') return 48;
+  if (base === 'j') return 42;
+  if (ASCENDER_LETTERS.has(base) || base === 't') return 13;
+  return 70;
+}
+
+function characterPhysicalBounds(character) {
+  const strokes = letterStrokes[character];
+  const bounds = boundsOf(strokes);
+  return {
+    minX: bounds.minX * CANONICAL_DRAWING_WIDTH,
+    maxX: bounds.maxX * CANONICAL_DRAWING_WIDTH,
+    minY: bounds.minY * CANONICAL_DRAWING_HEIGHT,
+    maxY: bounds.maxY * CANONICAL_DRAWING_HEIGHT,
+  };
+}
+
 function textTaskData(rawText, rect = { x: 0.06, y: 0.2, width: 0.88, height: 0.62 }) {
   const characters = textCharacters(rawText);
   if (!characters.length) return { strokes: [], completionGroups: [] };
-  // Equal-width cells leave a conspicuous hole after narrow letters such as
-  // I/i. Give every glyph a modest, handwriting-like advance instead.
-  // Give neighbouring characters enough physical breathing room for the
-  // generous tracing corridor. This is especially important beside i/l,
-  // whose narrow bodies otherwise make the next letter feel glued on.
-  const preferredGap = Math.min(0.05, rect.width * 0.07);
-  // Keep breathing room around short names, then share at most 28% of the
-  // word's width between gaps. Otherwise an 11- or 12-letter name would use
-  // more of the board for empty gaps than for the letters themselves.
-  const gap = Math.min(
-    preferredGap,
-    (rect.width * 0.28) / Math.max(1, characters.length - 1),
-  );
-  const advances = characters.map(letterAdvance);
-  const totalAdvance = advances.reduce((sum, advance) => sum + advance, 0);
-  const usable = Math.max(0.02, rect.width - gap * (characters.length - 1));
-  const averageCharacterWidth = usable / totalAdvance;
-  // A long name must become smaller as a whole. Keeping the old full height
-  // while narrowing each slot made the letters look squeezed and unnaturally
-  // tall. Four letters still use the generous writing height; longer names
-  // gently reduce their height and stay centred in the same writing area.
-  const textHeight = characters.length <= 4
-    ? rect.height
-    : Math.max(
-      rect.height * (characters.length > 8 ? 0.27 : 0.35),
-      Math.min(rect.height * (4 / characters.length), averageCharacterWidth * 3.1),
-    );
-  const textY = rect.y + (rect.height - textHeight) / 2;
+  // Lay out the complete word like one font line. Every source pixel uses the
+  // same physical scale; uppercase letters share a cap line and baseline,
+  // lowercase letters share x-height/ascender/descender positions. This keeps
+  // a narrow i and a wide M visibly related instead of inflating each glyph
+  // independently to fill its own box.
+  const bounds = characters.map(characterPhysicalBounds);
+  const gaps = characters.length > 1 ? 18 : 0;
+  const advances = bounds.map((box) => Math.max(16, box.maxX - box.minX) + gaps);
+  const designWidth = advances.reduce((sum, advance) => sum + advance, 0) - gaps;
+  const designTops = characters.map(characterDesignTop);
+  const designMinY = Math.min(...bounds.map((box, index) => designTops[index] + box.minY));
+  const designMaxY = Math.max(...bounds.map((box, index) => designTops[index] + box.maxY));
+  const target = {
+    x: rect.x * CANONICAL_DRAWING_WIDTH,
+    y: rect.y * CANONICAL_DRAWING_HEIGHT,
+    width: rect.width * CANONICAL_DRAWING_WIDTH,
+    height: rect.height * CANONICAL_DRAWING_HEIGHT,
+  };
+  const scale = Math.min(target.width / Math.max(1, designWidth), target.height / Math.max(1, designMaxY - designMinY));
+  const originX = target.x + (target.width - designWidth * scale) / 2;
+  const originY = target.y + (target.height - (designMaxY - designMinY) * scale) / 2;
   const strokes = [];
   const completionGroups = [];
-  let cursor = rect.x;
+  let cursor = 0;
   characters.forEach((character, index) => {
-    const slotWidth = usable * (advances[index] / totalAdvance);
-    const fitted = fitLetterStrokes(character, {
-      x: cursor, y: textY, width: slotWidth, height: textHeight,
-    });
+    const source = bounds[index];
+    const top = designTops[index];
+    const fitted = letterStrokes[character].map((stroke) => stroke.map((point) => p(
+      (originX + (cursor + point.x * CANONICAL_DRAWING_WIDTH - source.minX) * scale) / CANONICAL_DRAWING_WIDTH,
+      (originY + (top + point.y * CANONICAL_DRAWING_HEIGHT - designMinY) * scale) / CANONICAL_DRAWING_HEIGHT,
+    )));
     const firstStroke = strokes.length;
     strokes.push(...fitted);
     completionGroups.push(fitted.map((_, strokeIndex) => firstStroke + strokeIndex));
-    cursor += slotWidth + gap;
+    cursor += advances[index];
   });
   return { strokes, completionGroups };
 }
@@ -1430,6 +1457,25 @@ export function adaptTaskToViewport(task, viewport) {
   const groups = task.completionGroups?.length
     ? task.completionGroups
     : [task.strokes.map((_, index) => index)];
+  const isTextLine = groups.length > 1 && (
+    (task.category === 'name' && task.layout !== 'single-letter')
+    || (task.category === 'letters' && task.layout === 'word')
+  );
+  if (isTextLine) {
+    const fitted = fitGroupToBox(task.strokes, {
+      centerX: profile.width / 2,
+      centerY: profile.height / 2,
+      width: profile.width * 0.88,
+      height: profile.height * 0.68,
+    }, profile);
+    return Object.freeze({
+      ...task,
+      strokes: Object.freeze(fitted.map((stroke) => Object.freeze(stroke))),
+      completionGroups: Object.freeze(groups.map((group) => Object.freeze([...group]))),
+      layout: `${task.layout || 'word'}-${profile.portrait ? 'portrait' : 'landscape'}-${groups.length}`,
+      viewport: Object.freeze({ width: profile.width, height: profile.height, portrait: profile.portrait }),
+    });
+  }
   const groupIndexes = selectedGroupIndexes(task, profile);
   const boxes = targetBoxes(groupIndexes.length, profile);
   if (groupIndexes.length === 1 && !['letters', 'numbers'].includes(task.category)) {

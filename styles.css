@@ -2340,6 +2340,32 @@ p {
   display: none;
 }
 
+.fullscreen-exit-icon {
+  display: none;
+}
+
+.fullscreen-button.is-fullscreen .fullscreen-enter-icon {
+  display: none;
+}
+
+.fullscreen-button.is-fullscreen .fullscreen-exit-icon {
+  display: block;
+}
+
+body.immersive-fallback {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body.immersive-fallback .practice-screen {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  z-index: 50;
+  background: var(--paper);
+}
+
 @media (orientation: portrait) and (max-width: 640px) {
   .practice-layout {
     justify-content: flex-start;
@@ -2458,9 +2484,9 @@ p {
 
   .practice-header .icon-button,
   .round-nav-button {
-    width: 44px !important;
-    height: 44px !important;
-    min-width: 44px !important;
+    width: clamp(36px, 10.5dvh, 44px) !important;
+    height: clamp(36px, 10.5dvh, 44px) !important;
+    min-width: clamp(36px, 10.5dvh, 44px) !important;
   }
 
   .rotate-suggestion {

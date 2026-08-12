@@ -44,6 +44,7 @@ const elements = {
   progressText: $('#progress-text'),
   practiceStatus: $('#practice-status'),
   drawingCanvas: $('#drawing-canvas'),
+  fullscreenButton: $('#fullscreen-button'),
   canvasHint: $('#canvas-hint'),
   clearButton: $('#clear-button'),
   undoButton: $('#undo-button'),
@@ -81,6 +82,43 @@ const state = {
   taskToken: 0,
   resizeTimer: 0,
 };
+
+const fullscreenElement = () => document.fullscreenElement ?? document.webkitFullscreenElement ?? null;
+
+function updateFullscreenButton() {
+  const active = Boolean(fullscreenElement() || document.body.classList.contains('immersive-fallback'));
+  elements.fullscreenButton.classList.toggle('is-fullscreen', active);
+  elements.fullscreenButton.setAttribute('aria-pressed', String(active));
+  elements.fullscreenButton.setAttribute('aria-label', active ? 'Vollbild beenden' : 'Vollbild einschalten');
+}
+
+async function toggleFullscreen() {
+  const active = fullscreenElement();
+  try {
+    if (active) {
+      await (document.exitFullscreen?.() ?? document.webkitExitFullscreen?.());
+    } else {
+      const request = document.documentElement.requestFullscreen ?? document.documentElement.webkitRequestFullscreen;
+      if (request) {
+        await request.call(document.documentElement, { navigationUI: 'hide' });
+        try { await screen.orientation?.lock?.('landscape'); } catch { /* Orientation lock is optional. */ }
+      } else {
+        // Older iPhone Safari has no element fullscreen API. The fallback
+        // still removes every piece of app chrome we control and explains how
+        // to obtain real standalone fullscreen once, without blocking play.
+        document.body.classList.toggle('immersive-fallback');
+        if (document.body.classList.contains('immersive-fallback') && !window.matchMedia('(display-mode: standalone)').matches) {
+          showToast('Tipp: „Zum Home-Bildschirm“ öffnet Fino ganz ohne Browserleiste.', 3600);
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Fullscreen could not be changed:', error);
+    showToast('Vollbild ist in diesem Browser gerade nicht verfügbar.');
+  }
+  updateFullscreenButton();
+  requestAnimationFrame(() => board.resize());
+}
 
 let germanVoice = null;
 
@@ -271,6 +309,7 @@ function updateRoundControls() {
   elements.clearButton.disabled = disabled || !hasInk;
   elements.undoButton.disabled = disabled || !hasInk;
   elements.showButton.disabled = disabled;
+  elements.fullscreenButton.disabled = state.transitioning;
 }
 
 async function previewCurrentStroke({ force = false } = {}) {
@@ -404,8 +443,8 @@ function beginSession() {
 
 function passCriteria(result, assist, task, slack = 0) {
   const qualityAdjustment = task.category === 'name' && task.id.startsWith('word-')
-    ? 0.07
-    : task.category === 'shapes' ? 0.045 : 0;
+    ? 0.1
+    : task.category === 'shapes' ? 0.08 : 0.025;
   return passesDrawingCriteria(result, assist, { qualityAdjustment, slack });
 }
 
@@ -482,7 +521,7 @@ function checkDrawing({ quietIncomplete = false } = {}) {
   }
 
   state.attempts += 1;
-  const nearPass = state.attempts >= 3 && passCriteria(result, task.assist, task, 0.04);
+  const nearPass = state.attempts >= 2 && passCriteria(result, task.assist, task, 0.08);
   if (nearPass) {
     celebrate('Gut probiert!', { gentle: true });
     return { passed: true, result, gentle: true };
@@ -678,6 +717,10 @@ elements.showButton.addEventListener('click', async () => {
   await previewCurrentStroke({ force: true });
 });
 
+elements.fullscreenButton.addEventListener('click', toggleFullscreen);
+document.addEventListener('fullscreenchange', updateFullscreenButton);
+document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+
 elements.undoButton.addEventListener('click', () => {
   clearAutoCheck();
   clearPreview();
@@ -709,6 +752,11 @@ elements.repeatButton.addEventListener('click', beginSession);
 elements.homeButton.addEventListener('click', returnHome);
 
 document.addEventListener('keydown', (event) => {
+  if ((event.key === 'f' || event.key === 'F') && state.screen === 'practice' && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName ?? '')) {
+    event.preventDefault();
+    toggleFullscreen();
+    return;
+  }
   if (elements.exitModal.hidden) return;
   if (event.key === 'Escape') {
     event.preventDefault();
@@ -739,6 +787,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 updateSoundButtons();
+updateFullscreenButton();
 updateCustomSetField('numbers');
 updateCustomSetField('letters');
 selectCategory('lines', { announce: false });

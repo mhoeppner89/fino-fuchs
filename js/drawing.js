@@ -712,7 +712,13 @@ function similarityTransform(samples, sourceCenter, targetCenter, scale, angle) 
   });
 }
 
-function drawingIdentity(task, userStrokes, width, height) {
+function drawingIdentity(task, userStrokes, width, height, assist = 'easy') {
+  const identityProfiles = {
+    easy: { tolerance: 0.072, min: 20, max: 36, scaleMin: 0.7, scaleMax: 1.38, angle: 14, coverage: 0.8, precision: 0.7, mse: 0.95, pathCoverage: 0.66, pathGap: 0.5 },
+    medium: { tolerance: 0.061, min: 17, max: 30, scaleMin: 0.76, scaleMax: 1.3, angle: 12, coverage: 0.86, precision: 0.77, mse: 0.72, pathCoverage: 0.74, pathGap: 0.44 },
+    hard: { tolerance: 0.052, min: 14, max: 24, scaleMin: 0.82, scaleMax: 1.22, angle: 9, coverage: 0.91, precision: 0.83, mse: 0.56, pathCoverage: 0.8, pathGap: 0.39 },
+  };
+  const profile = identityProfiles[assist] ?? identityProfiles.easy;
   const expectedSamplesByStroke = task.strokes.map((stroke) => resampleStroke(stroke, width, height, 5));
   const userSamplesByStroke = userStrokes
     .filter((stroke) => stroke.length)
@@ -720,7 +726,7 @@ function drawingIdentity(task, userStrokes, width, height) {
   const groups = task.completionGroups?.length
     ? task.completionGroups.filter((group) => group.length)
     : [task.strokes.map((_, index) => index)];
-  const identityTolerance = clamp(Math.min(width, height) * 0.05, 14, 22);
+  const identityTolerance = clamp(Math.min(width, height) * profile.tolerance, profile.min, profile.max);
   const expectedPixels = task.strokes.map((stroke) => stroke.map((point) => toPixels(point, width, height)));
   const ownedUserSamples = groupOwnedUserSamples(
     expectedPixels,
@@ -743,9 +749,9 @@ function drawingIdentity(task, userStrokes, width, height) {
     const userCenter = sampleCenter(userCore);
     const targetRadius = rmsRadius(targetCore, targetCenter);
     const userRadius = rmsRadius(userCore, userCenter);
-    const baseScale = clamp(targetRadius / Math.max(1, userRadius), 0.84, 1.18);
+    const baseScale = clamp(targetRadius / Math.max(1, userRadius), profile.scaleMin, profile.scaleMax);
     let best = null;
-    [-8, -6, -4, -2, 0, 2, 4, 6, 8].forEach((degrees) => {
+    [-profile.angle, -profile.angle / 2, 0, profile.angle / 2, profile.angle].forEach((degrees) => {
       [0.96, 1, 1.04].forEach((residualScale) => {
         const scale = baseScale * residualScale;
         const angle = degrees * Math.PI / 180;
@@ -783,16 +789,16 @@ function drawingIdentity(task, userStrokes, width, height) {
       const alignedPoints = pointStrokes(alignedByPath.get(index));
       if (pathLength <= 12) {
         const nearest = samples.reduce((value, point) => Math.min(value, minDistanceToStrokes(point, alignedPoints)), Infinity);
-        const detailTolerance = identityTolerance * 1.25;
+        const detailTolerance = identityTolerance * (assist === 'easy' ? 1.6 : assist === 'medium' ? 1.4 : 1.25);
         return { index, coverage: nearest <= detailTolerance ? 1 : 0, longestGap: nearest <= detailTolerance ? 0 : 1, pass: nearest <= detailTolerance };
       }
       const coverage = bandCoverage(samples, alignedPoints, identityTolerance);
       const longestGap = longestUncoveredRun(samples, alignedPoints, identityTolerance);
-      return { index, coverage, longestGap, pass: coverage >= 0.85 && longestGap <= 0.36 };
+      return { index, coverage, longestGap, pass: coverage >= profile.pathCoverage && longestGap <= profile.pathGap };
     });
-    const pass = best.coreCoverage >= 0.95
-      && best.corePrecision >= 0.9
-      && best.coreMse <= 0.38
+    const pass = best.coreCoverage >= profile.coverage
+      && best.corePrecision >= profile.precision
+      && best.coreMse <= profile.mse
       && pathMetrics.every((metric) => metric.pass);
     return { indexes: [...indexes], ...best, pathMetrics, pass, identityTolerance };
   });
@@ -817,7 +823,7 @@ export function evaluateTaskDrawing(task, userStrokes, options = {}) {
   let identity = null;
   if (IDENTITY_CATEGORIES.has(task.category) && result.hasInk) {
     identity = result.coverage >= 0.55 && result.precision >= 0.45
-      ? drawingIdentity(task, userStrokes, options.width ?? 900, options.height ?? 620)
+      ? drawingIdentity(task, userStrokes, options.width ?? 900, options.height ?? 620, options.assist ?? 'easy')
       : { pass: false, completion: 0, groups: [], tolerance: clamp(Math.min(options.width ?? 900, options.height ?? 620) * 0.05, 14, 22) };
     result = {
       ...result,
@@ -854,16 +860,17 @@ export function evaluateTaskDrawing(task, userStrokes, options = {}) {
             : cornerDifference === 1 && radialDifference <= 0.006
         : actual.corners <= expected.corners + 1 && radialDifference <= 0.018;
     shapeMetrics = { expectedCorners: expected.corners, actualCorners: actual.corners, aspectDifference, radialDifference };
-    shapeStructure = aspectDifference <= Math.log(1.42)
+    const aspectLimit = options.assist === 'hard' ? 1.42 : options.assist === 'medium' ? 1.55 : 1.72;
+    shapeStructure = aspectDifference <= Math.log(aspectLimit)
       && contourCompatible;
   }
   return { ...result, shapeStructure, shapeMetrics, allRequired: result.allRequired && shapeStructure };
 }
 
 const PASS_CRITERIA = Object.freeze({
-  easy: Object.freeze({ score: 0.58, coverage: 0.72, precision: 0.52, completion: 0.7, targetMse: 1.05, userMse: 1.4 }),
-  medium: Object.freeze({ score: 0.62, coverage: 0.76, precision: 0.57, completion: 0.73, targetMse: 0.88, userMse: 1.18 }),
-  hard: Object.freeze({ score: 0.66, coverage: 0.8, precision: 0.62, completion: 0.76, targetMse: 0.72, userMse: 0.98 }),
+  easy: Object.freeze({ score: 0.49, coverage: 0.6, precision: 0.42, completion: 0.6, targetMse: 1.55, userMse: 2.05 }),
+  medium: Object.freeze({ score: 0.57, coverage: 0.68, precision: 0.49, completion: 0.66, targetMse: 1.18, userMse: 1.58 }),
+  hard: Object.freeze({ score: 0.63, coverage: 0.75, precision: 0.57, completion: 0.71, targetMse: 0.88, userMse: 1.2 }),
 });
 
 /**
@@ -1394,7 +1401,8 @@ export class DrawingBoard {
   }
 
   evaluationOptions() {
-    const toleranceByAssist = { easy: 0.12, medium: 0.105, hard: 0.09 };
+    const toleranceByAssist = { easy: 0.15, medium: 0.125, hard: 0.105 };
+    const completionByAssist = { easy: 0.14, medium: 0.125, hard: 0.11 };
     const bounds = drawingBounds(this.width, this.height);
     const unit = Math.min(bounds.width, bounds.height);
     return {
@@ -1402,10 +1410,15 @@ export class DrawingBoard {
       height: this.height,
       tolerance: clamp(
         unit * toleranceByAssist[this.assist],
-        this.assist === 'easy' ? 28 : 24,
-        this.assist === 'easy' ? 62 : this.assist === 'medium' ? 56 : 50,
+        this.assist === 'easy' ? 34 : this.assist === 'medium' ? 28 : 24,
+        this.assist === 'easy' ? 78 : this.assist === 'medium' ? 66 : 58,
       ),
-      completionTolerance: clamp(unit * 0.115, 26, 62),
+      completionTolerance: clamp(
+        unit * completionByAssist[this.assist],
+        this.assist === 'easy' ? 32 : 26,
+        this.assist === 'easy' ? 74 : this.assist === 'medium' ? 66 : 58,
+      ),
+      assist: this.assist,
     };
   }
 
@@ -1449,6 +1462,12 @@ export class DrawingBoard {
   }
 
   visibleGuideStrokeIndexes() {
+    // A full name is one tidy writing line. Show the complete transparent
+    // word from the start so every letter has an obvious size and baseline;
+    // Fino still demonstrates only the current letter.
+    if (this.task?.category === 'name' && String(this.task.layout).startsWith('whole-name')) {
+      return this.task.strokes.map((_, index) => index);
+    }
     return visibleGuideIndexes(this.guideStages(), this.activeGuideStageIndex());
   }
 
@@ -2192,11 +2211,16 @@ export class DrawingBoard {
         color: 'rgba(255,255,255,.82)',
         width: width + 4,
         alpha: 0.72,
+        angular: true,
       });
       this.drawStrokeSet(context, [stroke], {
         color: this.strokeColors[index] ?? inkColorAt(index),
         width,
         alpha: 0.98,
+        // Preserve the path the child actually drew. Applying the guide's
+        // quadratic smoothing here turned intentional corners in squares,
+        // houses and picture outlines into swollen curves.
+        angular: true,
       });
     });
     if (this.gameErrorStroke && performance.now() < this.gameErrorUntil) {

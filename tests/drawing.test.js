@@ -129,6 +129,20 @@ test('Fino selects the first guide stroke that is still uncovered', () => {
   assert.equal(nextGuideStrokeIndex(cross, splitVertical, { width: 900, height: 600, tolerance: 600 * 0.068 }), 1);
 });
 
+test('a full-name task shows its complete aligned template while Fino stays staged', () => {
+  const board = Object.assign(Object.create(DrawingBoard.prototype), {
+    task: {
+      category: 'name',
+      layout: 'whole-name-landscape-3',
+      strokes: expected.concat(expected, expected),
+      completionGroups: [[0], [1], [2]],
+    },
+    userStrokes: [],
+  });
+  assert.deepEqual(board.visibleGuideStrokeIndexes(), [0, 1, 2]);
+  assert.deepEqual(board.activeGuideStrokeIndexes(), [0]);
+});
+
 test('a missing required path cannot be forgiven by a quality retry', () => {
   const capitalA = [
     [{ x: 0.25, y: 0.82 }, { x: 0.5, y: 0.16 }],

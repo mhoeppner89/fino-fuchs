@@ -56,6 +56,38 @@ test('every shipped character and picture accepts a coherent child-like variatio
   });
 });
 
+test('easy mode accepts a broad but recognisable child drawing band', () => {
+  const viewport = { width: 900, height: 620 };
+  const sources = [
+    EXERCISE_BANKS.numbers.find((task) => task.id === 'number-7-gross'),
+    EXERCISE_BANKS.letters.find((task) => task.id === 'letter-R-gross'),
+    EXERCISE_BANKS.shapes.find((task) => task.id === 'shape-square'),
+  ];
+  sources.forEach((source, sourceIndex) => {
+    const task = adaptTaskToViewport(source, viewport);
+    const angle = 11 * Math.PI / 180;
+    const variation = task.strokes.map((stroke, strokeIndex) => stroke.map((point, pointIndex) => {
+      const x = (point.x - 0.5) * viewport.width;
+      const y = (point.y - 0.5) * viewport.height;
+      return {
+        x: 0.535 + ((x * Math.cos(angle) - y * Math.sin(angle)) * 1.12
+          + Math.sin(pointIndex * 1.3 + strokeIndex + sourceIndex) * 10) / viewport.width,
+        y: 0.475 + ((x * Math.sin(angle) + y * Math.cos(angle)) * 1.12
+          + Math.cos(pointIndex * 1.1 + strokeIndex) * 10) / viewport.height,
+      };
+    }));
+    const result = evaluateTaskDrawing(task, variation, {
+      ...viewport,
+      assist: 'easy',
+      tolerance: 74,
+      completionTolerance: 70,
+    });
+    assert.equal(passesDrawingCriteria(result, 'easy', {
+      qualityAdjustment: task.category === 'shapes' ? 0.08 : 0.025,
+    }), true, `${task.id} rejected a recognisable easy-mode drawing`);
+  });
+});
+
 test('different digits, uppercase letters, lowercase letters, and pictures cannot replace one another', () => {
   const viewport = VIEWPORTS[1];
   const pools = [
