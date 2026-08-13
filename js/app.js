@@ -192,6 +192,22 @@ function showScreen(name) {
   }
 }
 
+function preventPracticeGesture(event) {
+  if (state.screen === 'practice' && event.cancelable) event.preventDefault();
+}
+
+elements.practiceScreen.addEventListener('touchmove', preventPracticeGesture, { passive: false });
+elements.practiceScreen.addEventListener('gesturestart', preventPracticeGesture, { passive: false });
+elements.practiceScreen.addEventListener('gesturechange', preventPracticeGesture, { passive: false });
+elements.practiceScreen.addEventListener('gestureend', preventPracticeGesture, { passive: false });
+elements.practiceScreen.addEventListener('selectstart', preventPracticeGesture);
+elements.practiceScreen.addEventListener('dragstart', preventPracticeGesture);
+document.addEventListener('selectionchange', () => {
+  if (state.screen !== 'practice') return;
+  const selection = window.getSelection?.();
+  if (selection && !selection.isCollapsed) selection.removeAllRanges();
+});
+
 function showToast(message, duration = 2800) {
   window.clearTimeout(state.toastTimer);
   elements.toast.textContent = message;

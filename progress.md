@@ -221,3 +221,9 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 ## 2026-08-13 start-marker removal
 
 - Removed the green prescribed starting dot from all tracing activities. Labyrinth and Funkelpunkte retain their own game-specific start targets. Stroke routes, Fino behavior, and evaluation are unchanged. A visual line exercise confirmed the guide renders without the marker. Prepared release `v1.3.10`.
+
+## 2026-08-13 iPad gesture and selection lock
+
+- Fixed the practice page in place and disabled overscroll, native touch movement, pinch gestures, selection, callouts, and dragging across the complete drawing surface. This supplements `touch-action: none` for Safari and Apple Pencil cases where CSS alone was insufficient.
+- Safari pointer cancellation now keeps a meaningful partial tracing stroke instead of silently deleting it. Game strokes retain their stricter existing cancellation rules.
+- Removed the canvas focus outline and added regression checks for the event-level and CSS gesture guards. An iPad-sized edge-to-edge drag kept both scroll axes at zero, created no selection, retained the stroke, and logged no browser warnings or errors. Prepared release `v1.3.11`.

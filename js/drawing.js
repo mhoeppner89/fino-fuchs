@@ -1161,11 +1161,16 @@ export class DrawingBoard {
     this.onPointerUp = this.onPointerUp.bind(this);
     this.onPointerCancel = this.onPointerCancel.bind(this);
     this.onLostPointerCapture = this.onLostPointerCapture.bind(this);
+    this.preventNativeGesture = (event) => {
+      if (event.cancelable) event.preventDefault();
+    };
     canvas.addEventListener('pointerdown', this.onPointerDown);
     canvas.addEventListener('pointermove', this.onPointerMove);
     canvas.addEventListener('pointerup', this.onPointerUp);
     canvas.addEventListener('pointercancel', this.onPointerCancel);
     canvas.addEventListener('lostpointercapture', this.onLostPointerCapture);
+    ['touchstart', 'touchmove', 'touchend', 'gesturestart', 'gesturechange', 'gestureend', 'selectstart', 'dragstart']
+      .forEach((type) => canvas.addEventListener(type, this.preventNativeGesture, { passive: false }));
     canvas.addEventListener('contextmenu', (event) => event.preventDefault());
     this.loadCharacterTemplateImages();
     this.resize();
@@ -1192,6 +1197,8 @@ export class DrawingBoard {
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
     this.canvas.removeEventListener('pointercancel', this.onPointerCancel);
     this.canvas.removeEventListener('lostpointercapture', this.onLostPointerCapture);
+    ['touchstart', 'touchmove', 'touchend', 'gesturestart', 'gesturechange', 'gestureend', 'selectstart', 'dragstart']
+      .forEach((type) => this.canvas.removeEventListener(type, this.preventNativeGesture));
   }
 
   resize() {
@@ -1832,14 +1839,33 @@ export class DrawingBoard {
   onPointerCancel(event) {
     if (event.pointerId !== this.activePointerId) return;
     event.preventDefault();
-    this.cancelActiveStrokeForResize();
-    this.render();
+    this.finishInterruptedStroke(event.pointerId);
   }
 
   onLostPointerCapture(event) {
     if (event.pointerId !== this.activePointerId) return;
-    this.cancelActiveStrokeForResize();
+    this.finishInterruptedStroke(event.pointerId);
+  }
+
+  finishInterruptedStroke(pointerId) {
+    if (this.isGameTask() || !this.activeStroke || this.activeStroke.length < 2) {
+      this.cancelActiveStrokeForResize();
+      this.render();
+      return;
+    }
+    const finishedStroke = simplifyStroke(this.activeStroke, this.width, this.height);
+    this.userStrokes[this.userStrokes.length - 1] = finishedStroke;
+    if (this.usesPenFollowingFino()) this.reactiveFoxPoint = finishedStroke.at(-1) ?? this.reactiveFoxPoint;
+    this.activePointerId = null;
+    this.activeStroke = null;
+    this.activeGuideIndex = null;
+    this.activeGuideStageAtStart = null;
+    this.inkRevision += 1;
+    this.evaluationCache = null;
+    this.releasePointer(pointerId);
     this.render();
+    this.hooks.onStrokeEnd?.();
+    this.hooks.onInkChange?.(this.hasInk());
   }
 
   onGamePointerDown(event, point) {

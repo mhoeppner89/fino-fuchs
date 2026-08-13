@@ -83,6 +83,18 @@ test('tracing exercises do not show a prescribed green starting dot', () => {
   assert.doesNotMatch(drawing, /#62C892/);
 });
 
+test('practice drawing blocks Safari page gestures and text selection', () => {
+  const app = read('js/app.js');
+  const drawing = read('js/drawing.js');
+  assert.match(styles, /body\[data-screen="practice"\]\s*{[\s\S]*?position:\s*fixed;[\s\S]*?overscroll-behavior:\s*none;/);
+  assert.match(styles, /\.practice-screen\s*{[\s\S]*?-webkit-touch-callout:\s*none;/);
+  assert.match(styles, /#drawing-canvas\s*{[\s\S]*?touch-action:\s*none;[\s\S]*?-webkit-user-select:\s*none;/);
+  assert.match(app, /addEventListener\('touchmove', preventPracticeGesture, \{ passive: false \}\)/);
+  assert.match(app, /selection\.removeAllRanges\(\)/);
+  assert.match(drawing, /'gesturestart'[\s\S]*?this\.preventNativeGesture, \{ passive: false \}/);
+  assert.match(drawing, /finishInterruptedStroke\(pointerId\)/);
+});
+
 test('practice mode provides a phone-friendly fullscreen control', () => {
   const app = read('js/app.js');
   assert.match(html, /id="fullscreen-button"[^>]*aria-label="Vollbild einschalten"/);
