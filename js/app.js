@@ -11,6 +11,7 @@ import {
   evaluateTaskDrawing,
   feedbackForEvaluation,
   passesDrawingCriteria,
+  usesPenFollowingFino,
 } from './drawing.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -80,6 +81,7 @@ const state = {
   autoCheckTimer: 0,
   previewTimer: 0,
   previewedStrokeIndex: null,
+  finoEnabled: true,
   taskToken: 0,
   resizeTimer: 0,
 };
@@ -299,6 +301,18 @@ function clearPreview() {
   state.previewTimer = 0;
 }
 
+function updateFinoButton() {
+  const toggleMode = usesPenFollowingFino(state.activeTask);
+  elements.showButton.classList.toggle('is-muted', toggleMode && !state.finoEnabled);
+  if (toggleMode) {
+    elements.showButton.setAttribute('aria-pressed', String(state.finoEnabled));
+    elements.showButton.setAttribute('aria-label', state.finoEnabled ? 'Fino ausschalten' : 'Fino einschalten');
+  } else {
+    elements.showButton.removeAttribute('aria-pressed');
+    elements.showButton.setAttribute('aria-label', 'Fino zeigt die Spur');
+  }
+}
+
 function updateRoundControls() {
   const hasTask = Boolean(state.activeTask);
   const hasInk = board?.hasInk() ?? false;
@@ -311,10 +325,12 @@ function updateRoundControls() {
   elements.undoButton.disabled = disabled || !hasInk;
   elements.showButton.disabled = disabled;
   elements.fullscreenButton.disabled = state.transitioning;
+  updateFinoButton();
 }
 
 async function previewCurrentStroke({ force = false } = {}) {
   if (state.transitioning || state.screen !== 'practice' || !state.activeTask) return false;
+  if (usesPenFollowingFino(state.activeTask)) return false;
   const previewKey = board.isGameTask()
     ? `${state.activeTask.gameMode}-${board.gameSnapshot()?.progress ?? 0}`
     : board.nextGuideStrokeIndex();
@@ -328,7 +344,7 @@ async function previewCurrentStroke({ force = false } = {}) {
 }
 
 function scheduleNextStrokePreview() {
-  if (board.isGameTask()) return;
+  if (board.isGameTask() || usesPenFollowingFino(state.activeTask)) return;
   clearPreview();
   const taskToken = state.taskToken;
   const strokeIndex = board.nextGuideStrokeIndex();
@@ -380,9 +396,11 @@ async function renderTask() {
       : `Neue Aufgabe: ${task.title}.`;
   elements.canvasHint.classList.add('is-hidden');
   board.setTask(task, task.assist);
+  board.setFinoEnabled(state.finoEnabled);
   updateRoundControls();
 
-  const shouldDemo = !task.gameMode && (task.assist === 'easy' || (state.index === 0 && task.assist === 'medium'));
+  const shouldDemo = !task.gameMode && !usesPenFollowingFino(task)
+    && (task.assist === 'easy' || (state.index === 0 && task.assist === 'medium'));
   if (shouldDemo) {
     window.setTimeout(async () => {
       if (token !== state.taskToken || state.screen !== 'practice' || board.hasInk()) return;
@@ -715,6 +733,12 @@ elements.clearButton.addEventListener('click', () => {
 });
 
 elements.showButton.addEventListener('click', async () => {
+  if (usesPenFollowingFino(state.activeTask)) {
+    state.finoEnabled = !state.finoEnabled;
+    board.setFinoEnabled(state.finoEnabled);
+    updateRoundControls();
+    return;
+  }
   await previewCurrentStroke({ force: true });
 });
 
@@ -806,6 +830,7 @@ window.render_game_to_text = () => JSON.stringify({
   assist: state.activeTask?.assist ?? null,
   userStrokes: board.getUserStrokes().length,
   inkColors: board.getUserStrokeColors(),
+  fino: usesPenFollowingFino(state.activeTask) ? { enabled: state.finoEnabled, mode: 'follow-pen' } : { enabled: true, mode: 'preview' },
   game: board.gameSnapshot(),
 });
 

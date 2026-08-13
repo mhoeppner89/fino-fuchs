@@ -55,6 +55,10 @@ export function inkColorAt(strokeIndex) {
   return INK_COLORS[strokeIndex % INK_COLORS.length];
 }
 
+export function usesPenFollowingFino(task) {
+  return task?.category === 'letters' || task?.category === 'numbers';
+}
+
 /**
  * WebKit's coalesced pointer list can contain stale or out-of-order samples,
  * which produce long spikes when connected. Its dispatched pointer event is
@@ -1133,6 +1137,8 @@ export class DrawingBoard {
     this.demoFrame = 0;
     this.jumpAnimation = null;
     this.jumpFrame = 0;
+    this.finoEnabled = true;
+    this.reactiveFoxPoint = null;
     this.highlightUntil = 0;
     this.gameState = null;
     this.gameHint = null;
@@ -1231,6 +1237,19 @@ export class DrawingBoard {
     return this.activePointerId !== null;
   }
 
+  usesPenFollowingFino() {
+    return usesPenFollowingFino(this.task);
+  }
+
+  setFinoEnabled(enabled) {
+    this.finoEnabled = Boolean(enabled);
+    if (!this.finoEnabled) {
+      this.jumpAnimation = null;
+      cancelAnimationFrame(this.jumpFrame);
+    }
+    this.render();
+  }
+
   /**
    * A rotation can change the canvas coordinate system while a finger is
    * still down. Drop only that unfinished stroke before reflowing the task;
@@ -1293,6 +1312,7 @@ export class DrawingBoard {
     this.demoProgress = null;
     this.demoStrokeIndexes = [];
     this.jumpAnimation = null;
+    this.reactiveFoxPoint = null;
     this.highlightUntil = 0;
     this.inkRevision += 1;
     this.evaluationCache = null;
@@ -1312,6 +1332,7 @@ export class DrawingBoard {
     this.strokeColors = [];
     this.activeStroke = null;
     this.jumpAnimation = null;
+    this.reactiveFoxPoint = null;
     cancelAnimationFrame(this.jumpFrame);
     this.highlightUntil = 0;
     this.inkRevision += 1;
@@ -1328,6 +1349,9 @@ export class DrawingBoard {
     this.stopDemo({ render: false });
     this.userStrokes.pop();
     this.strokeColors.pop();
+    this.reactiveFoxPoint = this.usesPenFollowingFino()
+      ? this.userStrokes.at(-1)?.at(-1) ?? null
+      : null;
     if (this.gameState?.mode === 'maze') {
       this.gameState.status = 'ready';
       this.gameState.endpoint = this.userStrokes.at(-1)?.at(-1) ?? null;
@@ -1361,6 +1385,9 @@ export class DrawingBoard {
   setUserStrokes(strokes) {
     this.userStrokes = strokes.map((stroke) => stroke.map((point) => ({ x: point.x, y: point.y, pressure: point.pressure ?? 0.5 })));
     this.strokeColors = this.userStrokes.map((_, index) => this.task?.strokeColors?.[index] ?? inkColorAt(index));
+    this.reactiveFoxPoint = this.usesPenFollowingFino()
+      ? this.userStrokes.at(-1)?.at(-1) ?? null
+      : null;
     this.inkRevision += 1;
     this.evaluationCache = null;
     if (this.task?.gameMode === 'maze') {
@@ -1398,6 +1425,9 @@ export class DrawingBoard {
     }
     this.activeStroke = null;
     this.activePointerId = null;
+    this.reactiveFoxPoint = this.usesPenFollowingFino()
+      ? this.userStrokes.at(-1)?.at(-1) ?? null
+      : null;
     this.inkRevision += 1;
     this.evaluationCache = null;
     this.render();
@@ -1582,6 +1612,9 @@ export class DrawingBoard {
   startDemo() {
     if (!this.task || this.demoProgress !== null) return Promise.resolve();
     if (this.isGameTask()) return this.startGameHint();
+    // Letters and numbers have several valid stroke orders. Here Fino reacts
+    // to the child's pen instead of presenting one supposedly correct route.
+    if (this.usesPenFollowingFino()) return Promise.resolve();
     this.jumpAnimation = null;
     cancelAnimationFrame(this.jumpFrame);
     // Fino demonstrates one mark, then leaves the next turn to the child.
@@ -1685,9 +1718,10 @@ export class DrawingBoard {
       this.onGamePointerDown(event, point);
       return;
     }
-    const demoPosition = this.demoFoxPosition();
+    const penFollowingFino = this.usesPenFollowingFino();
+    const demoPosition = penFollowingFino ? null : this.demoFoxPosition();
     this.stopDemo({ render: false });
-    if (!demoPosition) this.jumpAnimation = null;
+    if (!demoPosition && !penFollowingFino) this.jumpAnimation = null;
     cancelAnimationFrame(this.jumpFrame);
     const guideStrokeIndex = this.nextGuideStrokeIndex();
     this.activeGuideIndex = guideStrokeIndex;
@@ -1696,7 +1730,19 @@ export class DrawingBoard {
     this.activeStroke = [point];
     this.userStrokes.push(this.activeStroke);
     this.strokeColors.push(this.task.strokeColors?.[guideStrokeIndex] ?? inkColorAt(this.userStrokes.length - 1));
-    if (demoPosition) this.animateFoxJump(demoPosition, toPixels(point, this.width, this.height), { maxDuration: 220 });
+    if (penFollowingFino && this.finoEnabled) {
+      const target = toPixels(point, this.width, this.height);
+      const bounds = drawingBounds(this.width, this.height);
+      const foxSize = clamp(Math.min(bounds.width, bounds.height) * 0.1, 34, 58);
+      const previous = this.reactiveFoxPoint ? toPixels(this.reactiveFoxPoint, this.width, this.height) : null;
+      const from = previous ?? {
+        x: target.x < this.width / 2 ? -foxSize : this.width + foxSize,
+        y: target.y,
+      };
+      this.animateFoxJump(from, target, { maxDuration: previous ? 260 : 340 });
+    } else if (demoPosition) {
+      this.animateFoxJump(demoPosition, toPixels(point, this.width, this.height), { maxDuration: 220 });
+    }
     this.canvas.setPointerCapture?.(event.pointerId);
     this.hooks.onStrokeStart?.();
     this.hooks.onInkChange?.(true);
@@ -1721,7 +1767,14 @@ export class DrawingBoard {
       if (!last || distance(
         toPixels(last, this.width, this.height),
         toPixels(point, this.width, this.height),
-      ) >= 1.4) this.activeStroke.push(point);
+      ) >= 1.4) {
+        this.activeStroke.push(point);
+        // During the entrance jump Fino follows the moving pen target instead
+        // of landing where the child started several frames earlier.
+        if (this.usesPenFollowingFino() && this.jumpAnimation) {
+          this.jumpAnimation.to = toPixels(point, this.width, this.height);
+        }
+      }
     }
     this.requestRender();
   }
@@ -1739,6 +1792,7 @@ export class DrawingBoard {
     }
     const finishedStroke = simplifyStroke(this.activeStroke, this.width, this.height);
     this.userStrokes[this.userStrokes.length - 1] = finishedStroke;
+    if (this.usesPenFollowingFino()) this.reactiveFoxPoint = finishedStroke.at(-1) ?? this.reactiveFoxPoint;
     this.activePointerId = null;
     this.activeStroke = null;
     this.activeGuideIndex = null;
@@ -1961,6 +2015,7 @@ export class DrawingBoard {
   }
 
   startJumpToNextStroke(finishedStroke) {
+    if (this.usesPenFollowingFino()) return;
     const nextStroke = this.task?.strokes[this.nextGuideStrokeIndex()];
     const lastPoint = finishedStroke?.at(-1);
     const nextPoint = nextStroke?.[0];
@@ -2155,6 +2210,22 @@ export class DrawingBoard {
 
   drawFoxForCurrentStroke(context) {
     if (!this.task || this.demoProgress !== null) return;
+    if (this.usesPenFollowingFino()) {
+      if (!this.finoEnabled) return;
+      if (this.jumpAnimation) {
+        this.drawJumpingFox(context, this.jumpAnimation);
+        return;
+      }
+      if (this.activeStroke?.length) {
+        const lastIndex = this.activeStroke.length - 1;
+        const point = toPixels(this.activeStroke[lastIndex], this.width, this.height);
+        const previous = toPixels(this.activeStroke[Math.max(0, lastIndex - 1)], this.width, this.height);
+        this.drawGuideFox(context, point, Math.atan2(point.y - previous.y, point.x - previous.x));
+        return;
+      }
+      if (this.reactiveFoxPoint) this.drawGuideFox(context, toPixels(this.reactiveFoxPoint, this.width, this.height), 0);
+      return;
+    }
     if (this.jumpAnimation) {
       this.drawJumpingFox(context, this.jumpAnimation);
       return;

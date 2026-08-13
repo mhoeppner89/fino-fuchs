@@ -66,6 +66,17 @@ test('Safari drawing avoids spiky joins and expensive unstable samples', () => {
   assert.match(drawing, /angular:\s*true,\s*lineJoin:\s*'round'/);
 });
 
+test('letter and number Fino follows the child and can be toggled', () => {
+  const app = read('js/app.js');
+  const drawing = read('js/drawing.js');
+  assert.match(app, /const shouldDemo = !task\.gameMode && !usesPenFollowingFino\(task\)/);
+  assert.match(app, /state\.finoEnabled = !state\.finoEnabled/);
+  assert.match(app, /aria-label', state\.finoEnabled \? 'Fino ausschalten' : 'Fino einschalten'/);
+  assert.match(drawing, /if \(this\.usesPenFollowingFino\(\)\) return Promise\.resolve\(\);/);
+  assert.match(drawing, /x: target\.x < this\.width \/ 2 \? -foxSize : this\.width \+ foxSize/);
+  assert.match(drawing, /this\.reactiveFoxPoint = finishedStroke\.at\(-1\)/);
+});
+
 test('practice mode provides a phone-friendly fullscreen control', () => {
   const app = read('js/app.js');
   assert.match(html, /id="fullscreen-button"[^>]*aria-label="Vollbild einschalten"/);

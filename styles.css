@@ -758,10 +758,21 @@ p {
   opacity: .5;
 }
 
+#show-button.is-muted {
+  background: rgba(231, 235, 241, .9);
+  border-color: rgba(37, 54, 78, .08);
+}
+
+#show-button.is-muted .fino-tool-icon {
+  opacity: .38;
+  filter: grayscale(1);
+}
+
 .fino-tool-icon {
   width: 32px;
   height: 32px;
   object-fit: contain;
+  transition: opacity .18s ease, filter .18s ease;
 }
 
 .session-progress {

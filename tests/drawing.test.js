@@ -17,6 +17,7 @@ import {
   nextGuideStrokeIndex,
   passesDrawingCriteria,
   pointAlongGuidePath,
+  usesPenFollowingFino,
 } from '../js/drawing.js';
 
 const expected = [[{ x: 0.2, y: 0.2 }, { x: 0.8, y: 0.8 }]];
@@ -282,4 +283,11 @@ test('letters, numbers, and names use solid transparent templates', () => {
 
 test('Fino previews are set to one-and-a-half times the former speed', () => {
   assert.equal(DEMO_SPEED_MULTIPLIER, 1.5);
+});
+
+test('letters and numbers use pen-following Fino instead of stroke previews', () => {
+  assert.equal(usesPenFollowingFino({ category: 'letters' }), true);
+  assert.equal(usesPenFollowingFino({ category: 'numbers' }), true);
+  assert.equal(usesPenFollowingFino({ category: 'name' }), false);
+  assert.equal(usesPenFollowingFino({ category: 'shapes' }), false);
 });
