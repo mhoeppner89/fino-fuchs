@@ -2241,8 +2241,7 @@ export class DrawingBoard {
     const nextStrokeIndex = this.nextGuideStrokeIndex();
     const nextStroke = this.task.strokes[nextStrokeIndex];
     const angular = this.isAngularGuide(nextStrokeIndex);
-    // Fino waits just after the green starting point, still exactly on the
-    // invisible centre line of the visible template.
+    // Fino waits on the invisible centre line of the visible template.
     const next = pointAlongGuidePath(nextStroke ?? [], 0.07, this.width, this.height, angular);
     if (next) this.drawGuideFox(context, next.point, next.angle);
   }
@@ -2296,27 +2295,6 @@ export class DrawingBoard {
         travel: distance(from.point, to.point),
       });
     }
-  }
-
-  drawStartPoint(context) {
-    if (!this.task || this.demoProgress !== null || this.activeStroke?.length || this.jumpAnimation) return;
-    const strokeIndex = this.nextGuideStrokeIndex();
-    const stroke = this.task.strokes[strokeIndex];
-    const angular = this.isAngularGuide(strokeIndex);
-    const guide = pointAlongGuidePath(stroke ?? [], 0, this.width, this.height, angular);
-    if (!guide) return;
-    const bounds = drawingBounds(this.width, this.height);
-    const radius = clamp(Math.min(bounds.width, bounds.height) * 0.016, 6, 10);
-    context.save();
-    context.fillStyle = '#ffffff';
-    context.beginPath();
-    context.arc(guide.point.x, guide.point.y, radius + 2, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = '#62C892';
-    context.beginPath();
-    context.arc(guide.point.x, guide.point.y, radius, 0, Math.PI * 2);
-    context.fill();
-    context.restore();
   }
 
   drawInk(context) {
@@ -2623,7 +2601,6 @@ export class DrawingBoard {
       });
 
       this.drawFoxForCurrentStroke(context);
-      this.drawStartPoint(context);
       this.drawDemo(context);
     }
 

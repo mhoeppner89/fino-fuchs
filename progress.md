@@ -217,3 +217,7 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Removed every automatic and button-triggered stroke preview from letter and number exercises because children can use different valid stroke orders.
 - Fino now enters from the nearest side when the first stroke begins, follows the moving pen, waits at the lifted endpoint, and jumps to the child's next stroke. The fox button is an accessible on/off toggle in these two activities; other activities keep their existing preview button.
 - Verified a two-stroke lowercase `t` end to end, including waiting and the second-stroke jump; toggled Fino off and back on for `U`; and confirmed a number `3` opens with no preview. No browser errors occurred. Prepared release `v1.3.9`.
+
+## 2026-08-13 start-marker removal
+
+- Removed the green prescribed starting dot from all tracing activities. Labyrinth and Funkelpunkte retain their own game-specific start targets. Stroke routes, Fino behavior, and evaluation are unchanged. A visual line exercise confirmed the guide renders without the marker. Prepared release `v1.3.10`.

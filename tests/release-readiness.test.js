@@ -77,6 +77,12 @@ test('letter and number Fino follows the child and can be toggled', () => {
   assert.match(drawing, /this\.reactiveFoxPoint = finishedStroke\.at\(-1\)/);
 });
 
+test('tracing exercises do not show a prescribed green starting dot', () => {
+  const drawing = read('js/drawing.js');
+  assert.doesNotMatch(drawing, /drawStartPoint/);
+  assert.doesNotMatch(drawing, /#62C892/);
+});
+
 test('practice mode provides a phone-friendly fullscreen control', () => {
   const app = read('js/app.js');
   assert.match(html, /id="fullscreen-button"[^>]*aria-label="Vollbild einschalten"/);
