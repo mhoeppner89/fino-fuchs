@@ -81,6 +81,8 @@ test('tracing exercises do not show a prescribed green starting dot', () => {
   const drawing = read('js/drawing.js');
   assert.doesNotMatch(drawing, /drawStartPoint/);
   assert.doesNotMatch(drawing, /#62C892/);
+  assert.doesNotMatch(styles, /\.progress-dots span\.is-complete\s*{[^}]*var\(--green\)/s);
+  assert.match(styles, /\.progress-dots span\.is-complete\s*{[^}]*var\(--blue\)/s);
 });
 
 test('practice drawing blocks Safari page gestures and text selection', () => {

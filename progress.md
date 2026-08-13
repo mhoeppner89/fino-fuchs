@@ -227,3 +227,8 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Fixed the practice page in place and disabled overscroll, native touch movement, pinch gestures, selection, callouts, and dragging across the complete drawing surface. This supplements `touch-action: none` for Safari and Apple Pencil cases where CSS alone was insufficient.
 - Safari pointer cancellation now keeps a meaningful partial tracing stroke instead of silently deleting it. Game strokes retain their stricter existing cancellation rules.
 - Removed the canvas focus outline and added regression checks for the event-level and CSS gesture guards. An iPad-sized edge-to-edge drag kept both scroll axes at zero, created no selection, retained the stroke, and logged no browser warnings or errors. Prepared release `v1.3.11`.
+
+## 2026-08-13 remaining green-dot removal
+
+- Confirmed the prescribed green canvas start marker is absent from the live renderer, then removed the remaining green circular state from the round progress indicator as well. Completed tasks now use blue, so ordinary tracing screens no longer contain a green dot outside picture artwork.
+- Added explicit `v1.3.12` asset URLs for the stylesheet and main module. This gives Safari a new resource URL and prevents an older cached marker build from being reused after deployment.

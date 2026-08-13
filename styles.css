@@ -832,8 +832,8 @@ p {
 }
 
 .progress-dots span.is-complete {
-  border-color: var(--green);
-  background: var(--green);
+  border-color: var(--blue);
+  background: var(--blue);
 }
 
 .progress-dots span.is-current {
@@ -2127,7 +2127,7 @@ p {
   }
 
   .progress-dots span.is-complete {
-    background: var(--green);
+    background: var(--blue);
   }
 
   .progress-dots span.is-current {
