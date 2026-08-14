@@ -92,9 +92,14 @@ test('practice drawing blocks Safari page gestures and text selection', () => {
   assert.match(styles, /\.practice-screen\s*{[\s\S]*?-webkit-touch-callout:\s*none;/);
   assert.match(styles, /#drawing-canvas\s*{[\s\S]*?touch-action:\s*none;[\s\S]*?-webkit-user-select:\s*none;/);
   assert.match(app, /addEventListener\('touchmove', preventPracticeGesture, \{ passive: false \}\)/);
+  assert.match(app, /window\.addEventListener\(type, preventFullscreenDrawingGesture, \{ passive: false, capture: true \}\)/);
+  assert.match(app, /history\.pushState\(\{ \.\.\.\(history\.state \?\? \{\}\), finoPracticeGuard: true \}/);
+  assert.match(app, /window\.addEventListener\('popstate'/);
+  assert.match(app, /if \(board\.isDrawing\(\)\) board\.finishInterruptedStroke\(\)/);
   assert.match(app, /selection\.removeAllRanges\(\)/);
+  assert.match(styles, /html\.practice-active,[\s\S]*?touch-action:\s*none;[\s\S]*?-webkit-touch-callout:\s*none;/);
   assert.match(drawing, /'gesturestart'[\s\S]*?this\.preventNativeGesture, \{ passive: false \}/);
-  assert.match(drawing, /finishInterruptedStroke\(pointerId\)/);
+  assert.match(drawing, /finishInterruptedStroke\(pointerId = this\.activePointerId\)/);
 });
 
 test('practice mode provides a phone-friendly fullscreen control', () => {
@@ -130,7 +135,8 @@ test('every offline shell entry and local runtime dependency exists', () => {
   assert.ok(shell.has('js/mini-games.js'));
   shell.forEach((path) => {
     if (path === '') return;
-    assert.equal(existsSync(join(root, path)), true, `offline file is missing: ${path}`);
+    const filePath = path.split('?')[0];
+    assert.equal(existsSync(join(root, filePath)), true, `offline file is missing: ${path}`);
   });
 
   const dependencies = new Set();

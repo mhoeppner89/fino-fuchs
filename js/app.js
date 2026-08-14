@@ -44,6 +44,7 @@ const elements = {
   progressDots: $('#progress-dots'),
   progressText: $('#progress-text'),
   practiceStatus: $('#practice-status'),
+  drawingCard: $('.drawing-card'),
   drawingCanvas: $('#drawing-canvas'),
   fullscreenButton: $('#fullscreen-button'),
   rotateSuggestion: $('#rotate-suggestion'),
@@ -85,6 +86,19 @@ const state = {
   taskToken: 0,
   resizeTimer: 0,
 };
+
+let practiceHistoryGuardActive = false;
+let drawingTouchSequenceActive = false;
+
+function armPracticeHistoryGuard() {
+  if (practiceHistoryGuardActive) return;
+  try {
+    history.pushState({ ...(history.state ?? {}), finoPracticeGuard: true }, '', location.href);
+    practiceHistoryGuardActive = true;
+  } catch {
+    // Local file previews may not allow history state. Gesture locking still works.
+  }
+}
 
 const fullscreenElement = () => document.fullscreenElement ?? document.webkitFullscreenElement ?? null;
 
@@ -181,7 +195,9 @@ function showScreen(name) {
   });
   state.screen = name;
   document.body.dataset.screen = name;
+  document.documentElement.classList.toggle('practice-active', name === 'practice');
   if (name === 'practice') {
+    armPracticeHistoryGuard();
     requestAnimationFrame(() => {
       board.resize();
       elements.drawingCanvas.focus({ preventScroll: true });
@@ -196,6 +212,25 @@ function preventPracticeGesture(event) {
   if (state.screen === 'practice' && event.cancelable) event.preventDefault();
 }
 
+function eventTouchesDrawingSurface(event) {
+  const path = event.composedPath?.() ?? [];
+  return path.includes(elements.drawingCanvas) || path.includes(elements.drawingCard);
+}
+
+function preventFullscreenDrawingGesture(event) {
+  if (state.screen !== 'practice') return;
+  const touchesSurface = eventTouchesDrawingSurface(event);
+  if (event.type === 'touchstart') drawingTouchSequenceActive = touchesSurface;
+  if (!drawingTouchSequenceActive && !touchesSurface) return;
+  if (event.cancelable) event.preventDefault();
+  if ((event.type === 'touchend' || event.type === 'touchcancel') && !event.touches?.length) {
+    drawingTouchSequenceActive = false;
+  }
+}
+
+['touchstart', 'touchmove', 'touchend', 'touchcancel', 'gesturestart', 'gesturechange', 'gestureend']
+  .forEach((type) => window.addEventListener(type, preventFullscreenDrawingGesture, { passive: false, capture: true }));
+
 elements.practiceScreen.addEventListener('touchmove', preventPracticeGesture, { passive: false });
 elements.practiceScreen.addEventListener('gesturestart', preventPracticeGesture, { passive: false });
 elements.practiceScreen.addEventListener('gesturechange', preventPracticeGesture, { passive: false });
@@ -206,6 +241,18 @@ document.addEventListener('selectionchange', () => {
   if (state.screen !== 'practice') return;
   const selection = window.getSelection?.();
   if (selection && !selection.isCollapsed) selection.removeAllRanges();
+});
+
+window.addEventListener('popstate', () => {
+  if (state.screen !== 'practice') {
+    practiceHistoryGuardActive = false;
+    return;
+  }
+  if (!practiceHistoryGuardActive) return;
+  practiceHistoryGuardActive = false;
+  if (board.isDrawing()) board.finishInterruptedStroke();
+  armPracticeHistoryGuard();
+  openExitModal();
 });
 
 function showToast(message, duration = 2800) {
@@ -821,8 +868,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     stopSpeech();
     if (board.isDrawing()) {
-      board.cancelActiveStrokeForResize();
-      board.render();
+      board.finishInterruptedStroke();
       updateRoundControls();
     }
   }
@@ -837,6 +883,7 @@ selectCategory('lines', { announce: false });
 window.render_game_to_text = () => JSON.stringify({
   coordinateSystem: 'drawing canvas uses normalized coordinates: origin top-left, x right, y down',
   screen: state.screen,
+  fullscreen: Boolean(fullscreenElement() || document.body.classList.contains('immersive-fallback')),
   category: state.category,
   selection: selectedOption(),
   progress: { completed: state.completed, current: state.index + 1, total: state.session.length, canGoBack: state.index > 0, canSkip: state.index < state.session.length - 1 },

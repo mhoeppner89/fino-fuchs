@@ -1,13 +1,13 @@
 const CACHE_PREFIX = 'fino-schreibt-';
-const CACHE_NAME = `${CACHE_PREFIX}v1.3.12`;
+const CACHE_NAME = `${CACHE_PREFIX}v1.3.13`;
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css',
-  './styles.css?v=1.3.12',
+  './styles.css?v=1.3.13',
   './manifest.webmanifest',
   './js/app.js',
-  './js/app.js?v=1.3.12',
+  './js/app.js?v=1.3.13',
   './js/curriculum.js',
   './js/drawing.js',
   './js/mini-games.js',

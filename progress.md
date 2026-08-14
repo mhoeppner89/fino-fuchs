@@ -232,3 +232,10 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 
 - Confirmed the prescribed green canvas start marker is absent from the live renderer, then removed the remaining green circular state from the round progress indicator as well. Completed tasks now use blue, so ordinary tracing screens no longer contain a green dot outside picture artwork.
 - Added explicit `v1.3.12` asset URLs for the stylesheet and main module. This gives Safari a new resource URL and prevents an older cached marker build from being reused after deployment.
+
+## 2026-08-14 Safari fullscreen drawing lock
+
+- Moved the drawing-surface touch and gesture guard to a capture-phase window listener, so iPad Safari cannot hand an edge gesture to fullscreen navigation before the canvas sees it. The practice state now also locks touch action, scrolling, selection, and callouts on the root fullscreen element.
+- Added a same-page history guard while a round is active. An accidental Safari back swipe stays in the app and opens the existing exit confirmation instead of closing the site.
+- Backgrounding or interrupting Safari now finishes and keeps an active tracing stroke instead of deleting it. Prepared release `v1.3.13`.
+- Verified the actual fullscreen button path: root and body stayed at position zero with scrolling and touch action locked, an edge-to-edge stroke remained visible and undoable, and backward navigation kept the same URL and opened the exit confirmation. No browser warnings or errors were logged.

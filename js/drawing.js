@@ -1847,7 +1847,7 @@ export class DrawingBoard {
     this.finishInterruptedStroke(event.pointerId);
   }
 
-  finishInterruptedStroke(pointerId) {
+  finishInterruptedStroke(pointerId = this.activePointerId) {
     if (this.isGameTask() || !this.activeStroke || this.activeStroke.length < 2) {
       this.cancelActiveStrokeForResize();
       this.render();
