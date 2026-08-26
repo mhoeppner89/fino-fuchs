@@ -150,9 +150,11 @@ test('all 62 characters reject a trace outside the allowed band', () => {
   [[366, 608], [900, 620], [844, 390]].forEach(([width, height]) => {
     TASKS.forEach((task) => {
       const config = options(task, 'easy', width, height);
+      // The scorer deliberately aligns coherent offset traces (capped at
+      // ~0.85 tolerances); the shift must exceed that rescue window.
       const user = task.strokes.map((stroke) => stroke.map((point) => ({
-        x: point.x + config.tolerance * 1.5 / width,
-        y: point.y + config.tolerance * 0.45 / height,
+        x: point.x + config.tolerance * 2.2 / width,
+        y: point.y + config.tolerance * 0.66 / height,
       })));
       const result = evaluateDrawing(task.strokes, user, config);
       assert.equal(passesDrawingCriteria(result, 'easy'), false, `${task.label} accepted an out-of-band trace at ${width}x${height}`);

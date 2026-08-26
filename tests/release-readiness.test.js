@@ -66,15 +66,19 @@ test('Safari drawing avoids spiky joins and expensive unstable samples', () => {
   assert.match(drawing, /angular:\s*true,\s*lineJoin:\s*'round'/);
 });
 
-test('letter and number Fino follows the child and can be toggled', () => {
+test('letter and number Fino follows the child and previews the next stroke', () => {
   const app = read('js/app.js');
   const drawing = read('js/drawing.js');
-  assert.match(app, /const shouldDemo = !task\.gameMode && !usesPenFollowingFino\(task\)/);
-  assert.match(app, /state\.finoEnabled = !state\.finoEnabled/);
-  assert.match(app, /aria-label', state\.finoEnabled \? 'Fino ausschalten' : 'Fino einschalten'/);
-  assert.match(drawing, /if \(this\.usesPenFollowingFino\(\)\) return Promise\.resolve\(\);/);
+  assert.match(app, /const shouldDemo = !task\.gameMode/);
+  assert.match(app, /await previewCurrentStroke\(\{ force: true \}\);/);
+  assert.match(app, /board\.judgeLastStroke\(\) === 'rejected'/);
+  assert.match(app, /aria-label', 'Fino zeigt die Spur'/);
+  assert.match(drawing, /judgeLastStroke\(\)/);
   assert.match(drawing, /x: target\.x < this\.width \/ 2 \? -foxSize : this\.width \+ foxSize/);
-  assert.match(drawing, /this\.reactiveFoxPoint = finishedStroke\.at\(-1\)/);
+  assert.match(drawing, /this\.foxPosition = finishedStroke\.at\(-1\)/);
+  // Fino jumps from where he is actually standing, never from the board edge
+  // or the child's pen position.
+  assert.match(drawing, /const from = this\.foxPosition/);
 });
 
 test('tracing exercises do not show a prescribed green starting dot', () => {
@@ -142,7 +146,8 @@ test('every offline shell entry and local runtime dependency exists', () => {
   const dependencies = new Set();
   for (const [sourcePath, source] of scripts) {
     for (const match of source.matchAll(/(?:from\s+|import\s*)['"](\.[^'"]+)['"]/g)) {
-      dependencies.add(normalize(relative(root, resolve(root, dirname(sourcePath), match[1]))));
+      const dependency = normalize(relative(root, resolve(root, dirname(sourcePath), match[1]))).split('?')[0];
+      dependencies.add(dependency);
     }
     for (const match of source.matchAll(/new URL\(['"](\.[^'"]+)['"],\s*import\.meta\.url\)/g)) {
       dependencies.add(normalize(relative(root, resolve(root, dirname(sourcePath), match[1]))));
@@ -152,6 +157,21 @@ test('every offline shell entry and local runtime dependency exists', () => {
     assert.equal(existsSync(join(root, path)), true, `runtime dependency is missing: ${path}`);
     assert.ok(shell.has(path), `runtime dependency is not available offline: ${path}`);
   });
+  // Every internal module import must carry the release version query, so a
+  // deployment can never hand out a stale module from the browser HTTP cache.
+  const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+  for (const [, source] of scripts) {
+    for (const match of source.matchAll(/from\s+['"](\.[^'"]+)['"]/g)) {
+      const specifier = match[1];
+      if (specifier.startsWith('./handwriting-') || specifier.startsWith('./mini-games')) {
+        assert.equal(
+          specifier.endsWith(`?v=${version}`),
+          true,
+          `import '${specifier}' lacks the release version ?v=${version}`,
+        );
+      }
+    }
+  }
 });
 
 test('install icons have the declared PNG dimensions', () => {

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import {
   adaptTaskToViewport,
+  baselineOffsets,
   createNameExerciseBank,
   TASKS,
   buildSession,
@@ -168,7 +169,30 @@ test('approved reference images supply every standard letter and digit template'
         const denominator = Math.hypot(incoming.x, incoming.y) * Math.hypot(outgoing.x, outgoing.y);
         if (denominator <= 1) continue;
         const cosine = (incoming.x * outgoing.x + incoming.y * outgoing.y) / denominator;
-        assert.ok(cosine >= -0.8, `${character} stroke ${strokeIndex + 1} doubles back at point ${index}`);
+        if (cosine >= -0.8) continue;
+        // The Schreibanleitung legitimately doubles back: retraces ("auf
+        // derselben Linie wieder hoch") run back over the same centre line,
+        // and vertex tips (the 1's flag, the W apex) turn sharply inside a
+        // few pixels.  Only a reversal that neither turns within a tip-sized
+        // run nor retraces its own path is a routing defect.
+        const minSegment = Math.min(Math.hypot(incoming.x, incoming.y), Math.hypot(outgoing.x, outgoing.y));
+        const distanceToPath = (point, from, to) => {
+          const edgeX = (to.x - from.x) * 900;
+          const edgeY = (to.y - from.y) * 620;
+          const length2 = edgeX * edgeX + edgeY * edgeY;
+          const t = length2 ? Math.max(0, Math.min(1, (
+            ((point.x - from.x) * 900) * edgeX + ((point.y - from.y) * 620) * edgeY
+          ) / length2)) : 0;
+          return Math.hypot(
+            ((point.x - from.x) * 900) - t * edgeX,
+            ((point.y - from.y) * 620) - t * edgeY,
+          );
+        };
+        const retrace = Math.min(
+          distanceToPath(stroke[index - 1], stroke[index], stroke[index + 1]),
+          distanceToPath(stroke[index + 1], stroke[index - 1], stroke[index]),
+        ) < 8;
+        assert.ok(minSegment < 12 || retrace, `${character} stroke ${strokeIndex + 1} doubles back at point ${index}`);
       }
     });
   });
@@ -237,45 +261,140 @@ test('lowercase letters are included in the regular 100-exercise letter bank', (
   assert.equal(EXERCISE_BANKS.letters.length, 100);
 });
 
-test('M and lowercase i follow the approved print-template construction', () => {
+const relativeStroke = (stroke) => {
+  const xs = stroke.map((point) => point.x);
+  const ys = stroke.map((point) => point.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  return stroke.map((point) => ({
+    x: (point.x - minX) / Math.max(1e-9, maxX - minX),
+    y: (point.y - minY) / Math.max(1e-9, maxY - minY),
+  }));
+};
+
+test('M and lowercase i follow the approved Schulschrift construction', () => {
   const m = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-M-gross');
-  assert.ok(m.strokes[0][0].y > m.strokes[0][1].y, 'M should begin at the lower-left then travel up');
-  assert.equal(m.strokes.length, 2, 'M should lift after its first rising slant');
-  assert.ok(m.strokes[1][1].y > m.strokes[1][0].y, 'M middle should dip below its two top points');
+  assert.equal(m.strokes.length, 1, 'M bleibt laut Anleitung in einem Zug');
+  const mStroke = relativeStroke(m.strokes[0]);
+  assert.ok(mStroke[0].x < 0.15 && mStroke[0].y < 0.5, 'M beginnt am kurzen Häkchen oben links');
+  assert.ok(mStroke[1].y < mStroke[0].y, 'M zieht zuerst nach oben zur Spitze');
+  const mMiddle = mStroke.filter((point) => point.x > 0.3 && point.x < 0.65);
+  assert.ok(mMiddle.some((point) => point.y > 0.75), 'M mittlerer Scheitel erreicht die Grundlinie');
+  assert.ok(mStroke.at(-1).y > 0.85 && mStroke.at(-1).x > 0.8, 'M endet unten rechts auf der Grundlinie');
 
   const i = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-i-gross');
   const dotX = i.strokes[1].reduce((sum, point) => sum + point.x, 0) / i.strokes[1].length;
-  assert.ok(Math.abs(dotX - i.strokes[0][0].x) < 0.025, 'i dot must sit over the top of its slanted stem');
+  assert.ok(Math.abs(dotX - i.strokes[0][0].x) < 0.025, 'i dot must sit over the top of its stem');
   assert.ok(Math.max(...i.strokes[1].map((point) => point.y)) < Math.min(...i.strokes[0].map((point) => point.y)), 'i dot should sit above its stem');
 });
 
-test('approved digits 1, 7, and 9 retain their distinct print forms', () => {
+test('approved digits 1, 7, and 9 retain their Schulschrift forms', () => {
   const one = EXERCISE_BANKS.numbers.find((task) => task.id === 'number-1-gross');
   const seven = EXERCISE_BANKS.numbers.find((task) => task.id === 'number-7-gross');
   const nine = EXERCISE_BANKS.numbers.find((task) => task.id === 'number-9-gross');
-  assert.equal(one.strokes.length, 1, '1 is one continuous lead-in and upright');
-  assert.ok(one.strokes[0][0].x < one.strokes[0][1].x, '1 should begin with its upper-left lead-in');
-  assert.ok(Math.abs(one.strokes[0].at(-1).x - Math.max(...one.strokes[0].map((point) => point.x))) < 0.02, '1 should finish on its upright');
-  assert.equal(seven.strokes.length, 1, '7 has no middle crossbar in the source font');
+  assert.equal(one.strokes.length, 1, '1 ist ein Strich: Fahne und Schaft ohne Absetzen');
+  const oneStroke = relativeStroke(one.strokes[0]);
+  assert.ok(oneStroke[0].x < 0.15, '1 should begin with its left lead-in');
+  assert.ok(oneStroke[1].y < oneStroke[0].y && oneStroke[1].x > oneStroke[0].x, '1 flag rises to the right');
+  assert.ok(oneStroke.at(-1).x > 0.5 && oneStroke.at(-1).y > 0.9, '1 upright finishes on the baseline right of centre');
+  assert.equal(seven.strokes.length, 2, '7 hat die Mittellinie als eigenen zweiten Strich');
   assert.ok(seven.strokes[0][0].x < seven.strokes[0][1].x, '7 should begin with a top bar');
   assert.ok(seven.strokes[0].at(-1).x < Math.max(...seven.strokes[0].map((point) => point.x)) - 0.1, '7 should descend to the left');
-  assert.equal(nine.strokes.length, 1, '9 remains one loop-and-tail movement');
-  assert.ok(nine.strokes[0][0].y < nine.strokes[0].at(-1).y, '9 tail should finish below its loop');
-  assert.ok(nine.strokes[0][0].x > nine.strokes[0].at(-1).x, '9 tail should finish left of its upper loop');
+  assert.ok(seven.strokes[1][0].x < seven.strokes[1].at(-1).x, '7 crossbar should be drawn from left to right');
+  assert.equal(nine.strokes.length, 1, '9 ist ein Strich: das Rund läuft ohne Absetzen in Schaft und Auslauf');
+  assert.ok(nine.strokes[0][0].x > 0.4 && nine.strokes[0][0].y < 0.3, '9 beginnt mit dem kleinen Rund oben rechts');
+  assert.ok(Math.abs(nine.strokes[0][0].x - nine.strokes[0][27].x) < 0.1
+    && nine.strokes[0][27].y > nine.strokes[0][0].y, '9 Rund schließt sich zurück zum Ausgangspunkt (ohne Absetzen)');
+  assert.ok(nine.strokes[0].at(-1).y > nine.strokes[0][27].y, '9 Schaft läuft vom Rund aus nach unten in den Auslauf');
+  assert.ok(nine.strokes[0].at(-1).x < nine.strokes[0][0].x && nine.strokes[0].at(-1).y > 0.8, '9 Auslauf endet unten und nach links ausgerichtet');
 });
 
-test('lowercase a, r, and t retain the approved upright print details', () => {
+test('digit 5 is drawn as a belly first and its top bar second', () => {
+  const five = EXERCISE_BANKS.numbers.find((task) => task.id === 'number-5-gross');
+  assert.equal(five.strokes.length, 2, '5 zeichnet erst Körper und Bauch, dann den oberen Strich');
+  const body = relativeStroke(five.strokes[0]);
+  assert.ok(body[0].x < 0.2, '5 beginnt oben links');
+  assert.ok(body[1].y > body[0].y + 0.02, '5 zieht zuerst nach unten');
+  assert.ok(Math.max(...body.map((point) => point.x)) > 0.9, '5 Bauch reicht nach rechts');
+  assert.ok(body.at(-1).x < 0.25 && body.at(-1).y > 0.8, '5 endet unten links');
+  const bar = five.strokes[1];
+  assert.ok(bar[0].x < bar.at(-1).x, '5 oberer Strich läuft von links nach rechts');
+  assert.ok(Math.max(...bar.map((point) => point.y)) < 0.2, '5 oberer Strich liegt oben');
+});
+
+test('digits 8 and 0 start at the top and 3 passes its waist once', () => {
+  const eight = EXERCISE_BANKS.numbers.find((task) => task.id === 'number-8-gross');
+  const eightRel = relativeStroke(eight.strokes[0]);
+  assert.ok(eightRel[0].y < 0.05, '8 beginnt oben an der Acht');
+  assert.ok(eightRel[1].x < eightRel[0].x && eightRel[1].y > eightRel[0].y, '8 führt zuerst nach links unten um den oberen Bauch');
+  assert.ok(Math.hypot(eightRel[0].x - eightRel.at(-1).x, eightRel[0].y - eightRel.at(-1).y) < 0.05, '8 schließt oben am Startpunkt');
+
+  const zero = EXERCISE_BANKS.numbers.find((task) => task.id === 'number-0-gross');
+  const zeroRel = relativeStroke(zero.strokes[0]);
+  assert.ok(zeroRel[0].y < 0.05, '0 beginnt oben');
+  assert.ok(zeroRel[1].x < zeroRel[0].x, '0 läuft zuerst nach links über den oberen Bogen');
+
+  const three = EXERCISE_BANKS.numbers.find((task) => task.id === 'number-3-gross');
+  const threeRel = relativeStroke(three.strokes[0]);
+  // In der Taille (mittleres Höhenband) darf die Route nur einmal die
+  // Laufrichtung wechseln.  Der alte Hinweis zwang Fino dort zu einem
+  // Hin-und-her-Zucken am Kreuzungspunkt.
+  const band = threeRel.filter((point) => point.y > 0.3 && point.y < 0.7);
+  let changes = 0;
+  let lastStep = 0;
+  for (let i = 1; i < band.length; i += 1) {
+    const step = Math.sign(band[i].x - band[i - 1].x);
+    if (step !== 0 && step !== lastStep) changes += 1;
+    if (step !== 0) lastStep = step;
+  }
+  assert.ok(changes <= 2, `3 Taille läuft einmal in die Mitte und einmal heraus (${changes} Wechsel)`);
+
+  // Die Acht kreuzt sich in der Mitte.  Fruher erzeugte der Wegpunkt am
+  // Kreuzungspunkt ein kleines Hin-und-her-Zucken direkt dort (Fino stiess
+  // kurz in den unteren Bauch und kam sofort zurueck).  Die Route muss die
+  // Kreuzung ohne kurze Umkehr passieren.
+  const crossing = eightRel.filter((point) => point.y > 0.34 && point.y < 0.58);
+  for (let i = 1; i < crossing.length - 1; i += 1) {
+    const first = {
+      x: crossing[i].x - crossing[i - 1].x,
+      y: crossing[i].y - crossing[i - 1].y,
+    };
+    const second = {
+      x: crossing[i + 1].x - crossing[i].x,
+      y: crossing[i + 1].y - crossing[i].y,
+    };
+    const lengthFirst = Math.hypot(first.x, first.y);
+    const lengthSecond = Math.hypot(second.x, second.y);
+    if (lengthFirst < 0.004 || lengthSecond < 0.004) continue;
+    const cosine = (first.x * second.x + first.y * second.y) / (lengthFirst * lengthSecond);
+    assert.ok(
+      cosine >= -0.7 || lengthFirst >= 0.02 || lengthSecond >= 0.02,
+      `8 Kreuzung ohne kurze Umkehr (${cosine.toFixed(2)} bei ${lengthFirst.toFixed(3)}/${lengthSecond.toFixed(3)})`,
+    );
+  }
+});
+
+test('lowercase a, r, and t retain the approved Schulschrift details', () => {
   const a = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-a-gross');
   const r = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-r-gross');
   const t = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-t-gross');
-  assert.equal(a.strokes.length, 2, 'a should have its round body and right upright');
-  assert.ok(Math.hypot(
-    a.strokes[0][0].x - a.strokes[0].at(-1).x,
-    a.strokes[0][0].y - a.strokes[0].at(-1).y,
-  ) < 0.02, 'a body should close cleanly');
-  assert.equal(r.strokes.length, 2, 'r should lift before its shoulder instead of retracing the upright');
-  assert.ok(r.strokes[0][0].y > r.strokes[0].at(-1).y, 'r upright should travel from the baseline to the x-height');
-  assert.ok(r.strokes[1].at(-1).x > r.strokes[1][0].x + 0.2, 'r needs a clear right shoulder');
+  assert.equal(a.strokes.length, 1, 'a ist in einem Zug: Rund läuft ohne Absetzen in den Schaft');
+  const aStroke = a.strokes[0];
+  assert.ok(aStroke[0].y < 0.35 && aStroke[0].x > 0.45, 'a beginnt oben rechts am Rund');
+  assert.ok(aStroke[1].x < aStroke[0].x, 'a läuft zuerst nach links über den Bogen');
+  assert.ok(Math.min(...aStroke.map((point) => point.x)) < 0.38, 'a Rund reicht bis nach links');
+  // One continuous pen motion: the round body comes back up its right side
+  // before the single stroke continues down the stem.
+  assert.ok(aStroke.slice(8, -4).some((point) => point.y < 0.35 && point.x > 0.52), 'a Rund schließt oben, bevor der Schaft beginnt');
+  assert.ok(Math.max(...aStroke.map((point) => point.y)) > 0.65, 'a Schaft erreicht die Grundlinie');
+  assert.ok(aStroke.at(-1).x > aStroke.at(-2).x, 'a Schaft schwingt unten nach rechts aus');
+  assert.equal(r.strokes.length, 1, 'r bleibt in einem Zug: Schaft, Wiederhochfahren, Schulter');
+  const rStroke = relativeStroke(r.strokes[0]);
+  assert.ok(rStroke[0].y < 0.3, 'r beginnt an der Mittellinie');
+  assert.ok(Math.max(...rStroke.map((point) => point.y)) > 0.9, 'r stem reaches the baseline');
+  assert.ok(rStroke.at(-1).x > rStroke[0].x + 0.5, 'r needs a clear right shoulder');
   assert.equal(t.strokes.length, 2, 't needs a stem and one crossbar');
   assert.ok(t.strokes[0].at(-1).x > t.strokes[0][0].x + 0.04, 't should finish with a friendly exit hook');
 });
@@ -283,17 +402,24 @@ test('lowercase a, r, and t retain the approved upright print details', () => {
 test('approved lowercase l and q retain their distinct exits', () => {
   const l = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-l-gross');
   const q = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-q-gross');
+  const lStroke = relativeStroke(l.strokes[0]);
+  assert.ok(lStroke[0].x > 0.8, 'l beginnt am Einstrich oben rechts');
+  assert.ok(lStroke[1].x < lStroke[0].x, 'l pull left onto the stem before descending');
   assert.ok(l.strokes[0].at(-1).x > l.strokes[0].at(-2).x, 'l should finish with a small rightward curve');
-  assert.ok(Math.abs(q.strokes[1][0].x - q.strokes[1].at(-1).x) < 0.001, 'q descender should be vertical');
+  assert.equal(q.strokes.length, 1, 'q ist ein Strich: Rund läuft in den Schwanz');
+  const qDescenderXs = q.strokes[0].slice(-4).map((point) => point.x);
+  assert.ok(Math.max(...qDescenderXs) - Math.min(...qDescenderXs) < 0.02, 'q descender should be vertical');
 });
 
-test('N uses the normal downward-right diagonal with natural pen lifts', () => {
+test('N is drawn in one continuous zigzag from the bottom left', () => {
   const n = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-N-gross');
-  assert.equal(n.strokes.length, 3, 'N should have two uprights and one diagonal');
-  const [left, diagonal, right] = n.strokes;
-  assert.ok(left[0].y < left.at(-1).y, 'left upright should travel downward');
-  assert.ok(diagonal[0].x < diagonal.at(-1).x && diagonal[0].y < diagonal.at(-1).y, 'N diagonal should travel down to the right');
-  assert.ok(right[0].y > right.at(-1).y, 'right upright should finish upward');
+  assert.equal(n.strokes.length, 1, 'N bleibt laut Anleitung in einem Zug');
+  const stroke = relativeStroke(n.strokes[0]);
+  assert.ok(stroke[0].y > 0.7, 'N beginnt unten links');
+  assert.ok(stroke[1].y < stroke[0].y, 'N first travels up the left upright');
+  const bottomVisit = stroke.filter((point) => point.y > 0.85);
+  assert.ok(bottomVisit.some((point) => point.x > 0.5), 'N diagonal reaches the baseline before rising');
+  assert.ok(stroke.at(-1).x > 0.8 && stroke.at(-1).y < 0.25, 'N finishes at the top of its right upright');
 });
 
 test('curriculum uses text and drawing data instead of emoji decorations', () => {
@@ -451,12 +577,23 @@ test('a complete name uses one shared type scale and baseline', () => {
       maxY: Math.max(...points.map((point) => point.y)),
     };
   });
-  const baselines = groupBounds.map((bounds) => bounds.maxY);
-  assert.ok(Math.max(...baselines) - Math.min(...baselines) < 0.012, `name baselines differ: ${baselines.join(', ')}`);
-  const capitalHeight = groupBounds[0].maxY - groupBounds[0].minY;
-  const lowerLHeight = groupBounds[1].maxY - groupBounds[1].minY;
-  const lowerIHeight = groupBounds[2].maxY - groupBounds[2].minY;
-  assert.ok(Math.abs(capitalHeight - lowerLHeight) < 0.035, 'capital and ascender should share a visual line height');
+  // The route's lowest point sits a glyph-specific distance above the true
+  // baseline (tapered exits, foot curves).  Recover the baseline by scaling
+  // the approved ink-top→baseline offset into each letter's rendered height.
+  const baselines = word.completionGroups.map((group, index) => {
+    const letter = 'Lilli'[index];
+    const offset = baselineOffsets[letter];
+    const routeHeight = CHARACTER_STROKE_GEOMETRY[letter].routeHeight;
+    return groupBounds[index].minY + offset * (groupBounds[index].maxY - groupBounds[index].minY) / routeHeight;
+  });
+  assert.ok(Math.max(...baselines) - Math.min(...baselines) < 0.008, `name baselines differ: ${baselines.join(', ')}`);
+  // Compare the source ink heights (route heights differ with each glyph's
+  // tapered ends even when the drawn letters share their line).
+  const inkHeight = (letter) => (CHARACTER_STROKE_GEOMETRY[letter].cropHeight - 8) / 620;
+  const capitalHeight = inkHeight('L');
+  const lowerLHeight = inkHeight('l');
+  const lowerIHeight = inkHeight('i');
+  assert.ok(Math.abs(capitalHeight - lowerLHeight) < 0.012, 'capital and ascender should share a visual line height');
   assert.ok(lowerIHeight < lowerLHeight * 0.78, 'lowercase i should keep its natural source proportions');
 });
 

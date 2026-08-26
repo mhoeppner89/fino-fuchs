@@ -3,8 +3,8 @@
 import {
   CHARACTER_TEMPLATE_SHEETS,
   characterTemplateCrop,
-} from './handwriting-template-data.js';
-import { characterStrokeGeometry } from './handwriting-stroke-data.js';
+} from './handwriting-template-data.js?v=1.3.24';
+import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.24';
 import {
   connectInkWidthForBoard,
   connectTrailCollision,
@@ -12,19 +12,42 @@ import {
   mazeWallCollision,
   nextMazeSolutionPoint,
   pointDistanceInPixels,
-} from './mini-games.js';
+} from './mini-games.js?v=1.3.24';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const DEMO_JUMP_UNITS = 0.42;
 const REQUIRED_PATH_COVERAGE = 0.8;
+// Fino turns toward the guide direction at this rate (rad/s). Fast enough to
+// follow real corners, slow enough to hide the pixel-level zigzag of the
+// generated centre lines that made his heading twitch between frames.
+const DEMO_TURN_RATE = 4.5;
+
+function shortestAngleDelta(target, current) {
+  let delta = (target - current) % (Math.PI * 2);
+  if (delta > Math.PI) delta -= Math.PI * 2;
+  if (delta < -Math.PI) delta += Math.PI * 2;
+  return delta;
+}
 const MAX_CANVAS_PIXELS = 3_200_000;
 const CANVAS_PAPER = '#FFFCF7';
 const WEBKIT_ENGINE = typeof navigator !== 'undefined'
   && /AppleWebKit/i.test(navigator.userAgent)
   && (!/(Chrome|Chromium|Edg|OPR|SamsungBrowser)/i.test(navigator.userAgent)
     || /iPhone|iPad|iPod/i.test(navigator.userAgent));
-export const DEMO_SPEED_MULTIPLIER = 1.5;
+export const DEMO_SPEED_MULTIPLIER = 6.0;
+
+/**
+ * Fino runs every stroke preview at one constant speed (px/s), so a short
+ * crossbar takes proportionally less time than a long belly. A single-point
+ * mark (a dot) has no path length and gets a short readable pause instead.
+ */
+export function demoRunDuration(pathLength, boundsHeight, { reducedMotion = false, multiplier = DEMO_SPEED_MULTIPLIER } = {}) {
+  if (reducedMotion) return 1;
+  if (!pathLength || pathLength <= 0) return 300;
+  const speed = clamp(boundsHeight * 0.55, 70, 140) * multiplier;
+  return Math.max(1, (pathLength / speed) * 1000);
+}
 export const INK_COLORS = Object.freeze(['#284B73', '#C75C7B', '#2A9D8F', '#9A63BA', '#DD8530']);
 // The guide remains easy to find at every difficulty. Difficulty comes from
 // scoring, not from making the practice path disappear into the background.
@@ -740,7 +763,7 @@ function drawingIdentity(task, userStrokes, width, height, assist = 'easy') {
   const identityProfiles = {
     easy: { tolerance: 0.072, min: 20, max: 36, scaleMin: 0.7, scaleMax: 1.38, angle: 14, coverage: 0.8, precision: 0.7, mse: 0.95, pathCoverage: 0.66, pathGap: 0.5 },
     medium: { tolerance: 0.061, min: 17, max: 30, scaleMin: 0.76, scaleMax: 1.3, angle: 12, coverage: 0.86, precision: 0.77, mse: 0.72, pathCoverage: 0.74, pathGap: 0.44 },
-    hard: { tolerance: 0.052, min: 14, max: 24, scaleMin: 0.82, scaleMax: 1.22, angle: 9, coverage: 0.91, precision: 0.83, mse: 0.56, pathCoverage: 0.8, pathGap: 0.39 },
+    hard: { tolerance: 0.052, min: 14, max: 24, scaleMin: 0.82, scaleMax: 1.22, angle: 9, coverage: 0.91, precision: 0.87, mse: 0.56, pathCoverage: 0.8, pathGap: 0.39 },
   };
   const profile = identityProfiles[assist] ?? identityProfiles.easy;
   const expectedSamplesByStroke = task.strokes.map((stroke) => resampleStroke(stroke, width, height, 5));
@@ -929,6 +952,49 @@ export function nextGuideStrokeIndex(expectedStrokes, userStrokes, {
   });
   const next = pathCoverage.findIndex((coverage) => coverage < REQUIRED_PATH_COVERAGE);
   return next >= 0 ? next : Math.max(0, expectedStrokes.length - 1);
+}
+
+/**
+ * Stroke-by-stroke recognition. Judges one completed pen stroke against a
+ * single guide route with the same child-friendly band the whole task uses.
+ * Returns null when the stroke is too short to judge, otherwise a symmetric
+ * fit { coverage, precision } in [0, 1]: coverage is how much of the route
+ * the stroke covers, precision is how much of the stroke lies on the route.
+ */
+export function judgeStrokeAgainstRoute(userStroke, expectedStroke, {
+  width = 900,
+  height = 620,
+  tolerance = Math.min(width, height) * 0.11,
+} = {}) {
+  if (!expectedStroke?.length || !userStroke?.length) return null;
+  const expectedPixels = expectedStroke.map((point) => toPixels(point, width, height));
+  const userPixels = userStroke.map((point) => toPixels(point, width, height));
+  if (pixelPolylineLength(userPixels) < 10) return null;
+  const expectedSamples = resampleStroke(expectedStroke, width, height, 6);
+  const userSamples = resampleStroke(userStroke, width, height, 6);
+  const targetMatch = nearestDistanceMetrics(expectedSamples, [userPixels], tolerance);
+  const userMatch = nearestDistanceMetrics(userSamples, [expectedPixels], tolerance);
+  return { coverage: targetMatch.coverage, precision: userMatch.coverage };
+}
+
+/**
+ * True when a completed stroke is close to at least one guide route of the
+ * task. Splitting one teaching stroke over several pen lifts (high precision,
+ * partial coverage) and merging several routes into one pen movement both
+ * count as progress; a stroke that matches no route was drawn in the wrong
+ * place and is rejected by the stroke-by-stroke check.
+ */
+export function strokeMatchesAnyRoute(task, userStroke, {
+  width = 900,
+  height = 620,
+  tolerance = Math.min(width, height) * 0.11,
+} = {}) {
+  if (!task?.strokes?.length || !userStroke?.length) return false;
+  return task.strokes.some((route) => {
+    if (!route.length) return false;
+    const fit = judgeStrokeAgainstRoute(userStroke, route, { width, height, tolerance });
+    return fit !== null && (fit.coverage >= 0.5 || fit.precision >= 0.8);
+  });
 }
 
 export function feedbackForEvaluation(result) {
@@ -1135,10 +1201,15 @@ export class DrawingBoard {
     this.demoResolve = null;
     this.demoFinishTimer = 0;
     this.demoFrame = 0;
+    this.demoAngle = null;
+    this.lastDemoFrameAt = 0;
     this.jumpAnimation = null;
     this.jumpFrame = 0;
     this.finoEnabled = true;
-    this.reactiveFoxPoint = null;
+    // Where Fino currently stands on screen (normalized). Kept in sync with
+    // the resting fox so the next jump starts from his actual position
+    // instead of from the side of the board or the child's last pen point.
+    this.foxPosition = null;
     this.highlightUntil = 0;
     this.gameState = null;
     this.gameHint = null;
@@ -1318,8 +1389,10 @@ export class DrawingBoard {
     this.activeStroke = null;
     this.demoProgress = null;
     this.demoStrokeIndexes = [];
+    this.demoAngle = null;
+    this.lastDemoFrameAt = 0;
     this.jumpAnimation = null;
-    this.reactiveFoxPoint = null;
+    this.foxPosition = null;
     this.highlightUntil = 0;
     this.inkRevision += 1;
     this.evaluationCache = null;
@@ -1339,7 +1412,7 @@ export class DrawingBoard {
     this.strokeColors = [];
     this.activeStroke = null;
     this.jumpAnimation = null;
-    this.reactiveFoxPoint = null;
+    this.foxPosition = null;
     cancelAnimationFrame(this.jumpFrame);
     this.highlightUntil = 0;
     this.inkRevision += 1;
@@ -1356,7 +1429,7 @@ export class DrawingBoard {
     this.stopDemo({ render: false });
     this.userStrokes.pop();
     this.strokeColors.pop();
-    this.reactiveFoxPoint = this.usesPenFollowingFino()
+    this.foxPosition = this.usesPenFollowingFino()
       ? this.userStrokes.at(-1)?.at(-1) ?? null
       : null;
     if (this.gameState?.mode === 'maze') {
@@ -1392,7 +1465,7 @@ export class DrawingBoard {
   setUserStrokes(strokes) {
     this.userStrokes = strokes.map((stroke) => stroke.map((point) => ({ x: point.x, y: point.y, pressure: point.pressure ?? 0.5 })));
     this.strokeColors = this.userStrokes.map((_, index) => this.task?.strokeColors?.[index] ?? inkColorAt(index));
-    this.reactiveFoxPoint = this.usesPenFollowingFino()
+    this.foxPosition = this.usesPenFollowingFino()
       ? this.userStrokes.at(-1)?.at(-1) ?? null
       : null;
     this.inkRevision += 1;
@@ -1432,7 +1505,7 @@ export class DrawingBoard {
     }
     this.activeStroke = null;
     this.activePointerId = null;
-    this.reactiveFoxPoint = this.usesPenFollowingFino()
+    this.foxPosition = this.usesPenFollowingFino()
       ? this.userStrokes.at(-1)?.at(-1) ?? null
       : null;
     this.inkRevision += 1;
@@ -1517,6 +1590,26 @@ export class DrawingBoard {
     });
     this.evaluationCache = { revision: this.inkRevision, result };
     return result;
+  }
+
+  /**
+   * Stroke-by-stroke recognition: judge only the most recently completed
+   * stroke against the guide routes. Returns 'accepted' when the stroke lies
+   * near at least one route, 'rejected' when it matches nothing (wrong
+   * letter, mirrored, far-off trace, or a scribble), and null when there is
+   * no stroke to judge. The whole-task check still decides final completion;
+   * this only decides whether the newest stroke counts as progress.
+   */
+  judgeLastStroke() {
+    if (!this.task || this.isGameTask() || !this.userStrokes.length) return null;
+    const finished = this.userStrokes.at(-1);
+    if (!finished || finished.length < 2) return null;
+    const fit = strokeMatchesAnyRoute(this.task, finished, {
+      width: this.width,
+      height: this.height,
+      tolerance: this.evaluationOptions().completionTolerance,
+    });
+    return fit ? 'accepted' : 'rejected';
   }
 
   activeGuideStageIndex() {
@@ -1619,9 +1712,9 @@ export class DrawingBoard {
   startDemo() {
     if (!this.task || this.demoProgress !== null) return Promise.resolve();
     if (this.isGameTask()) return this.startGameHint();
-    // Letters and numbers have several valid stroke orders. Here Fino reacts
-    // to the child's pen instead of presenting one supposedly correct route.
-    if (this.usesPenFollowingFino()) return Promise.resolve();
+    // Letters and numbers are also taught one stroke at a time. Fino runs the
+    // next unfinished stroke and then follows the child's pen while drawing;
+    // the recognition stays order-agnostic for the finished shape.
     this.jumpAnimation = null;
     cancelAnimationFrame(this.jumpFrame);
     // Fino demonstrates one mark, then leaves the next turn to the child.
@@ -1629,22 +1722,33 @@ export class DrawingBoard {
     const demoStrokes = this.demoStrokeIndexes.map((index) => this.task.strokes[index]);
     if (!demoStrokes.length) return Promise.resolve();
     this.demoProgress = 0;
+    this.demoAngle = null;
+    this.lastDemoFrameAt = 0;
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    // Pace the helper by distance, not stroke count. The 1.5× multiplier
-    // makes every preview exactly 50% faster while keeping it readable.
+    // Pace the helper by distance, not stroke count. Fino runs at one
+    // constant speed no matter how long the preview is; only a single-point
+    // mark (a dot) gets a short readable pause because it has no path length.
     const pathLength = demoStrokes.reduce((sum, stroke) => sum + polylineLength(stroke, this.width, this.height), 0);
-    const demoSpeed = clamp(drawingBounds(this.width, this.height).height * 0.55, 70, 140) * DEMO_SPEED_MULTIPLIER;
-    const duration = reducedMotion ? 1 : clamp((pathLength / demoSpeed) * 1000, 600, 3067);
+    const duration = demoRunDuration(pathLength, drawingBounds(this.width, this.height).height, { reducedMotion });
     const startedAt = performance.now();
 
     return new Promise((resolve) => {
       this.demoResolve = resolve;
       const finish = () => {
         if (this.demoProgress === null) return;
+        const demoIndexes = this.demoStrokeIndexes;
         this.demoProgress = null;
         this.demoStrokeIndexes = [];
         this.demoResolve = null;
         this.demoFinishTimer = 0;
+        // Fino now stands at the end of the stroke he just ran. The next jump
+        // starts from exactly here, so he never appears from the screen edge.
+        const lastIndex = demoStrokes.length - 1;
+        const end = pointAlongGuidePath(
+          demoStrokes[lastIndex] ?? [], 1, this.width, this.height,
+          this.isAngularGuide(demoIndexes[lastIndex] ?? 0),
+        );
+        if (end) this.foxPosition = toNormalized(end.point, this.width, this.height);
         this.render();
         resolve();
       };
@@ -1741,7 +1845,10 @@ export class DrawingBoard {
       const target = toPixels(point, this.width, this.height);
       const bounds = drawingBounds(this.width, this.height);
       const foxSize = clamp(Math.min(bounds.width, bounds.height) * 0.1, 34, 58);
-      const previous = this.reactiveFoxPoint ? toPixels(this.reactiveFoxPoint, this.width, this.height) : null;
+      const previous = this.foxPosition ? toPixels(this.foxPosition, this.width, this.height) : null;
+      // Jump from where Fino is currently standing. Only when he has no
+      // known position yet (fresh task, no demo) does he hop in from the
+      // side of the board.
       const from = previous ?? {
         x: target.x < this.width / 2 ? -foxSize : this.width + foxSize,
         y: target.y,
@@ -1799,7 +1906,7 @@ export class DrawingBoard {
     }
     const finishedStroke = simplifyStroke(this.activeStroke, this.width, this.height);
     this.userStrokes[this.userStrokes.length - 1] = finishedStroke;
-    if (this.usesPenFollowingFino()) this.reactiveFoxPoint = finishedStroke.at(-1) ?? this.reactiveFoxPoint;
+    if (this.usesPenFollowingFino()) this.foxPosition = finishedStroke.at(-1) ?? this.foxPosition;
     this.activePointerId = null;
     this.activeStroke = null;
     this.activeGuideIndex = null;
@@ -1855,7 +1962,7 @@ export class DrawingBoard {
     }
     const finishedStroke = simplifyStroke(this.activeStroke, this.width, this.height);
     this.userStrokes[this.userStrokes.length - 1] = finishedStroke;
-    if (this.usesPenFollowingFino()) this.reactiveFoxPoint = finishedStroke.at(-1) ?? this.reactiveFoxPoint;
+    if (this.usesPenFollowingFino()) this.foxPosition = finishedStroke.at(-1) ?? this.foxPosition;
     this.activePointerId = null;
     this.activeStroke = null;
     this.activeGuideIndex = null;
@@ -2041,14 +2148,17 @@ export class DrawingBoard {
   }
 
   startJumpToNextStroke(finishedStroke) {
-    if (this.usesPenFollowingFino()) return;
     const nextStroke = this.task?.strokes[this.nextGuideStrokeIndex()];
-    const lastPoint = finishedStroke?.at(-1);
-    const nextPoint = nextStroke?.[0];
-    if (!lastPoint || !nextPoint) return;
-
-    const from = toPixels(lastPoint, this.width, this.height);
-    const to = toPixels(nextPoint, this.width, this.height);
+    if (!finishedStroke?.length || !nextStroke?.length) return;
+    // The next-stroke preview runs from the stroke start, so the jump lands
+    // there too. It starts from Fino's current on-screen position: after a
+    // pen-following stroke he stands at the child's last point, and on the
+    // other activities he kept waiting at the next stroke's start while the
+    // child drew. Never from the child's pen position or the board edge.
+    const to = toPixels(nextStroke[0], this.width, this.height);
+    const from = this.foxPosition
+      ? toPixels(this.foxPosition, this.width, this.height)
+      : toPixels(finishedStroke.at(-1), this.width, this.height);
     this.animateFoxJump(from, to);
   }
 
@@ -2246,10 +2356,25 @@ export class DrawingBoard {
         const lastIndex = this.activeStroke.length - 1;
         const point = toPixels(this.activeStroke[lastIndex], this.width, this.height);
         const previous = toPixels(this.activeStroke[Math.max(0, lastIndex - 1)], this.width, this.height);
+        this.foxPosition = this.activeStroke[lastIndex];
         this.drawGuideFox(context, point, Math.atan2(point.y - previous.y, point.x - previous.x));
         return;
       }
-      if (this.reactiveFoxPoint) this.drawGuideFox(context, toPixels(this.reactiveFoxPoint, this.width, this.height), 0);
+      // Between strokes Fino waits at the start of the next stroke to take.
+      // The next-stroke preview runs from exactly this point, so there is no
+      // snap when the demo starts; without a demo it still shows the child
+      // where the pen should begin.
+      const nextStrokeIndex = this.nextGuideStrokeIndex();
+      const next = pointAlongGuidePath(
+        this.task.strokes[nextStrokeIndex] ?? [], 0, this.width, this.height,
+        this.isAngularGuide(nextStrokeIndex),
+      );
+      if (next) {
+        this.foxPosition = toNormalized(next.point, this.width, this.height);
+        this.drawGuideFox(context, next.point, next.angle);
+        return;
+      }
+      if (this.foxPosition) this.drawGuideFox(context, toPixels(this.foxPosition, this.width, this.height), 0);
       return;
     }
     if (this.jumpAnimation) {
@@ -2269,7 +2394,10 @@ export class DrawingBoard {
     const angular = this.isAngularGuide(nextStrokeIndex);
     // Fino waits on the invisible centre line of the visible template.
     const next = pointAlongGuidePath(nextStroke ?? [], 0.07, this.width, this.height, angular);
-    if (next) this.drawGuideFox(context, next.point, next.angle);
+    if (next) {
+      this.foxPosition = toNormalized(next.point, this.width, this.height);
+      this.drawGuideFox(context, next.point, next.angle);
+    }
   }
 
   drawJumpingFox(context, jump) {
@@ -2305,7 +2433,24 @@ export class DrawingBoard {
       const activeIndex = this.demoStrokeIndexes[stage.strokeIndex];
       const activeStroke = this.task.strokes[activeIndex];
       const guide = pointAlongGuidePath(activeStroke ?? [], stage.progress, this.width, this.height, this.isAngularGuide(activeIndex));
-      if (guide) this.drawGuideFox(context, guide.point, guide.angle);
+      if (guide) {
+        // Ease the heading toward the guide direction at a fixed turn rate
+        // instead of snapping to it. This removes the per-frame direction
+        // twitch from pixel-level waypoint zigzag while still following
+        // genuine corners like the letter entry ticks.
+        const target = guide.angle;
+        if (this.demoAngle === null) {
+          this.demoAngle = target;
+        } else {
+          const now = performance.now();
+          const seconds = this.lastDemoFrameAt ? Math.min(0.1, Math.max(0.004, (now - this.lastDemoFrameAt) / 1000)) : 0.016;
+          this.lastDemoFrameAt = now;
+          const delta = shortestAngleDelta(target, this.demoAngle);
+          const turn = Math.min(Math.abs(delta), DEMO_TURN_RATE * seconds);
+          this.demoAngle += (delta < 0 ? -1 : delta > 0 ? 1 : 0) * turn;
+        }
+        this.drawGuideFox(context, guide.point, this.demoAngle);
+      }
       return;
     }
 

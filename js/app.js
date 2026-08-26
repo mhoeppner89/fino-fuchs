@@ -5,14 +5,13 @@ import {
   DIFFICULTIES,
   normalizeName,
   reflowTaskWithInk,
-} from './curriculum.js';
+} from './curriculum.js?v=1.3.24';
 import {
   DrawingBoard,
   evaluateTaskDrawing,
   feedbackForEvaluation,
   passesDrawingCriteria,
-  usesPenFollowingFino,
-} from './drawing.js';
+} from './drawing.js?v=1.3.24';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -365,15 +364,12 @@ function clearPreview() {
 }
 
 function updateFinoButton() {
-  const toggleMode = usesPenFollowingFino(state.activeTask);
-  elements.showButton.classList.toggle('is-muted', toggleMode && !state.finoEnabled);
-  if (toggleMode) {
-    elements.showButton.setAttribute('aria-pressed', String(state.finoEnabled));
-    elements.showButton.setAttribute('aria-label', state.finoEnabled ? 'Fino ausschalten' : 'Fino einschalten');
-  } else {
-    elements.showButton.removeAttribute('aria-pressed');
-    elements.showButton.setAttribute('aria-label', 'Fino zeigt die Spur');
-  }
+  // Fino is the helper in every activity: the button shows the next stroke
+  // or game route. Letters and numbers keep their pen-following behaviour
+  // while the child draws, so the button never doubles as an on/off toggle.
+  elements.showButton.classList.remove('is-muted');
+  elements.showButton.removeAttribute('aria-pressed');
+  elements.showButton.setAttribute('aria-label', 'Fino zeigt die Spur');
 }
 
 function updateRoundControls() {
@@ -393,7 +389,6 @@ function updateRoundControls() {
 
 async function previewCurrentStroke({ force = false } = {}) {
   if (state.transitioning || state.screen !== 'practice' || !state.activeTask) return false;
-  if (usesPenFollowingFino(state.activeTask)) return false;
   const previewKey = board.isGameTask()
     ? `${state.activeTask.gameMode}-${board.gameSnapshot()?.progress ?? 0}`
     : board.nextGuideStrokeIndex();
@@ -407,7 +402,7 @@ async function previewCurrentStroke({ force = false } = {}) {
 }
 
 function scheduleNextStrokePreview() {
-  if (board.isGameTask() || usesPenFollowingFino(state.activeTask)) return;
+  if (board.isGameTask()) return;
   clearPreview();
   const taskToken = state.taskToken;
   const strokeIndex = board.nextGuideStrokeIndex();
@@ -462,7 +457,7 @@ async function renderTask() {
   board.setFinoEnabled(state.finoEnabled);
   updateRoundControls();
 
-  const shouldDemo = !task.gameMode && !usesPenFollowingFino(task)
+  const shouldDemo = !task.gameMode
     && (task.assist === 'easy' || (state.index === 0 && task.assist === 'medium'));
   if (shouldDemo) {
     window.setTimeout(async () => {
@@ -593,6 +588,17 @@ function checkDrawing({ quietIncomplete = false } = {}) {
   if (passed) {
     celebrate(praise[Math.floor(Math.random() * praise.length)]);
     return { passed: true, result };
+  }
+
+  // Stroke-by-stroke recognition: a stroke that matches none of the guide
+  // routes was drawn in the wrong place (wrong letter, mirrored, far off, or
+  // a scribble). Tell the child to try that stroke again instead of quietly
+  // waiting for the whole task to finish.
+  if (board.judgeLastStroke() === 'rejected') {
+    state.attempts += 1;
+    board.flashGuide();
+    showToast('Fast! Versuch es noch einmal.', 1800);
+    return { passed: false, result, strokeRejected: true };
   }
 
   // A partial multi-stroke drawing is progress, not a failed attempt. The
@@ -796,12 +802,6 @@ elements.clearButton.addEventListener('click', () => {
 });
 
 elements.showButton.addEventListener('click', async () => {
-  if (usesPenFollowingFino(state.activeTask)) {
-    state.finoEnabled = !state.finoEnabled;
-    board.setFinoEnabled(state.finoEnabled);
-    updateRoundControls();
-    return;
-  }
   await previewCurrentStroke({ force: true });
 });
 
@@ -893,7 +893,7 @@ window.render_game_to_text = () => JSON.stringify({
   assist: state.activeTask?.assist ?? null,
   userStrokes: board.getUserStrokes().length,
   inkColors: board.getUserStrokeColors(),
-  fino: usesPenFollowingFino(state.activeTask) ? { enabled: state.finoEnabled, mode: 'follow-pen' } : { enabled: true, mode: 'preview' },
+  fino: { enabled: true, mode: 'preview' },
   game: board.gameSnapshot(),
 });
 

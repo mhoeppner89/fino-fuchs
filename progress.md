@@ -239,3 +239,81 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Added a same-page history guard while a round is active. An accidental Safari back swipe stays in the app and opens the existing exit confirmation instead of closing the site.
 - Backgrounding or interrupting Safari now finishes and keeps an active tracing stroke instead of deleting it. Prepared release `v1.3.13`.
 - Verified the actual fullscreen button path: root and body stayed at position zero with scrolling and touch action locked, an edge-to-edge stroke remained visible and undoable, and backward navigation kept the same URL and opened the exit confirmation. No browser warnings or errors were logged.
+
+## 2026-08-25 Schulschrift font switch
+
+- Replaced the letter and number source font with the approved Schulschrift sheet (`SCHULSCHRIFT.png`, black ink in the alpha channel). New script `scripts/extract_schulschrift_glyphs.py` segments the sheet into all 62 exercisable characters (A-Z, a-z, 0-9; the "10" cell donates the 0) and lays them onto uniform white reference sheets `uppercase-v2.png`, `lowercase-v3.png`, `digits-v2.png`. Umlauts stay derived from the base letters, ß is normalised to "ss" in names, so those pair cells are intentionally skipped.
+- Rewrote the stroke-route hints in `scripts/extract_handwriting_templates.py` as a direct transcription of the approved `schreib_anleitung.md`: stroke counts, directions, closed pen motions (O, o, 0, bowls), the figure eight in one stroke, the crossed 7 as two strokes, the two-stroke 9, and the retrace moves ("auf derselben Linie wieder hoch") for h, m, n, r, u.
+- Extended the centre-line extractor: teaching strokes now chain through every hint waypoint (this is what keeps retraces on the centre line), chaining may cross shared junctions and bridge detached entry ticks (l) instead of falling back to a straight line, short raster spikes still collapse while waypoint tips and long retraces are protected, and detached raster specks no longer count against the route error. All 62 characters now cover their template within 8 px; worst miss 7.7 px (l).
+- Name layout now derives its line model from the sheet itself: per-character crop-top-to-baseline offsets place every letter on one shared baseline, and each glyph's ink is centred inside its advance slot so a narrow I keeps even gaps. Umlaut dots shift the design top by their own rise.
+- Recalibrated the test suite to the new font: construction tests assert the Schreibanleitung (one-stroke M/N/Z/W, two-stroke 7/9, tick starts on l and M, retraces on r/u), the double-back rule allows tip turns and true retraces, name baselines are measured scale-free via the exported baseline offsets, and the cross-replacement pool asserts the school-script lowercase pairs and G/Q/O at hard, where all of them separate. `npm test` passes 116 of 116 tests. Prepared release `v1.3.14`.
+
+## 2026-08-26 Fino next-stroke preview for letters and numbers
+
+- Letters and numbers use pen-following Fino, which never showed where the next stroke begins: on a fresh task no Fino was visible at all, and between strokes it stayed at the end of the previous stroke. With the old print font the next stroke usually began right there, so the gap was invisible; the Schulschrift entry ticks made it obvious.
+- Pen-following Fino now waits on the centre line of the next stroke to take (same 7% waiting spot the shape previews use), and after each finished stroke it jumps from the stroke end to that waiting point. An unfinished stroke keeps Fino at its own start, so "again from here" is shown naturally.
+- Fixed the local-test staleness trap underneath it: the service worker's install and script fetches now use `cache: "reload"`, so unversioned modules (drawing.js & co.) can no longer be served heuristically stale from the browser HTTP cache after a deployment. Prepared release `v1.3.15`.
+- Verified in the browser: fresh A shows Fino at the baseline start of the first stroke; after tracing the legs Fino jumps to the crossbar start. `npm test` passes 116 of 116 tests.
+
+## 2026-08-26 Fino runs the next stroke and per-stroke recognition
+
+- Fino now demonstrates the next unfinished stroke by running its path in every tracing activity, including Zahlen, Buchstaben, and Mein Name — not only Linien and Formen. Letters and numbers keep their pen-following behaviour while the child draws; the fox button is the same "Fino zeigt die Spur" preview button everywhere and no longer doubles as an on/off toggle.
+- Between strokes Fino jumps to the start of the next stroke and the preview begins at exactly that point, so the jump and the demo no longer snap apart. Pen-split and merged strokes stay accepted as progress.
+- Recognition now works stroke by stroke: after each completed stroke the app judges only that stroke against the guide routes with the same child-friendly band. A stroke that matches no route (wrong letter, mirrored, far off, or a scribble) flashes the guide and says "Fast! Versuch es noch einmal." instead of silently waiting for the whole task; the whole-task completion check is unchanged.
+- Prepared release `v1.3.16`. `npm test` passes 121 of 121 tests; browser checks confirmed the demo runs on a fresh letter, number, and name task, the next-stroke demo starts after an accepted stroke, and a wrong-place stroke is rejected with the guide flash and toast.
+
+## 2026-08-26 constant preview speed, smooth Fino turns, two-stroke 5
+
+- Fino's stroke preview now runs at one constant speed regardless of how long the path is: a short crossbar takes proportionally less time than a long belly (previously the duration was clamped between 600 ms and 3067 ms, so short strokes crawled and long strokes sped up). Only a single-point mark (a dot) keeps a short readable pause because it has no path length. Exported `demoRunDuration()` with a constant-speed regression test.
+- Fino's heading now eases toward the guide direction at a fixed turn rate (4.5 rad/s) instead of snapping between frames. This removes the per-frame direction twitch caused by pixel-level waypoint zigzag in the generated centre lines while still following genuine corners like the letter entry ticks.
+- Number 5 is now taught as two strokes per request: first from top left down the stem and around the belly, then the top bar from left to right. Updated the route hint in `scripts/extract_handwriting_templates.py` and regenerated the centre lines (route error stays at 1 px); updated the `schreib_anleitung.md` row and added a construction regression test.
+- Also fixed the extractor so it runs with the installed Pillow: `get_flattened_data()` is a non-standard API and was replaced with the equivalent `Image.getdata()`.
+- Prepared release `v1.3.17`. `npm test` passes 123 of 123 tests; browser checks confirmed the 5 renders two strokes with Fino demoing the belly first and the top bar second at constant speed, and the sampled demo angle turns smoothly at the configured rate.
+
+## 2026-08-26 four-times-faster Fino, straighter routes, 8 and 0 start at the top
+
+- Fino's preview speed was raised fourfold (`DEMO_SPEED_MULTIPLIER` 1.5 → 6.0); the constant-speed rule itself is unchanged.
+- Audited every character's centre line against `schreib_anleitung.md` and fixed the generator, not just the data:
+  - The 3's waist no longer wiggles: the redundant outer waypoint was removed from its hint, so Fino dips once into the middle ("zur Mitte zurück") and continues instead of oscillating at the skeleton's Y-fork.
+  - The f's neck hint was misplaced (it projected onto the crossbar), pulling the body route 6 px onto the crossbar and back; corrected to the actual neck position.
+  - The O (and every closed loop) now runs in the reviewed direction: `ordered_euler_trail` matches the first movement to the hint like `hinted_cycle` already did, so the O starts at its upper-right entry and goes counterclockwise instead of clockwise.
+  - Closed hints with more than seven waypoints are no longer treated as simple loops, which lets the figure eight chain through every waypoint.
+  - 8 now starts at the top: down the left side of the upper loop (counterclockwise), through the crossing into the lower loop (clockwise), and back up the right side to close at the top. 0 starts at the top and runs counterclockwise. Both `schreib_anleitung.md` rows were updated and construction regression tests added.
+- Prepared release `v1.3.18`. `npm test` passes 124 of 124 tests; the spike scan now reports only genuine corners and taught retraces (h/m/n/r/u, W/w valleys, B stem return, 1 flag).
+
+## 2026-08-26 fox jump origin, 8 crossing, full glyph audit
+
+- Fino now jumps from his actual on-screen position: his resting spot is tracked (`foxPosition`) at the demo end, at the next-stroke wait point, and while following the pen, and every jump (child pen-down, next-stroke hop) starts from there. He no longer appears from the board edge or from the child's last pen point ("he already waits at the bottom left of an A, then appears from the side").
+- The 8's crossing no longer twitches: the hint waypoint at the figure-eight crossing protected a small out-and-back nub (the route dipped ~4 px into the lower loop and immediately returned). `remove_reversal_spurs` now removes tight protected reversals (both legs under 5 px) while still keeping genuine waypoint corners (the 3's waist at ~6-7 px legs, W peaks, the 1 flag). Regenerated stroke data; template-alignment errors unchanged.
+- Full audit of all 62 glyphs against `schreib_anleitung.md`: stroke counts and start/end directions all match (A-Z, a-z, umlauts, ß, 0-9); the only route defect found was the 8 crossing. The previously reported "u" screenshot is the taught hook retrace ("auf derselben Linie wieder hoch") — correct per the document.
+- Added regression tests: 8 crossing without a short reversal, and the jump origin starts from Fino's current position. `npm test` passes 125 of 125 tests. Prepared release `v1.3.19`.
+
+## 2026-08-26 smooth Fino's heading: remove raster stair-stepping
+
+- Root cause of the persistent "Fino twitches, especially at intersections": the route centre lines were raster-staircased. Each route point was snapped to a skeleton pixel, so long diagonals and curved loops alternated direction every few pixels; Fino's heading follows route direction, so he wobbled back and forth even though his position looked fine. Numbers and letters both exhibited it (m/o/w/y/v/p/s/e at 13-25 turns, the 8 at 30).
+- The fix is in the extractor, not the renderer: `smooth_route` applies a centred moving average to every route and clamps each point to a 3 px budget from its original position. A corner guard (cosine < 0.75) keeps genuine corners exactly — the M valley, W apex, 3's waist, letter entry ticks, and retrace turnarounds (h/m/n/r/u) — so shapes don't round off. Endpoints never move, so the jump and wait positions stay exact. Regenerated all 62 glyphs; template-alignment errors are unchanged from baseline and `maximumRouteError` is identical, confirming shape fidelity.
+- Measured effect on the fox's eased heading: high-frequency per-glyph wobble peaks dropped ~2-3× on the worst offenders (d 1.93→0.75 rad, 9 1.82→0.63, B 1.33→0.44, Q 1.30→0.41) and the staircase reversal count fell 24%. Verified live in the browser: sampling the demo fox through a letter run stays flat at ≤0.02 rad/frame (~1.2°/frame) with no snapping.
+- All 125 tests still pass (recognition, stroke order/direction, robustness on all 62 characters). Regenerated the QA contact sheet. Prepared release `v1.3.20`.
+
+## 2026-08-26 correct the Schreibanleitung: one-stroke a/d/p/q, three-stroke k/K
+
+- The Schreibanleitung taught the wrong stroke counts. Corrected in `schreib_anleitung.md`: small a, d, p and q are now one continuous stroke (the round body runs without lifting into the stem or tail), and k/K are three strokes (stem; upper diagonal; lower diagonal). ä follows from a (now 3 strokes total with its two dots).
+- The route hints in `scripts/extract_handwriting_templates.py` were updated and the stroke data regenerated. a/d/p/q keep separate round-body and stem/tail hints (their junction confuses the waypoint follower), and `main()` joins the two extracted routes afterwards — dropping the closed loop's redundant return point so Fino does not do a tiny loop at the junction. The taught retraces (the d/p stem, the q tail) run on the centre line. The k/K diagonals are anchored at the stem, which also cut their route error (k 3.16→1.64 px, K 2.0→1.41 px).
+- The one-stroke a exposed a real recognition hole: a drawn as one pen motion passed as a u at hard (the a's closed round body covers the open U, and the extra top arch was within the old precision band). The hard identity precision threshold was tightened 0.83→0.87 so extra ink beyond the template is rejected; true positives all sit at 1.000, and the full confusion matrix is clean again.
+- Updated the construction tests (a is one stroke; q's descender is the tail of its single stroke; missing b stem / g tail replace the old p/q detail cases; ä dots shifted to paths 1-2). `npm test` passes 125 of 125 tests. Prepared release `v1.3.21`.
+
+## 2026-08-26 one-stroke g
+
+- Following the same correction as a/d/p/q, small `g` is now taught as one continuous stroke: the round body runs without lifting into the descender tail. Updated `schreib_anleitung.md` (g was incorrectly listed as 2 strokes) and added `g` to `ONE_STROKE_CHARACTERS` in `scripts/extract_handwriting_templates.py`; the two extracted routes are joined in `main()`, dropping the redundant circle-close point. Regenerated stroke data; `g` now reports `routeCount: 1` with template-alignment error unchanged (2.2 px).
+- Removed the stale "g missing detail" completion-regression case (g no longer has a separable tail stroke). `npm test` passes 125 of 125 tests. Prepared release `v1.3.22`.
+
+## 2026-08-26 Eingabefeld „Eigene Buchstaben" zeigt Kleinbuchstaben an
+
+- Bug: Im Hauptmenü zeigte das Eingabefeld „Eigene Buchstaben" eingegebene Kleinbuchstaben nur als Großbuchstaben an, obwohl die tatsächliche Auswahl und die Übungen gemischt klein/groß korrekt waren (die Feld-Ausgabe- und Erkennungs-Pipeline hat bereits beide Fälle unterstützt; z. B. ergab „aBc" korrekt wechselnde 'a'- und 'B'-Aufgaben).
+- Ursache: in `styles.css` setzte `.name-field input { text-transform: uppercase; }` alle Eingabefelder mit der Klasse `name-field` visuell auf Großbuchstaben, inklusive des „Eigene-Buchstaben"-Felds (das `name-field custom-set-field` nutzt). Die Ausnahme `.custom-set-field input { text-transform: none; }` verlor, weil beide Selektoren gleiche Spezifität haben und die uppercase-Regel später im Blatt steht.
+- Fix: die Ausnahme auf `input#letter-set` spezifischer gemacht, sodass das Buchstabenfeld eingegebene Schreibweise genau anzeigt. Das Namensfeld „Mein Name" (`#child-name`) bleibt wie gewollt groß. `npm test` passes 125 of 125 tests. Prepared release `v1.3.23`.
+
+## 2026-08-26 one-stroke 9
+
+- Following the same correction as a/d/p/q/g, the digit `9` is now taught as one continuous stroke: the small round head runs without lifting into the descender tail that curls left at the bottom. Updated `schreib_anleitung.md` (9 was listed as 2 strokes) and added `9` to `ONE_STROKE_CHARACTERS` in `scripts/extract_handwriting_templates.py`; `main()` joins the two extracted routes, dropping the redundant circle-close point. Regenerated stroke data; `9` now reports `routeCount: 1` with template-alignment error unchanged (3.6 px). The merged route hugs the template (round head up top, tail down to the bottom-left) and the fox heading shows only the taught junction turn.
+- Updated the digit construction test (`number-9-gross` is one stroke; its round head closes back toward the start, then the tail descends to the bottom-left). `npm test` passes 125 of 125 tests. Prepared release `v1.3.24`.

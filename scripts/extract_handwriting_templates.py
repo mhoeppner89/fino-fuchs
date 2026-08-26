@@ -2,7 +2,8 @@
 """Build child-facing masks and exact centre-line routes from approved sheets.
 
 The raster mask is the visual source of truth.  A Zhang-Suen thinning pass
-extracts its centre line.  Reviewed route hints determine only the teaching
+extracts its centre line.  The teaching routes transcribe the approved
+Schreibanleitung (`schreib_anleitung.md`): they determine only the stroke
 order and direction; every generated route point is constrained to that
 centre line.
 """
@@ -25,24 +26,25 @@ REFERENCE = ROOT / 'design' / 'print-handwriting-reference'
 OUTPUT = ROOT / 'assets' / 'handwriting-templates'
 TEMPLATE_DATA = ROOT / 'js' / 'handwriting-template-data.js'
 STROKE_DATA = ROOT / 'js' / 'handwriting-stroke-data.js'
-ROUTE_HINTS = REFERENCE / 'stroke-route-hints.json'
 QA_OUTPUT = ROOT / 'qa-stroke-system-2026-07-31'
 
+# Sheets generated from the approved Schulschrift artwork by
+# scripts/extract_schulschrift_glyphs.py.
 SHEETS = (
     {
-        'key': 'uppercase', 'file': 'uppercase-v1.png',
+        'key': 'uppercase', 'file': 'uppercase-v2.png',
         'characters': 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'columns': 13,
-        'left': 42, 'row_tops': (101, 347), 'cell_width': 161, 'cell_height': 209,
+        'left': 0, 'row_tops': (0, 151), 'cell_width': 156, 'cell_height': 151,
     },
     {
-        'key': 'lowercase', 'file': 'lowercase-v2.png',
+        'key': 'lowercase', 'file': 'lowercase-v3.png',
         'characters': 'abcdefghijklmnopqrstuvwxyz', 'columns': 13,
-        'left': 33, 'row_tops': (138, 425), 'cell_width': 142, 'cell_height': 273,
+        'left': 0, 'row_tops': (0, 153), 'cell_width': 143, 'cell_height': 153,
     },
     {
-        'key': 'digits', 'file': 'digits-v1.png',
+        'key': 'digits', 'file': 'digits-v2.png',
         'characters': '0123456789', 'columns': 10,
-        'left': 21, 'row_tops': (183,), 'cell_width': 213, 'cell_height': 294,
+        'left': 0, 'row_tops': (0,), 'cell_width': 109, 'cell_height': 146,
     },
 )
 
@@ -54,43 +56,132 @@ def route_hints(*strokes):
     return [[{'x': x, 'y': y} for x, y in stroke] for stroke in strokes]
 
 
-# The former Kiwi-derived paths are useful for teaching order, but these
-# approved print forms differ materially in a few places.  Explicit waypoints
-# keep those routes natural while projection still constrains every point to
-# the extracted raster centre line.
-ROUTE_HINT_OVERRIDES = {
-    '1': route_hints(((0, .14), (1, 0), (1, 1))),
-    '2': route_hints(((.05, .16), (.23, .03), (.55, 0), (.85, .08), (1, .27), (.93, .43),
-                      (.72, .59), (.48, .73), (.08, 1), (1, 1))),
-    '3': route_hints(((.05, .12), (.3, 0), (.68, .02), (.96, .18), (.95, .38), (.78, .49),
-                      (.58, .52)),
-                     ((.58, .52), (.8, .54), (1, .68), (.94, .88), (.68, 1), (.3, .98), (0, .83))),
-    '4': route_hints(((.12, 0), (0, .5), (1, .5)), ((.82, 0), (.82, 1))),
-    '9': route_hints(((1, .4), (.92, .14), (.67, 0), (.28, .02), (.03, .2), (0, .45),
-                      (.2, .61), (.62, .65), (1, .4), (.98, .67), (.84, .87), (.58, 1))),
-    'B': route_hints(((0, 0), (0, 1)),
-                     ((0, 0), (.55, 0), (1, .15), (.96, .36), (.62, .5), (0, .5)),
-                     ((0, .5), (.62, .5), (1, .66), (.96, .88), (.55, 1), (0, 1))),
-    'J': route_hints(((0, 0), (1, 0)), ((.56, 0), (.56, .7), (.48, .88), (.25, 1), (0, .85))),
-    'a': route_hints(((1, .08), (.72, 0), (.3, .02), (0, .3), (.02, .72), (.32, 1),
-                      (.72, .98), (1, .72), (1, .08)), ((1, 0), (1, 1))),
-    'b': route_hints(((0, 0), (0, 1)),
-                     ((0, .4), (.35, .28), (.72, .3), (1, .5), (.9, .82),
-                      (.55, 1), (.18, .92), (0, .7))),
-    'd': route_hints(((1, .45), (.72, .38), (.3, .42), (0, .62), (.04, .88), (.4, 1),
-                      (.78, .94), (1, .75)), ((1, 0), (1, 1))),
-    'f': route_hints(((1, 0), (.72, 0), (.58, .12), (.52, 1)), ((0, .48), (1, .48))),
-    'g': route_hints(((1, .04), (.7, 0), (.27, .03), (0, .23), (.02, .52), (.3, .65),
-                      (.72, .62), (1, .42), (1, .04)),
-                     ((1, 0), (1, .7), (.92, .9), (.62, 1), (.25, .94))),
-    'm': route_hints(((0, 1), (0, 0)), ((0, 0), (.2, 0), (.42, .2), (.42, 1)),
-                     ((.42, .2), (.62, 0), (.83, .03), (1, .23), (1, 1))),
-    'n': route_hints(((0, 1), (0, 0)), ((0, 0), (.3, 0), (.65, .08), (1, .3), (1, 1))),
-    'p': route_hints(((0, 0), (0, 1)), ((0, 0), (.48, 0), (.85, .12), (1, .35),
-                      (.92, .62), (.58, .72), (0, .62))),
-    'r': route_hints(((0, 1), (0, 0)), ((0, .2), (.35, 0), (.72, .04), (1, .22))),
-    'u': route_hints(((0, 0), (0, .62), (.15, .9), (.48, 1), (.82, .9), (1, .72)),
-                     ((1, 0), (1, .72))),
+# Teaching routes transcribed from the approved Schreibanleitung
+# (schreib_anleitung.md).  Every waypoint is normalised to the glyph's ink
+# bounding box (y = 0 top, y = 1 baseline zone).  Waypoints inside one stroke
+# are followed in order, which is what encodes the retrace moves ("auf
+# derselben Linie wieder hoch").  A stroke whose first and last waypoint
+# coincide is a closed pen motion and is taught as one loop.
+#
+# a, d, p, q, g and 9 keep separate round-body and stem/tail hints (their
+# junction confuses the waypoint follower), and main() joins the two
+# extracted routes into the single taught stroke afterwards.
+ONE_STROKE_CHARACTERS = frozenset({'a', 'd', 'p', 'q', 'g', '9'})
+
+ROUTE_HINTS = {
+    'A': route_hints(((0.02, 1), (0.5, 0), (0.98, 1)), ((0.02, 0.6), (0.98, 0.6))),
+    'B': route_hints(((0.05, 0), (0.05, 1)),
+                     ((0.05, 0.04), (0.55, 0.02), (0.92, 0.18), (0.7, 0.42), (0.1, 0.5),
+                      (0.6, 0.56), (0.95, 0.78), (0.6, 0.98), (0.08, 0.96))),
+    'C': route_hints(((0.95, 0.15), (0.6, 0.02), (0.2, 0.12), (0.02, 0.45), (0.15, 0.8),
+                      (0.55, 0.98), (0.9, 0.85))),
+    'D': route_hints(((0.05, 0), (0.05, 1)),
+                     ((0.05, 0.03), (0.5, 0.02), (0.9, 0.25), (0.95, 0.5), (0.7, 0.85),
+                      (0.3, 0.98), (0.05, 0.97))),
+    'E': route_hints(((0.08, 0), (0.08, 1)), ((0.08, 0.02), (0.9, 0.02)),
+                     ((0.08, 0.5), (0.75, 0.5)), ((0.08, 0.98), (0.92, 0.98))),
+    'F': route_hints(((0.08, 0), (0.08, 1)), ((0.08, 0.02), (0.88, 0.02)),
+                     ((0.08, 0.5), (0.72, 0.5))),
+    'G': route_hints(((0.95, 0.12), (0.55, 0.02), (0.15, 0.15), (0.02, 0.5), (0.2, 0.85),
+                      (0.6, 0.98), (0.95, 0.95)),
+                     ((0.55, 0.55), (0.92, 0.5), (0.95, 0.97))),
+    'H': route_hints(((0.05, 0), (0.05, 1)), ((0.95, 0), (0.95, 1)), ((0.05, 0.5), (0.95, 0.5))),
+    'I': route_hints(((0.5, 0), (0.5, 1))),
+    'J': route_hints(((0.55, 0), (0.55, 0.65), (0.3, 0.97), (0.05, 0.8))),
+    'K': route_hints(((0.08, 0), (0.08, 1)), ((0.9, 0.05), (0.06, 0.5)),
+                     ((0.06, 0.5), (0.95, 0.97))),
+    'L': route_hints(((0.08, 0), (0.08, 0.95), (0.95, 0.95))),
+    'M': route_hints(((0.0, 0.285), (0.0, 0.0), (0.5, 0.92), (0.98, 0), (0.98, 1))),
+    'N': route_hints(((0.02, 1), (0.02, 0), (0.98, 1), (0.98, 0))),
+    'O': route_hints(((0.85, 0.2), (0.4, 0.02), (0.05, 0.4), (0.3, 0.9), (0.7, 0.98),
+                      (0.97, 0.55), (0.85, 0.2))),
+    'P': route_hints(((0.08, 0), (0.08, 1)),
+                     ((0.08, 0.03), (0.55, 0.02), (0.92, 0.2), (0.75, 0.45), (0.3, 0.52),
+                      (0.08, 0.5))),
+    'Q': route_hints(((0.85, 0.2), (0.4, 0.02), (0.05, 0.4), (0.3, 0.9), (0.7, 0.98),
+                      (0.97, 0.55), (0.85, 0.2)),
+                     ((0.4, 0.62), (0.9, 0.98))),
+    'R': route_hints(((0.08, 0), (0.08, 1)),
+                     ((0.08, 0.03), (0.55, 0.02), (0.92, 0.2), (0.75, 0.45), (0.3, 0.52),
+                      (0.08, 0.5)),
+                     ((0.45, 0.5), (0.95, 0.98))),
+    'S': route_hints(((0.88, 0.12), (0.5, 0.02), (0.15, 0.15), (0.12, 0.38), (0.45, 0.52),
+                      (0.78, 0.65), (0.85, 0.85), (0.5, 0.98), (0.15, 0.88))),
+    'T': route_hints(((0.5, 0), (0.5, 1)), ((0.02, 0.02), (0.98, 0.02))),
+    'U': route_hints(((0.05, 0), (0.05, 0.55), (0.3, 0.92), (0.6, 0.98), (0.9, 0.75), (0.95, 0))),
+    'V': route_hints(((0.03, 0), (0.5, 1), (0.97, 0))),
+    'W': route_hints(((0.02, 0), (0.26, 1), (0.46, 0.03), (0.73, 1), (0.98, 0))),
+    'X': route_hints(((0.05, 0), (0.95, 1)), ((0.95, 0), (0.05, 1))),
+    'Y': route_hints(((0.05, 0), (0.5, 0.55)), ((0.95, 0), (0.5, 0.55), (0.5, 1))),
+    'Z': route_hints(((0.03, 0.02), (0.97, 0.02), (0.03, 0.97), (0.97, 0.97))),
+    'a': route_hints(((0.9, 0.25), (0.45, 0.02), (0.05, 0.35), (0.15, 0.8), (0.55, 0.98),
+                      (0.9, 0.75), (0.9, 0.25)),
+                     ((0.9, 0.02), (0.88, 0.85), (1, 0.97))),
+    'b': route_hints(((0.05, 0), (0.05, 1)),
+                     ((0.05, 0.42), (0.4, 0.3), (0.75, 0.35), (0.92, 0.6), (0.7, 0.92),
+                      (0.3, 0.98), (0.06, 0.78))),
+    'c': route_hints(((0.92, 0.2), (0.55, 0.02), (0.15, 0.2), (0.02, 0.55), (0.2, 0.9),
+                      (0.6, 1), (0.95, 0.85))),
+    'd': route_hints(((0.85, 0.25), (0.4, 0.02), (0.05, 0.35), (0.15, 0.8), (0.55, 0.98),
+                      (0.92, 0.75), (0.85, 0.25)),
+                     ((0.95, 0), (0.92, 0.85), (1, 0.97))),
+    'e': route_hints(((0.03, 0.42), (0.6, 0.4), (0.9, 0.25), (0.6, 0.05), (0.25, 0.08),
+                      (0.03, 0.4), (0.1, 0.75), (0.45, 0.98), (0.95, 0.88))),
+    'f': route_hints(((0.95, 0.1), (0.6, 0), (0.35, 0.1), (0.28, 0.5), (0.5, 1)),
+                     ((0.05, 0.42), (0.85, 0.38))),
+    'g': route_hints(((0.85, 0.25), (0.4, 0.02), (0.05, 0.35), (0.15, 0.8), (0.55, 0.98),
+                      (0.85, 0.75), (0.85, 0.25)),
+                     ((0.88, 0.02), (0.86, 0.6), (0.6, 0.95), (0.05, 0.83))),
+    'h': route_hints(((0.08, 0), (0.08, 1), (0.08, 0.42), (0.5, 0.35), (0.85, 0.6),
+                      (0.85, 1), (1, 0.97))),
+    'i': route_hints(((0.35, 0.22), (0.35, 0.88), (0.6, 0.98)), ((0.3, 0.04),)),
+    'j': route_hints(((0.6, 0.15), (0.6, 0.7), (0.35, 0.97), (0.08, 0.82)), ((0.55, 0.03),)),
+    'k': route_hints(((0.08, 0), (0.08, 1)), ((0.06, 0.5), (0.85, 0.02)),
+                     ((0.06, 0.5), (0.9, 0.97))),
+    'l': route_hints(((1, 0), (0.18, 0.18), (0.15, 0.85), (0.5, 1), (0.9, 0.9))),
+    'm': route_hints(((0.04, 0.1), (0.04, 0.95), (0.04, 0.1), (0.42, 0.08), (0.42, 0.95),
+                      (0.42, 0.08), (0.82, 0.08), (0.82, 0.95), (1, 0.97))),
+    'n': route_hints(((0.06, 0.1), (0.06, 0.95), (0.06, 0.1), (0.5, 0.08), (0.88, 0.35),
+                      (0.88, 0.95), (1, 0.97))),
+    'o': route_hints(((0.85, 0.25), (0.4, 0.02), (0.05, 0.4), (0.25, 0.9), (0.65, 0.98),
+                      (0.95, 0.65), (0.85, 0.25))),
+    'p': route_hints(((0.06, 0.05), (0.06, 1)),
+                     ((0.06, 0.08), (0.5, 0.02), (0.88, 0.25), (0.6, 0.55), (0.08, 0.52))),
+    'q': route_hints(((0.85, 0.25), (0.4, 0.02), (0.05, 0.35), (0.15, 0.8), (0.55, 0.98),
+                      (0.85, 0.75), (0.85, 0.25)),
+                     ((0.85, 0.25), (0.9, 1))),
+    'r': route_hints(((0.1, 0.1), (0.1, 0.95), (0.1, 0.1), (0.55, 0.05), (0.95, 0.3))),
+    's': route_hints(((0.85, 0.18), (0.45, 0.05), (0.12, 0.2), (0.15, 0.45), (0.55, 0.6),
+                      (0.85, 0.75), (0.75, 0.95), (0.35, 1), (0.08, 0.85))),
+    't': route_hints(((0.4, 0), (0.45, 0.75), (0.6, 0.95), (0.95, 0.9)),
+                     ((0.02, 0.35), (0.9, 0.3))),
+    'u': route_hints(((0.06, 0.08), (0.12, 0.7), (0.45, 0.97), (0.85, 0.55), (0.9, 0.08),
+                      (0.9, 0.7), (1, 0.95))),
+    'v': route_hints(((0.03, 0.05), (0.5, 0.97), (0.97, 0.05))),
+    'w': route_hints(((0.02, 0.05), (0.26, 0.97), (0.5, 0.1), (0.74, 0.97), (0.98, 0.05))),
+    'x': route_hints(((0.05, 0.05), (0.95, 0.95)), ((0.95, 0.05), (0.05, 0.95))),
+    'y': route_hints(((0.05, 0.08), (0.5, 0.8)), ((0.95, 0.08), (0.5, 0.8), (0.25, 1), (0.02, 0.9))),
+    'z': route_hints(((0.05, 0.08), (0.95, 0.08), (0.05, 0.92), (0.95, 0.92))),
+    '0': route_hints(((0.55, 0.02), (0.2, 0.18), (0.04, 0.5), (0.3, 0.92), (0.7, 0.98),
+                      (0.95, 0.62), (0.8, 0.22), (0.55, 0.02))),
+    '1': route_hints(((0.02, 0.5), (0.92, 0.02), (0.88, 0.98))),
+    '2': route_hints(((0.05, 0.2), (0.3, 0.03), (0.65, 0.06), (0.9, 0.22), (0.82, 0.45),
+                      (0.45, 0.7), (0.05, 0.95), (0.97, 0.95))),
+    '3': route_hints(((0.06, 0.12), (0.4, 0.02), (0.75, 0.08), (0.92, 0.25), (0.42, 0.45),
+                      (0.78, 0.58), (0.95, 0.78), (0.72, 0.97), (0.35, 0.98),
+                      (0.04, 0.85))),
+    '4': route_hints(((0.6, 0.02), (0.03, 0.55), (0.97, 0.55)), ((0.72, 0.28), (0.72, 0.98))),
+    '5': route_hints(((0.12, 0.02), (0.08, 0.42), (0.5, 0.52), (0.85, 0.45),
+                      (0.97, 0.7), (0.75, 0.95), (0.35, 0.98), (0.04, 0.85)),
+                     ((0.12, 0.02), (0.9, 0.04))),
+    '6': route_hints(((0.9, 0.04), (0.45, 0.35), (0.12, 0.7), (0.15, 0.92), (0.5, 1),
+                      (0.85, 0.85), (0.78, 0.55), (0.4, 0.5), (0.12, 0.65))),
+    '7': route_hints(((0.02, 0.05), (0.98, 0.02), (0.3, 0.98)), ((0.15, 0.55), (0.78, 0.5))),
+    '8': route_hints(((0.62, 0.0), (0.14, 0.13), (0.28, 0.38), (0.6, 0.48), (0.95, 0.62),
+                      (0.62, 0.99), (0.2, 0.85), (0.6, 0.48), (0.9, 0.28), (0.62, 0.0))),
+    '9': route_hints(((0.9, 0.3), (0.6, 0.04), (0.2, 0.12), (0.04, 0.4), (0.3, 0.62),
+                      (0.75, 0.55), (0.9, 0.3)),
+                     ((0.88, 0.3), (0.8, 0.75), (0.5, 0.97), (0.15, 0.9))),
 }
 
 
@@ -102,7 +193,7 @@ def glyph_mask(source):
     source = source.convert('RGBA')
     output = Image.new('RGBA', source.size)
     pixels = []
-    for red, green, blue, alpha in source.get_flattened_data():
+    for red, green, blue, alpha in source.getdata():
         darkness = max(0, min(1, (178 - luma(red, green, blue)) / 108))
         pixels.append((42, 51, 57, round(alpha * darkness)))
     output.putdata(pixels)
@@ -341,6 +432,15 @@ def ordered_euler_trail(start, edges, hint_points):
         stack.append(neighbour)
 
     trail.reverse()
+    # Match the loop's first movement to the reviewed direction, the same way
+    # hinted_cycle does.  Hint distances alone can still start a symmetric
+    # loop (O, o) the wrong way round when the start sits between two arcs.
+    if len(hint_points) > 1 and len(trail) > 2:
+        wanted = np.array(hint_points[1]) - np.array(hint_points[0])
+        forward = np.array(trail[1]) - np.array(trail[0])
+        backward = np.array(trail[-2]) - np.array(trail[-1])
+        if np.dot(backward, wanted) > np.dot(forward, wanted):
+            trail = [trail[0], *reversed(trail[1:-1]), trail[-1]]
     return trail
 
 
@@ -416,8 +516,28 @@ def rdp(points, epsilon=0.72):
     return rdp(points[:split + 1], epsilon)[:-1] + rdp(points[split:], epsilon)
 
 
-def remove_reversal_spurs(points):
-    """Collapse raster-junction spikes while retaining genuine corners."""
+def remove_reversal_spurs(points, protected=(), minimum_retrace=12.0, protected_spike=5.0):
+    """Collapse raster-junction spikes while retaining genuine corners.
+
+    A Schreibanleitung retrace ("auf derselben Linie wieder hoch") travels a
+    meaningful distance in the reverse direction, so only short reversal
+    spikes from thinned junctions are collapsed.  Reversals that touch a
+    reviewed hint waypoint (a vertex tip the pen must reach, such as the W
+    apex or the middle of the 3) are usually kept.  Exception: a reversal
+    that doubles back on itself within a few pixels (the stem nub of the B,
+    the corner nub of the z, the figure-eight crossing of the 8) is a
+    junction artifact even at a waypoint and is removed.  Larger reversals
+    at a waypoint (the 3's waist, the W peaks) are genuine features and stay.
+    """
+    protected_points = [np.array(point, dtype=float) for point in protected]
+
+    def is_protected(point):
+        candidate = np.array(point, dtype=float)
+        return any(
+            float(np.linalg.norm(candidate - anchor)) <= 2.5
+            for anchor in protected_points
+        )
+
     cleaned = list(points)
     changed = True
     while changed and len(cleaned) >= 3:
@@ -429,11 +549,56 @@ def remove_reversal_spurs(points):
             if denominator < 1e-9:
                 continue
             cosine = float(np.dot(first, second) / denominator)
-            if cosine < -0.8:
-                del cleaned[index]
-                changed = True
-                break
+            if cosine >= -0.8:
+                continue
+            if min(np.linalg.norm(first), np.linalg.norm(second)) >= minimum_retrace:
+                continue
+            if is_protected(cleaned[index]):
+                # A protected waypoint still keeps only real corners: a
+                # reversal whose legs are both tiny is an out-and-back nub of
+                # a raster junction, not a feature the pen must reach.
+                if max(np.linalg.norm(first), np.linalg.norm(second)) >= protected_spike:
+                    continue
+            del cleaned[index]
+            changed = True
+            break
     return cleaned
+
+
+def smooth_route(points, budget=3.0, passes=2):
+    """Remove raster stair-stepping from a route's centre line.
+
+    The skeleton routes hug the template ink, but pixel snapping leaves tiny
+    alternating zigzags (1-3 px).  Fino's heading follows the route
+    direction, so those zigzags make the demo fox twitch, especially on long
+    diagonals and loop crossings.  A centred moving average cancels the
+    alternation; each pass keeps every interior point inside a small pixel
+    budget measured from its original position.  That prevents the route
+    from sliding along its own segments (which would clip retrace turnarounds
+    like the hook of the u), while still letting the tiny perpendicular
+    zigzags average out.  Endpoints never move, so the fox still starts and
+    stops exactly where the jump and wait positions expect it to.
+    """
+    original = [np.array(point, dtype=float) for point in points]
+    if len(original) < 4:
+        return list(points)
+    working = [point.copy() for point in original]
+    for _ in range(passes):
+        for index in range(1, len(working) - 1):
+            incoming = working[index] - working[index - 1]
+            outgoing = working[index + 1] - working[index]
+            denominator = float(np.linalg.norm(incoming) * np.linalg.norm(outgoing))
+            if denominator < 1e-9:
+                continue
+            cosine = float(np.dot(incoming, outgoing) / denominator)
+            if cosine < 0.75:
+                # A real corner (the M valley, the W apex, the 3's waist):
+                # keep it exactly rather than rounding it off.
+                continue
+            candidate = (working[index - 1] + 2.0 * working[index] + working[index + 1]) / 4.0
+            if float(np.linalg.norm(candidate - original[index])) <= budget:
+                working[index] = candidate
+    return [(float(point[0]), float(point[1])) for point in working]
 
 
 def mapped_hint_routes(hints, graph, component_ids, components, skeleton_bounds):
@@ -489,7 +654,8 @@ def mapped_hint_routes(hints, graph, component_ids, components, skeleton_bounds)
 
     mapped_strokes = []
     for hint_stroke in hints:
-        mapped = densify([map_point(point) for point in hint_stroke])
+        raw_mapped = [map_point(point) for point in hint_stroke]
+        mapped = densify(raw_mapped)
         if not mapped:
             continue
         sample = mapped[::max(1, len(mapped) // 48)]
@@ -497,12 +663,20 @@ def mapped_hint_routes(hints, graph, component_ids, components, skeleton_bounds)
             range(len(components)),
             key=lambda index: sum(float(component_trees[index].query(point)[0]) for point in sample),
         )
-        mapped_strokes.append((hint_stroke, mapped, component_index))
+        mapped_strokes.append((hint_stroke, mapped, raw_mapped, component_index))
 
-    remaining_counts = Counter(component_index for _, _, component_index in mapped_strokes)
-    used_edges = [set() for _ in components]
+    remaining_counts = Counter(component_index for _, _, _, component_index in mapped_strokes)
+    used_edges = set()
+    global_node_tree = cKDTree(np.array(sorted(graph), dtype=float))
+    global_nodes = sorted(graph)
+    all_edges = {
+        edge_key(node, neighbour)
+        for node, neighbours in graph.items()
+        for neighbour in neighbours
+    }
     endpoint_cache = {}
     routes = []
+    protected_by_route = []
     visited = set()
 
     def endpoint_key(point, component_index):
@@ -517,25 +691,42 @@ def mapped_hint_routes(hints, graph, component_ids, components, skeleton_bounds)
             )
         return endpoint_cache[key]
 
-    for hint_stroke, mapped, component_index in mapped_strokes:
+    for hint_stroke, mapped, raw_mapped, component_index in mapped_strokes:
         remaining_counts[component_index] -= 1
         edges = component_edges[component_index]
         if not edges:
             point = components[component_index][0]
             routes.append([point])
+            protected_by_route.append([])
             visited.add(point)
             continue
 
         start = project_endpoint(hint_stroke[0], mapped[0], component_index)
         goal = project_endpoint(hint_stroke[-1], mapped[-1], component_index)
-        available = edges - used_edges[component_index]
         is_last_for_component = remaining_counts[component_index] == 0
-        is_closed_hint = math.dist(
-            (hint_stroke[0]['x'], hint_stroke[0]['y']),
-            (hint_stroke[-1]['x'], hint_stroke[-1]['y']),
-        ) <= .035
+        # A stroke that only returns to its start point at the very end is a
+        # closed pen motion (O, o, a bowl).  A stroke that revisits its start
+        # in the middle (the figure eight) must instead be chained through
+        # every waypoint, because an Euler trail may pick the wrong lobe
+        # order.  A hint with more than seven waypoints is never a simple
+        # loop either -- the figure eight starts and ends at its top, so it
+        # revisits no waypoint yet still needs waypoint chaining.
+        revisits_start = any(
+            math.dist((point['x'], point['y']), (hint_stroke[0]['x'], hint_stroke[0]['y'])) <= .035
+            for point in hint_stroke[1:-1]
+        )
+        is_closed_hint = (
+            math.dist(
+                (hint_stroke[0]['x'], hint_stroke[0]['y']),
+                (hint_stroke[-1]['x'], hint_stroke[-1]['y']),
+            ) <= .035
+            and not revisits_start
+            and len(hint_stroke) <= 7
+        )
+
 
         route = []
+        available = edges - used_edges
         if is_closed_hint and available:
             if is_last_for_component:
                 remaining_piece = edge_component(start, available)
@@ -546,40 +737,45 @@ def mapped_hint_routes(hints, graph, component_ids, components, skeleton_bounds)
             if not route:
                 route = hinted_cycle(graph, start, available, mapped)
 
-        if not route and is_last_for_component and available:
-            remaining_piece = edge_component(start, available)
-            if not remaining_piece:
-                nearest = min(
-                    {node for edge in available for node in edge},
-                    key=lambda node: math.dist(node, mapped[0]),
-                )
-                remaining_piece = edge_component(nearest, available)
-                start = nearest
-            piece_nodes = {node for edge in remaining_piece for node in edge}
-            degrees = Counter(node for edge in remaining_piece for node in edge)
-            odd = [node for node, degree in degrees.items() if degree % 2]
-            if goal in piece_nodes and len(odd) in (0, 2):
-                route = ordered_euler_trail(start, remaining_piece, mapped)
-            elif goal in piece_nodes:
-                route = weighted_edge_path(
-                    graph, start, goal, remaining_piece,
-                    cKDTree(np.array(mapped, dtype=float)), used_edges[component_index],
-                )
-
         if not route:
-            route = weighted_edge_path(
-                graph, start, goal, edges,
-                cKDTree(np.array(mapped, dtype=float)), used_edges[component_index],
-            )
+            # Follow every waypoint of this stroke in order.  Chaining is what
+            # keeps the Schreibanleitung retrace moves ("auf derselben Linie
+            # wieder hoch") on the centre line instead of shortcutting from a
+            # stroke's start to its end.  Waypoints project onto the whole
+            # skeleton and chaining may use every centre-line edge, so a
+            # stroke may cross a shared junction (E bars, X crossing, 4
+            # upright) and even bridge a detached entry tick (l) instead of
+            # falling back to an unshaped straight line.
+            hint_tree = cKDTree(np.array(mapped, dtype=float))
+            waypoints = []
+            for point in raw_mapped:
+                node = tuple(int(value) for value in global_nodes[int(global_node_tree.query(point)[1])])
+                if not waypoints or waypoints[-1] != node:
+                    waypoints.append(node)
+            if len(waypoints) == 1:
+                route = [waypoints[0]]
+            else:
+                for first, second in zip(waypoints, waypoints[1:]):
+                    if first == second:
+                        continue
+                    piece = weighted_edge_path(
+                        graph, first, second, all_edges, hint_tree, used_edges,
+                    )
+                    if not piece:
+                        piece = [first, second]
+                    route.extend(piece if not route else piece[1:])
+        protected = [(point[1], point[0]) for point in raw_mapped]
+
         if not route:
             route = [start] if start == goal else [start, goal]
 
         compact = [point for index, point in enumerate(route) if index == 0 or point != route[index - 1]]
         for first, second in zip(compact, compact[1:]):
-            used_edges[component_index].add(edge_key(first, second))
+            used_edges.add(edge_key(first, second))
         visited.update(compact)
         routes.append(compact)
-    return routes, visited
+        protected_by_route.append(protected)
+    return routes, visited, protected_by_route
 
 
 def residual_routes(graph, components, visited):
@@ -652,7 +848,9 @@ def extract_routes(crop, hints):
     y_values = [node[0] for node in graph]
     x_values = [node[1] for node in graph]
     bounds = (min(y_values), min(x_values), max(y_values), max(x_values))
-    routes, visited = mapped_hint_routes(hints, graph, component_ids, components, bounds)
+    routes, visited, protected_by_route = mapped_hint_routes(
+        hints, graph, component_ids, components, bounds,
+    )
     # The reviewed hints already describe every teaching stroke. Earlier
     # versions appended uncovered skeleton twigs to the closest route. Those
     # twigs made Fino reverse over junctions (notably A, N, p and u). Keep the
@@ -660,15 +858,16 @@ def extract_routes(crop, hints):
     # catch any reference whose hints no longer cover the visible template.
 
     cleaned = []
-    for route in routes:
+    for route, protected in zip(routes, protected_by_route):
         if not route:
             continue
         xy = [(float(x), float(y)) for y, x in route]
-        simplified = remove_reversal_spurs(rdp(xy))
+        simplified = remove_reversal_spurs(rdp(xy), protected=protected)
         if len(route) <= 5:
             center_x = sum(point[0] for point in xy) / len(xy)
             center_y = sum(point[1] for point in xy) / len(xy)
             simplified = [(center_x, center_y)]
+        simplified = smooth_route(simplified)
         cleaned.append(simplified)
 
     route_pixels = [
@@ -677,7 +876,20 @@ def extract_routes(crop, hints):
         for x, y in densify(route, step=.75)
     ]
     route_tree = cKDTree(np.array(route_pixels, dtype=float))
-    maximum_error = max(route_tree.query(node)[0] for node in graph)
+    measured_nodes = []
+    for component in components:
+        component_distance = min(route_tree.query(node)[0] for node in component)
+        spans = (
+            max(node[0] for node in component) - min(node[0] for node in component),
+            max(node[1] for node in component) - min(node[1] for node in component),
+        )
+        if len(component) <= 4 and max(spans) <= 4 and component_distance > 7.0:
+            # A detached raster speck (for example the anti-aliased remnant
+            # where a closed stroke overlaps itself) is not a teachable
+            # stroke; no pen path could ever reach it.
+            continue
+        measured_nodes.extend(component)
+    maximum_error = max(route_tree.query(node)[0] for node in measured_nodes)
     route_x_values = [x for route in cleaned for x, _ in route]
     route_y_values = [y for route in cleaned for _, y in route]
     min_y, min_x, max_y, max_x = bounds
@@ -795,7 +1007,6 @@ def write_contact_sheet(records):
 
 def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    hints = json.loads(ROUTE_HINTS.read_text(encoding='utf-8'))
     glyphs = {}
     routes_by_character = {}
     geometry_by_character = {}
@@ -819,10 +1030,26 @@ def main():
             )
             x, y, width, height = content_bounds(mask, box)
             crop = mask.crop((x, y, x + width, y + height))
-            routes, geometry, display_routes = extract_routes(
-                crop,
-                ROUTE_HINT_OVERRIDES.get(character, hints[character]),
-            )
+            routes, geometry, display_routes = extract_routes(crop, ROUTE_HINTS[character])
+            if character in ONE_STROKE_CHARACTERS and len(routes) == 2:
+                # a, d, p, q, g and 9 are taught as one continuous pen motion:
+                # the round body runs without lifting into the stem or tail.
+                # The two hint strokes already end/start on the shared centre
+                # line, so joining them keeps the route on the ink and the
+                # connecting segment is exactly the taught retrace (the d/p
+                # stem, the q/g/9 tail).  A closed round body returns to its
+                # own start point as its final point; that redundant close
+                # would make Fino do a tiny loop at the junction before the
+                # stem, so it is dropped.
+                def join_strokes(first, second):
+                    if (len(first) > 1 and len(second) > 1
+                            and abs(first[-1][0] - first[0][0]) < 0.0005
+                            and abs(first[-1][1] - first[0][1]) < 0.0005):
+                        first = first[:-1]
+                    return first + second
+                routes = [join_strokes(routes[0], routes[1])]
+                display_routes = [join_strokes(display_routes[0], display_routes[1])]
+                geometry['routeCount'] = 1
             glyphs[character] = {'sheet': spec['key'], 'x': x, 'y': y, 'width': width, 'height': height}
             geometry.update({'cropWidth': width, 'cropHeight': height})
             routes_by_character[character] = routes

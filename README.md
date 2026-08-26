@@ -13,7 +13,7 @@ Fino schreibt ist eine statische, deutschsprachige Schreiblern-App für kurze Ü
 - bei **Funkelpunkte** erscheint immer nur der nächste Punkt; eine neue Linie darf keine frühere Linie berühren
 - bei Zahlen und Buchstaben: **Alle** üben oder eine eigene Auswahl eingeben
 - Groß- und Kleinbuchstaben, einschließlich ä, ö und ü
-- Zahlen und Buchstaben verwenden eine eigene, nicht verbundene Druckschrift, die allgemein an **Kiwi School Handwriting** angelehnt ist.
+- Zahlen und Buchstaben verwenden die **Schulschrift** aus dem freigegebenen Vorlagenblatt (`SCHULSCHRIFT.png`) mit der passenden Schreibanleitung (`schreib_anleitung.md`).
 - in der leichten Stufe jeweils genau eine Zahl oder einen Buchstaben üben
 - Kinder sehen den vollständigen Buchstaben oder die Zahl als halbtransparente Vorlage; Fino läuft exakt auf deren Mittellinie und springt bei einem echten Stiftwechsel
 - eine klare, je nach Hilfestufe unterschiedlich kräftige Vorlage; die erlaubte Abweichung wird dabei strenger
@@ -73,12 +73,14 @@ Die Sprachfunktion ist derzeit ausgeschaltet. Alle Hinweise stehen deshalb direk
 
 ## Schriftvorlage
 
-Die App enthält eigene, freigegebene Bildvorlagen für A–Z, a–z und 0–9. Ein
-lokales Erzeugungsskript dünnt genau diese Pixel auf eine Mittellinie aus. Damit
-verwenden die sichtbare Vorlage, Finos Laufweg, die Startpunkte und die
-Bewertung dieselbe Geometrie. Kiwi School Handwriting diente nur als allgemeine
-gestalterische und didaktische Inspiration; die Fontdatei wird nicht
-ausgeliefert.
+Die App enthält eigene, freigegebene Bildvorlagen für A–Z, a–z und 0–9,
+geschnitten aus dem freigegebenen Schulschrift-Blatt (`SCHULSCHRIFT.png`,
+Skript: `scripts/extract_schulschrift_glyphs.py`). Ein lokales
+Erzeugungsskript dünnt genau diese Pixel auf eine Mittellinie aus; die
+Schreibreihenfolge stammt wörtlich aus der `schreib_anleitung.md` (Striche,
+Richtungen und das Wiederhochfahren auf derselben Linie). Damit verwenden die
+sichtbare Vorlage, Finos Laufweg, die Startpunkte und die Bewertung dieselbe
+Geometrie. Die Fontdatei selbst wird nicht ausgeliefert.
 
 ## Inhalt anpassen
 

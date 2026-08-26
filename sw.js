@@ -1,13 +1,18 @@
 const CACHE_PREFIX = 'fino-schreibt-';
-const CACHE_NAME = `${CACHE_PREFIX}v1.3.13`;
+const CACHE_NAME = `${CACHE_PREFIX}v1.3.24`;
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css',
-  './styles.css?v=1.3.13',
+  './styles.css?v=1.3.24',
   './manifest.webmanifest',
   './js/app.js',
-  './js/app.js?v=1.3.13',
+  './js/app.js?v=1.3.24',
+  './js/curriculum.js?v=1.3.24',
+  './js/drawing.js?v=1.3.24',
+  './js/mini-games.js?v=1.3.24',
+  './js/handwriting-template-data.js?v=1.3.24',
+  './js/handwriting-stroke-data.js?v=1.3.24',
   './js/curriculum.js',
   './js/drawing.js',
   './js/mini-games.js',
@@ -28,7 +33,9 @@ const APP_SHELL = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL.map((path) => new URL(path, self.location).href)))
+      .then((cache) => cache.addAll(APP_SHELL.map(
+        (path) => new Request(new URL(path, self.location).href, { cache: 'reload' }),
+      )))
       .then(() => self.skipWaiting()),
   );
 });
@@ -49,7 +56,7 @@ self.addEventListener('fetch', (event) => {
 
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: 'reload' })
         .then((response) => {
           const copy = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
@@ -65,7 +72,9 @@ self.addEventListener('fetch', (event) => {
 
   if (versionSensitive) {
     event.respondWith(
-      fetch(request)
+      // 'reload' skips the browser HTTP cache: scripts without a version
+      // query (drawing.js & co.) would otherwise stay stale heuristically.
+      fetch(request, { cache: 'reload' })
         .then((response) => {
           if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
           return response;

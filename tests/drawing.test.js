@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  demoRunDuration,
   demoStageAtProgress,
   DEMO_SPEED_MULTIPLIER,
   DrawingBoard,
@@ -12,11 +13,13 @@ import {
   guidePresentationForTask,
   inkColorAt,
   INK_COLORS,
+  judgeStrokeAgainstRoute,
   guideStagesForTask,
   visibleGuideIndexes,
   nextGuideStrokeIndex,
   passesDrawingCriteria,
   pointAlongGuidePath,
+  strokeMatchesAnyRoute,
   usesPenFollowingFino,
 } from '../js/drawing.js';
 
@@ -281,13 +284,113 @@ test('letters, numbers, and names use solid transparent templates', () => {
   assert.deepEqual(shapePresentation.dash, GUIDE_STYLES.easy.dash);
 });
 
-test('Fino previews are set to one-and-a-half times the former speed', () => {
-  assert.equal(DEMO_SPEED_MULTIPLIER, 1.5);
+test('Fino previews run at four times the base speed', () => {
+  assert.equal(DEMO_SPEED_MULTIPLIER, 6.0);
 });
 
-test('letters and numbers use pen-following Fino instead of stroke previews', () => {
+test('Fino previews run at one constant speed regardless of path length', () => {
+  const speedFor = (length) => demoRunDuration(length, 620) / length;
+  assert.ok(Math.abs(speedFor(900) - speedFor(300)) < 0.001, 'long and short strokes must share one speed');
+  assert.ok(Math.abs(speedFor(120) - speedFor(700)) < 0.001);
+  assert.ok(speedFor(300) < 1000 / 120, 'preview should not crawl below the constant speed');
+  assert.ok(demoRunDuration(600, 620) < demoRunDuration(1200, 620), 'longer previews take proportionally longer');
+  assert.equal(demoRunDuration(0, 620), 300, 'a single-point dot gets a short readable pause');
+  assert.equal(demoRunDuration(500, 620, { reducedMotion: true }), 1);
+});
+
+test('letters and numbers follow the pen while drawing and still preview the next stroke', () => {
+  // Pen-following now only controls Fino during the child's own stroke;
+  // next-stroke previews run for every tracing activity.
   assert.equal(usesPenFollowingFino({ category: 'letters' }), true);
   assert.equal(usesPenFollowingFino({ category: 'numbers' }), true);
   assert.equal(usesPenFollowingFino({ category: 'name' }), false);
   assert.equal(usesPenFollowingFino({ category: 'shapes' }), false);
+});
+
+test('Fino jumps from his current position, never from the child pen or the board edge', () => {
+  const board = Object.assign(Object.create(DrawingBoard.prototype), {
+    canvas: {},
+    task: {
+      category: 'letters',
+      strokes: [
+        [{ x: 0.5, y: 0.1 }, { x: 0.5, y: 0.9 }],
+        [{ x: 0.1, y: 0.9 }, { x: 0.9, y: 0.9 }],
+      ],
+    },
+    userStrokes: [],
+    width: 900,
+    height: 620,
+    jumpAnimation: null,
+    jumpFrame: 0,
+    activeStroke: null,
+    activeGuideIndex: null,
+    isAngularGuide: () => true,
+    nextGuideStrokeIndex: () => 1,
+  });
+  let captured = null;
+  board.animateFoxJump = (from, to) => { captured = { from, to }; };
+
+  // Fino waits at the start of the next stroke; the child draws elsewhere.
+  board.foxPosition = { x: 0.5, y: 0.9 };
+  board.startJumpToNextStroke([{ x: 0.2, y: 0.2 }, { x: 0.3, y: 0.3 }]);
+  assert.deepEqual(captured.from, { x: 450, y: 558 }, 'jump starts where Fino stands');
+  assert.deepEqual(captured.to, { x: 90, y: 558 }, 'jump lands at the next stroke start');
+
+  // With no known position (fresh board), the last pen point is the fallback.
+  captured = null;
+  board.foxPosition = null;
+  board.startJumpToNextStroke([{ x: 0.2, y: 0.2 }, { x: 0.3, y: 0.3 }]);
+  assert.deepEqual(captured.from, { x: 270, y: 186 }, 'fallback is the child last point');
+});
+
+test('stroke-by-stroke recognition accepts a child-like trace on the route', () => {
+  const route = [{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.82 }];
+  const trace = [
+    { x: 0.52, y: 0.2 },
+    { x: 0.49, y: 0.4 },
+    { x: 0.51, y: 0.6 },
+    { x: 0.48, y: 0.8 },
+  ];
+  const fit = judgeStrokeAgainstRoute(trace, route, { width: 900, height: 620, tolerance: 60 });
+  assert.ok(fit.coverage > 0.8, `coverage was ${fit.coverage}`);
+  assert.ok(fit.precision > 0.8, `precision was ${fit.precision}`);
+  assert.equal(strokeMatchesAnyRoute({ strokes: [route] }, trace, { width: 900, height: 620, tolerance: 60 }), true);
+});
+
+test('stroke-by-stroke recognition accepts a pen-split partial stroke', () => {
+  const route = [{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.82 }];
+  const firstHalf = [{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.5 }];
+  assert.equal(strokeMatchesAnyRoute({ strokes: [route] }, firstHalf, { width: 900, height: 620, tolerance: 60 }), true);
+});
+
+test('stroke-by-stroke recognition accepts one pen movement over two routes', () => {
+  // A lowercase t drawn in one continuous movement covers stem and crossbar.
+  const task = { strokes: [
+    [{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.82 }],
+    [{ x: 0.3, y: 0.5 }, { x: 0.7, y: 0.5 }],
+  ] };
+  const merged = [
+    { x: 0.5, y: 0.18 },
+    { x: 0.5, y: 0.82 },
+    { x: 0.3, y: 0.5 },
+    { x: 0.7, y: 0.5 },
+  ];
+  assert.equal(strokeMatchesAnyRoute(task, merged, { width: 900, height: 620, tolerance: 60 }), true);
+});
+
+test('stroke-by-stroke recognition rejects a stroke in the wrong place', () => {
+  const route = [{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.82 }];
+  const wrongPlace = [{ x: 0.12, y: 0.2 }, { x: 0.12, y: 0.8 }];
+  assert.equal(strokeMatchesAnyRoute({ strokes: [route] }, wrongPlace, { width: 900, height: 620, tolerance: 60 }), false);
+});
+
+test('stroke-by-stroke recognition rejects a crossing scribble', () => {
+  const route = [{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.82 }];
+  const scribble = [
+    { x: 0.15, y: 0.9 },
+    { x: 0.85, y: 0.9 },
+    { x: 0.15, y: 0.1 },
+    { x: 0.85, y: 0.1 },
+  ];
+  assert.equal(strokeMatchesAnyRoute({ strokes: [route] }, scribble, { width: 900, height: 620, tolerance: 60 }), false);
 });

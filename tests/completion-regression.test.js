@@ -83,16 +83,15 @@ test('every missing visible symbol remains incomplete', () => {
 
 test('missing bars, dots, stems, tails, petals, and rays remain incomplete', () => {
   const cases = [
-    ['letters', 'letter-A-gross', [2]],
+    ['letters', 'letter-A-gross', [1]],
     ['letters', 'letter-H-gross', [2]],
-    ['letters', 'letter-I-gross', [0, 2]],
+    ['letters', 'letter-I-gross', [0]],
+    ['letters', 'letter-b-gross', [0]],
     ['letters', 'letter-i-gross', [1]],
     ['letters', 'letter-j-gross', [1]],
-    ['letters', 'letter-p-gross', [0]],
-    ['letters', 'letter-q-gross', [1]],
     ['letters', 'letter-t-gross', [1]],
-    ['letters', 'letter-Ä-gross', [3, 4]],
-    ['letters', 'letter-ä-gross', [2, 3]],
+    ['letters', 'letter-Ä-gross', [2, 3]],
+    ['letters', 'letter-ä-gross', [1, 2]],
     ['numbers', 'number-4-gross', [0, 1]],
     ['shapes', 'shape-flower', [0, 1, 2, 3, 4]],
     ['shapes', 'shape-sun', [1, 2, 3, 4, 5, 6]],

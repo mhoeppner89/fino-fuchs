@@ -5,14 +5,14 @@
 
 import {
   CHARACTER_STROKES,
-} from './handwriting-stroke-data.js';
+} from './handwriting-stroke-data.js?v=1.3.24';
 import {
   connectSolutionStrokes,
   createConnectSpec,
   createMazeSpec,
   layoutConnect,
   layoutMaze,
-} from './mini-games.js';
+} from './mini-games.js?v=1.3.24';
 
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));
@@ -602,13 +602,32 @@ function textCharacters(rawText) {
   return [...normalizeName(rawText).replace(/[- ]/g, '')].filter((character) => letterStrokes[character]);
 }
 
+// Distance from each glyph's crop top to the drawn baseline of its row in
+// the approved Schulschrift sheet (measured by
+// scripts/extract_schulschrift_glyphs.py).  Name layout places every letter
+// so these offsets share one baseline, exactly as the source sheet draws them.
+const SCHULSCHRIFT_BASELINE_OFFSETS = Object.freeze({
+  A: 112, B: 113, C: 114, D: 111, E: 112, F: 108, G: 110, H: 109, I: 109,
+  J: 108, K: 109, L: 107, M: 107, N: 108, O: 108, P: 110, Q: 109, R: 110,
+  S: 110, T: 108, U: 102, V: 103, W: 102, X: 104, Y: 104, Z: 102,
+  a: 64, b: 112, c: 67, d: 111, e: 67, f: 108, g: 67, h: 108, i: 75, j: 76,
+  k: 107, l: 104, m: 60, n: 61, o: 62, p: 69, q: 67, r: 66, s: 69, t: 96,
+  u: 59, v: 60, w: 59, x: 62, y: 63, z: 60,
+});
+const SCHULSCHRIFT_DESIGN_TOP = 114;
+export const baselineOffsets = SCHULSCHRIFT_BASELINE_OFFSETS;
+
 function characterDesignTop(character) {
   const base = ({ Ä: 'A', Ö: 'O', Ü: 'U', ä: 'a', ö: 'o', ü: 'u' })[character] ?? character;
-  if (/[A-Z]/.test(base)) return 0;
-  if (base === 'i') return 48;
-  if (base === 'j') return 42;
-  if (ASCENDER_LETTERS.has(base) || base === 't') return 13;
-  return 70;
+  const offset = SCHULSCHRIFT_BASELINE_OFFSETS[base];
+  if (offset === undefined) return 0;
+  let dotRise = 0;
+  if (base !== character) {
+    // Umlaut strokes reach above the base letter for the dots; shift the
+    // design top so the base letter's baseline stays on the shared line.
+    dotRise = -boundsOf(letterStrokes[character]).minY * CANONICAL_DRAWING_HEIGHT;
+  }
+  return SCHULSCHRIFT_DESIGN_TOP - offset - dotRise;
 }
 
 function characterPhysicalBounds(character) {
@@ -652,8 +671,12 @@ function textTaskData(rawText, rect = { x: 0.06, y: 0.2, width: 0.88, height: 0.
   characters.forEach((character, index) => {
     const source = bounds[index];
     const top = designTops[index];
+    // Centre each glyph's ink inside its advance slot so narrow letters (I, i)
+    // keep even gaps to both neighbours.
+    const inkWidth = source.maxX - source.minX;
+    const inkLeft = cursor + Math.max(0, (advances[index] - gaps) - inkWidth) / 2;
     const fitted = letterStrokes[character].map((stroke) => stroke.map((point) => p(
-      (originX + (cursor + point.x * CANONICAL_DRAWING_WIDTH - source.minX) * scale) / CANONICAL_DRAWING_WIDTH,
+      (originX + (inkLeft + point.x * CANONICAL_DRAWING_WIDTH - source.minX) * scale) / CANONICAL_DRAWING_WIDTH,
       (originY + (top + point.y * CANONICAL_DRAWING_HEIGHT - designMinY) * scale) / CANONICAL_DRAWING_HEIGHT,
     )));
     const firstStroke = strokes.length;

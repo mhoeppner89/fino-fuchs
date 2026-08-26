@@ -543,7 +543,7 @@ p {
   margin-top: 15px;
 }
 
-.custom-set-field input {
+.custom-set-field input#letter-set {
   text-transform: none;
 }
 
