@@ -79,6 +79,13 @@ test('letter and number Fino follows the child and previews the next stroke', ()
   // Fino jumps from where he is actually standing, never from the board edge
   // or the child's pen position.
   assert.match(drawing, /const from = this\.foxPosition/);
+  // A new pen movement should reset the previewed guide so Fino replays the
+  // same next stroke again when the child's attempt did not advance the
+  // guide (e.g. a partial single-stroke shape like "8").
+  assert.match(
+    app,
+    /onStrokeStart\(\) \{[\s\S]*?state\.previewedStrokeIndex = null/,
+  );
 });
 
 test('tracing exercises do not show a prescribed green starting dot', () => {

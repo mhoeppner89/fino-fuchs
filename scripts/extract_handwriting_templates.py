@@ -18,6 +18,7 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+from scipy import ndimage
 from scipy.spatial import cKDTree
 
 
@@ -33,13 +34,13 @@ QA_OUTPUT = ROOT / 'qa-stroke-system-2026-07-31'
 SHEETS = (
     {
         'key': 'uppercase', 'file': 'uppercase-v2.png',
-        'characters': 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'columns': 13,
-        'left': 0, 'row_tops': (0, 151), 'cell_width': 156, 'cell_height': 151,
+        'characters': 'ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜ', 'columns': 13,
+        'left': 0, 'row_tops': (0, 157, 314), 'cell_width': 156, 'cell_height': 157,
     },
     {
         'key': 'lowercase', 'file': 'lowercase-v3.png',
-        'characters': 'abcdefghijklmnopqrstuvwxyz', 'columns': 13,
-        'left': 0, 'row_tops': (0, 153), 'cell_width': 143, 'cell_height': 153,
+        'characters': 'abcdefghijklmnopqrstuvwxyzäöü', 'columns': 13,
+        'left': 0, 'row_tops': (0, 153, 306), 'cell_width': 143, 'cell_height': 153,
     },
     {
         'key': 'digits', 'file': 'digits-v2.png',
@@ -138,7 +139,10 @@ ROUTE_HINTS = {
     'j': route_hints(((0.6, 0.15), (0.6, 0.7), (0.35, 0.97), (0.08, 0.82)), ((0.55, 0.03),)),
     'k': route_hints(((0.08, 0), (0.08, 1)), ((0.06, 0.5), (0.85, 0.02)),
                      ((0.06, 0.5), (0.9, 0.97))),
-    'l': route_hints(((1, 0), (0.18, 0.18), (0.15, 0.85), (0.5, 1), (0.9, 0.9))),
+    # Schreibanleitung: "Oben beginnen, gerade nach unten ziehen und unten
+    # mit einem kleinen Bogen nach rechts ausschwingen." The stroke starts on
+    # the stem top, never on the swung-out hook tip.
+    'l': route_hints(((0.17, 0.02), (0.15, 0.85), (0.5, 1), (0.95, 0.83))),
     'm': route_hints(((0.04, 0.1), (0.04, 0.95), (0.04, 0.1), (0.42, 0.08), (0.42, 0.95),
                       (0.42, 0.08), (0.82, 0.08), (0.82, 0.95), (1, 0.97))),
     'n': route_hints(((0.06, 0.1), (0.06, 0.95), (0.06, 0.1), (0.5, 0.08), (0.88, 0.35),
@@ -1005,6 +1009,85 @@ def write_contact_sheet(records):
     sheet.save(QA_OUTPUT / 'all-character-centrelines.png', optimize=True)
 
 
+UMLAUT_BASES = {'Ä': 'A', 'Ö': 'O', 'Ü': 'U', 'ä': 'a', 'ö': 'o', 'ü': 'u'}
+
+
+def _join_strokes(first, second, tolerance):
+    """Join a round body into its stem/tail as one continuous pen motion."""
+    if (len(first) > 1 and len(second) > 1
+            and abs(first[-1][0] - first[0][0]) < tolerance
+            and abs(first[-1][1] - first[0][1]) < tolerance):
+        first = first[:-1]
+    return first + second
+
+
+def extract_umlaut(crop, base_letter):
+    """Routes for an umlaut crop: the base letter's centre lines plus one
+    single-point route per real source-sheet dot.
+
+    The crop contains the base glyph and its two dots as disconnected
+    components.  The base routes are extracted exactly like the base letter's
+    (including the one-stroke join for a/d), then the dots become their own
+    single-point routes so Fino and recognition use the real dot positions.
+    All coordinates are normalised against the full crop's ink bounds.
+    """
+    alpha = np.asarray(crop.getchannel('A'))
+    binary = alpha >= 32
+    labels, count = ndimage.label(binary)
+    components = []
+    for label in range(1, count + 1):
+        ys, xs = np.where(labels == label)
+        components.append((len(xs), int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1, label))
+    components.sort(reverse=True)
+    base_component = components[0][-1]
+    base_mask = labels == base_component
+    base_rgba = np.zeros((*crop.size[::-1], 4), dtype=np.uint8)
+    base_rgba[:, :, 3] = np.where(base_mask, alpha, 0)
+    base_image = Image.fromarray(base_rgba, 'RGBA')
+    base_routes, _, base_display = extract_routes(base_image, ROUTE_HINTS[base_letter])
+    if base_letter in ONE_STROKE_CHARACTERS and len(base_routes) == 2:
+        base_routes = [_join_strokes(base_routes[0], base_routes[1], 0.0005)]
+        base_display = [_join_strokes(base_display[0], base_display[1], 0.45)]
+
+    dot_components = sorted(components[1:], key=lambda item: item[1])
+    dot_routes = []
+    for _, _, _, _, _, label in dot_components:
+        ys, xs = np.where(labels == label)
+        dot_routes.append([(float(xs.mean()), float(ys.mean()))])
+
+    all_display = base_display + dot_routes
+    ys, xs = np.where(binary)
+    ink_min_x, ink_min_y = int(xs.min()), int(ys.min())
+    ink_max_x, ink_max_y = int(xs.max()) + 1, int(ys.max()) + 1
+    normalized = [
+        [[round((px - ink_min_x) / 900, 6), round((py - ink_min_y) / 620, 6)] for px, py in route]
+        for route in all_display
+    ]
+    route_points = [point for route in all_display for point in route]
+    route_x = min(point[0] for point in route_points)
+    route_y = min(point[1] for point in route_points)
+    route_width = max(1, max(point[0] for point in route_points) - route_x)
+    route_height = max(1, max(point[1] for point in route_points) - route_y)
+    route_tree = cKDTree(np.array([
+        point for route in all_display for point in densify(route, step=.75)
+    ], dtype=float))
+    # The centre-line fidelity metric applies to the base letter's ink.  Each
+    # dot is a point route placed inside its own ink, so its radius is not a
+    # route miss; the base component alone pins the extraction quality.
+    ys_c, xs_c = np.where(labels == base_component)
+    base_points = np.array(list(zip(xs_c.astype(float), ys_c.astype(float))))
+    errors = [float(route_tree.query(base_points)[0].max())]
+    geometry = {
+        'inkX': ink_min_x, 'inkY': ink_min_y,
+        'inkWidth': max(1, ink_max_x - ink_min_x), 'inkHeight': max(1, ink_max_y - ink_min_y),
+        'routeX': round(route_x, 3), 'routeY': round(route_y, 3),
+        'routeWidth': round(route_width, 3), 'routeHeight': round(route_height, 3),
+        'skeletonPixels': int(binary.sum()), 'routeCount': len(normalized),
+        'maximumRouteError': round(max(errors), 3),
+    }
+    return normalized, geometry, all_display
+
+
 def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     glyphs = {}
@@ -1030,7 +1113,10 @@ def main():
             )
             x, y, width, height = content_bounds(mask, box)
             crop = mask.crop((x, y, x + width, y + height))
-            routes, geometry, display_routes = extract_routes(crop, ROUTE_HINTS[character])
+            if character in UMLAUT_BASES:
+                routes, geometry, display_routes = extract_umlaut(crop, UMLAUT_BASES[character])
+            else:
+                routes, geometry, display_routes = extract_routes(crop, ROUTE_HINTS[character])
             if character in ONE_STROKE_CHARACTERS and len(routes) == 2:
                 # a, d, p, q, g and 9 are taught as one continuous pen motion:
                 # the round body runs without lifting into the stem or tail.
@@ -1041,14 +1127,8 @@ def main():
                 # own start point as its final point; that redundant close
                 # would make Fino do a tiny loop at the junction before the
                 # stem, so it is dropped.
-                def join_strokes(first, second):
-                    if (len(first) > 1 and len(second) > 1
-                            and abs(first[-1][0] - first[0][0]) < 0.0005
-                            and abs(first[-1][1] - first[0][1]) < 0.0005):
-                        first = first[:-1]
-                    return first + second
-                routes = [join_strokes(routes[0], routes[1])]
-                display_routes = [join_strokes(display_routes[0], display_routes[1])]
+                routes = [_join_strokes(routes[0], routes[1], 0.0005)]
+                display_routes = [_join_strokes(display_routes[0], display_routes[1], 0.45)]
                 geometry['routeCount'] = 1
             glyphs[character] = {'sheet': spec['key'], 'x': x, 'y': y, 'width': width, 'height': height}
             geometry.update({'cropWidth': width, 'cropHeight': height})

@@ -5,14 +5,14 @@
 
 import {
   CHARACTER_STROKES,
-} from './handwriting-stroke-data.js?v=1.3.24';
+} from './handwriting-stroke-data.js?v=1.3.29';
 import {
   connectSolutionStrokes,
   createConnectSpec,
   createMazeSpec,
   layoutConnect,
   layoutMaze,
-} from './mini-games.js?v=1.3.24';
+} from './mini-games.js?v=1.3.29';
 
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));
@@ -421,27 +421,9 @@ const numberTemplates = Object.entries(digitStrokes).map(([digit, strokes]) => m
   complexity: digit === '1' || digit === '0' ? 1 : Number(digit) <= 5 ? 2 : 3,
 }));
 
-function addUmlautDots(baseStrokes) {
-  const bounds = boundsOf(baseStrokes);
-  const width = Math.max(0.018, bounds.maxX - bounds.minX);
-  const height = Math.max(0.04, bounds.maxY - bounds.minY);
-  const dotY = bounds.minY - Math.max(0.014, height * 0.13);
-  return [
-    ...baseStrokes,
-    [p(bounds.minX + width * 0.34, dotY)],
-    [p(bounds.minX + width * 0.7, dotY)],
-  ];
-}
-
 export const letterStrokes = Object.fromEntries(
-  [...'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'].map((letter) => [letter, CHARACTER_STROKES[letter]]),
+  [...'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöü'].map((letter) => [letter, CHARACTER_STROKES[letter]]),
 );
-letterStrokes['Ä'] = addUmlautDots(letterStrokes.A);
-letterStrokes['Ö'] = addUmlautDots(letterStrokes.O);
-letterStrokes['Ü'] = addUmlautDots(letterStrokes.U);
-letterStrokes.ä = addUmlautDots(letterStrokes.a);
-letterStrokes.ö = addUmlautDots(letterStrokes.o);
-letterStrokes.ü = addUmlautDots(letterStrokes.u);
 Object.freeze(letterStrokes);
 
 const letterMeta = {
@@ -613,21 +595,17 @@ const SCHULSCHRIFT_BASELINE_OFFSETS = Object.freeze({
   a: 64, b: 112, c: 67, d: 111, e: 67, f: 108, g: 67, h: 108, i: 75, j: 76,
   k: 107, l: 104, m: 60, n: 61, o: 62, p: 69, q: 67, r: 66, s: 69, t: 96,
   u: 59, v: 60, w: 59, x: 62, y: 63, z: 60,
+  Ä: 113, Ö: 116, Ü: 112, ä: 84, ö: 85, ü: 78,
 });
 const SCHULSCHRIFT_DESIGN_TOP = 114;
 export const baselineOffsets = SCHULSCHRIFT_BASELINE_OFFSETS;
 
 function characterDesignTop(character) {
-  const base = ({ Ä: 'A', Ö: 'O', Ü: 'U', ä: 'a', ö: 'o', ü: 'u' })[character] ?? character;
-  const offset = SCHULSCHRIFT_BASELINE_OFFSETS[base];
+  // The umlaut offsets already account for the dots above the base letter
+  // (the crop top includes them), so every glyph shares one baseline.
+  const offset = SCHULSCHRIFT_BASELINE_OFFSETS[character];
   if (offset === undefined) return 0;
-  let dotRise = 0;
-  if (base !== character) {
-    // Umlaut strokes reach above the base letter for the dots; shift the
-    // design top so the base letter's baseline stays on the shared line.
-    dotRise = -boundsOf(letterStrokes[character]).minY * CANONICAL_DRAWING_HEIGHT;
-  }
-  return SCHULSCHRIFT_DESIGN_TOP - offset - dotRise;
+  return SCHULSCHRIFT_DESIGN_TOP - offset;
 }
 
 function characterPhysicalBounds(character) {

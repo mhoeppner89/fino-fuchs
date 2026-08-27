@@ -317,3 +317,58 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 
 - Following the same correction as a/d/p/q/g, the digit `9` is now taught as one continuous stroke: the small round head runs without lifting into the descender tail that curls left at the bottom. Updated `schreib_anleitung.md` (9 was listed as 2 strokes) and added `9` to `ONE_STROKE_CHARACTERS` in `scripts/extract_handwriting_templates.py`; `main()` joins the two extracted routes, dropping the redundant circle-close point. Regenerated stroke data; `9` now reports `routeCount: 1` with template-alignment error unchanged (3.6 px). The merged route hugs the template (round head up top, tail down to the bottom-left) and the fox heading shows only the taught junction turn.
 - Updated the digit construction test (`number-9-gross` is one stroke; its round head closes back toward the start, then the tail descends to the bottom-left). `npm test` passes 125 of 125 tests. Prepared release `v1.3.24`.
+
+## 2026-08-26 missing crossbar of 7, Fino replays after a partial attempt
+
+- Bug 1 (success after first stroke): On the 844×390 landscape phone layout, the 7's diagonal passes through the crossbar area. The identity check's `bandCoverage` used the same generous `identityTolerance` band (≈28 px on a 390 px high canvas) for every path, so 70 % of the crossbar's expected samples happened to fall within 28 px of a diagonal sample. The user could draw only the diagonal and the level would celebrate, awarding success for a half-finished 7. The same geometry affected the t's crossbar (stem crossing through it) and the A's crossbar (between the two diagonals).
+- Fix 1 in `drawingIdentity` (`js/drawing.js`): the per-path coverage band now scales with the path itself — `min(identityTolerance, max(8, pathLength * 0.18))`. A 94 px crossbar is judged against a ≈17 px band, the 477 px diagonal keeps the full 28 px rescue, and the 326 px A crossbar still has ≈26 px to absorb a coherent offset. The diagonal of the 7 no longer reaches the crossbar with enough samples to clear the 0.66 path-coverage threshold, while a correctly drawn crossbar (any character, any viewport) still passes because its own samples sit squarely on the route.
+- Bug 2 (Fino preview not starting): When a stroke did not advance `nextGuideStrokeIndex` (e.g. a partial single-stroke 8, or a wobbly first attempt on a multi-stroke character), `state.previewedStrokeIndex` was already set to that guide index, so `previewCurrentStroke` returned early. Fino never replayed the next guide, even though the child clearly needed another demo.
+- Fix 2 in `app.js`: `onStrokeStart` now resets `state.previewedStrokeIndex` to `null` (the demo is also stopped on stroke start), so the next guide stroke is previewed again whenever the child makes a new pen movement. The first preview on a fresh task is unchanged (the field is already `null` from `renderTask`).
+- Added two regression tests: a cross-viewport "missing small mark cannot be hidden by a long neighbour stroke" sweep (7, A, i, j across 320×568, 390×700, 844×390, 900×620, 1024×768) and a release-readiness check that `onStrokeStart` clears the previewed guide. `npm test` passes 126 of 126 tests.
+
+## 2026-08-27 stroke-by-stroke redo: rejected attempts are superseded by the redraw
+
+- Bug: on multi-stroke glyphs, the first attempt at a stroke can be so far off-target that recognition rejects it. The child redraws it correctly (and is allowed to proceed), then finishes the rest of the glyph — but the rejected stroke stays in the ink and drags down precision/MSE/completion, so the evaluator never awards success even though every stroke was eventually drawn correctly.
+- Root cause: `evaluateTaskDrawing` scores the full ink set. A far-off first try is geometrically indistinguishable from a wrong-letter extra mark (a G's bar drawn for a C) in a static snapshot, so any pure "drop the bad strokes" filter either keeps the ghost (bug persists) or forgives wrong-glyph marks (regression: E/F, G/C, T/I, Q/O, R/P pairs started passing).
+- Fix (`js/drawing.js`, `js/app.js`): the app now knows the difference because it saw the rejection. `resolveRejectedRedraw()` records each rejected stroke for the guide route it best-matches; when a later stroke is accepted for that same route (the redraw), the superseded rejected stroke is removed from the ink before evaluation. Success then counts only the successful attempts. Wrong-glyph marks are never rejected-then-redone, so they stay and keep failing the wrong-letter checks.
+- Wired into the board (`pendingRejected`, reset on task/clear/undo/set), called from `onStrokeEnd`, plus a pure exported `resolveRejectedRedraw` so the flow is unit-testable.
+- Regression test: "a corrected rejected first attempt no longer blocks success on multi-stroke glyphs" (7, A, K) — rejected attempt is remembered, redraw removes it, the finished glyph passes, and the unresolved ghost ink alone still fails. `npm test` passes 127 of 127 tests. Released as v1.3.25.
+
+## 2026-08-27 easy-mode dots and umlaut preview
+
+- Bug 1 ("too hard on Leicht"): the dot of an i/J or umlaut (ä/ö/ü) is a single-point route, and a child's tap is nearly point-like too. `judgeStrokeAgainstRoute` returned null for any stroke under 10 px, so a small dot tap (a finger tap with a few px of movement) matched no route → `judgeLastStroke` rejected it → the child got "Fast! Versuch es noch einmal" on every dot, making easy levels feel impossible. The final whole-task evaluator was already lenient for dots; only the stroke-by-stroke gate was blocking them.
+- Fix 1 (`js/drawing.js`): when the expected route is itself a short mark (≤ 12 px), short user strokes are judged by proximity instead of being nulled by the length guard. A tap on the dot now counts as a successful attempt; a tap clearly away still gets rejected. Verified: mild/moderate child wobble now rejects 0 of 113 strokes (was 14, all dots).
+- Bug 2 ("preview of ä/ü/ö broken"): a dot has no path to run along, so Fino's preview of a pending dot just stood him still at the point for 300 ms — it looked broken, and each dot was previewed separately.
+- Fix 2 (`js/drawing.js`): new `dotDemoIndexes()` groups all still-pending dots of the same symbol into one preview when the next guide stroke is a dot, so Fino hops from dot to dot (ä/ö/ü show both dots at once; i/J keep their single dot). Dot-only previews get one readable 300 ms pause per dot. `startDemo` uses the grouped indexes and `demoIndexesFor` delegates to the pure function.
+- Tests: "a dot tap is recognised instead of rejected on easy" (i, j, ä, ö, ü taps on/off the dots) and "a dot preview groups the umlaut dots so Fino hops between them". `npm test` passes 129 of 129. Released as v1.3.26.
+
+## 2026-08-27 umlaut dots in the grey template preview + short-mark audit
+
+- Bug 3 (still after v1.3.26): the grey template preview of ä/ö/ü showed only the base letter (a/o/u) without its dots. Root cause: the template raster is the base-letter crop, and the two dots are single-point guide strokes. For letters/numbers `isAngularGuide` is true, so the guide fallback drew them via `angularPath`, which for a 1-point stroke only does `moveTo` — nothing visible.
+- Fix (`js/drawing.js` `drawStrokeSet`): a single-point stroke is now drawn as a filled circle at the stroke width (radius = width/2). This makes the umlaut dots and the i/J dot appear as grey template dots, and the child's own dot taps render as visible ink dots too. Verified live: the ä task's canvas shows two distinct dot blobs above the letter arch.
+- Audit for the same under-10px issue elsewhere: maze/connect are game tasks (no stroke rejection at all), shapes contain no single-point or ≤12 px routes and reject 0 of 116 strokes at mild/moderate child wobble — nothing to fix there. The short-mark `judgeStrokeAgainstRoute` branch from v1.3.26 covers any hypothetical short mark.
+- Test: "a single-point dot is drawn as a filled circle, not an invisible line" (stub 2D context asserts one full arc + fill, no empty stroke). `npm test` passes 130 of 130. Released as v1.3.27.
+
+## v1.3.28 — Fresh umlaut template cache
+
+- Root cause of "ä/ü/ö dots missing from the grey preview": the umlaut crops (base + real source dots) were regenerated into `lowercase-mask.png`/`uppercase-mask.png` without a version bump, so the service worker kept serving the stale cache-first mask (1859×306, no umlaut row) instead of the new one (1859×459).
+- Fix: bumped to v1.3.28 across `package.json`, `sw.js` (CACHE_NAME + APP_SHELL queries), `index.html`, and the `?v=` imports in `js/app.js`, `js/curriculum.js`, `js/drawing.js`. The new cache installs, the old one is purged on activate, and the mask with the real umlaut dots is served.
+- `npm test` passes 130 of 130.
+
+## v1.3.29 — Clean "l" sprite and corrected stroke start
+
+- Root cause of the bugged "l" sprite: `extract_schulschrift_glyphs.py` cropped
+  raw alpha rectangles, so the descender of the neighbouring glyph from the row
+  above (the g tail of the Gg cell) poked into the "l" crop box and rendered as
+  a stray blob at the l's top-right corner.
+- `glyph_image` now keeps only the glyph's own connected components; the pair
+  and umlaut splitters return their component masks. All 68 crops re-verified:
+  every glyph now has exactly the expected component count (i/j stem+dot,
+  umlauts base+two dots, everything else a single component).
+- The "l" route had been transcribed to start on that stray blob. Corrected to
+  the Schreibanleitung motion: start at the stem top, pull down, swing out
+  right at the bottom ("Oben beginnen, gerade nach unten ziehen und unten mit
+  einem kleinen Bogen nach rechts ausschwingen."). Fino now waits on the stem.
+- Updated the curriculum test that asserted the old top-right entry.
+- Version bumped to v1.3.29 so the service worker serves the regenerated
+  template masks and stroke data.

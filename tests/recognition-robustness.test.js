@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { adaptTaskToViewport, EXERCISE_BANKS } from '../js/curriculum.js';
-import { evaluateTaskDrawing, passesDrawingCriteria } from '../js/drawing.js';
+import { evaluateTaskDrawing, passesDrawingCriteria, resolveRejectedRedraw, strokeMatchesAnyRoute } from '../js/drawing.js';
 
 const VIEWPORTS = [
   { width: 320, height: 568 },
@@ -156,6 +156,111 @@ test('missing teaching details remain incomplete', () => {
     const task = adaptTaskToViewport(source, viewport);
     const strokes = task.strokes.filter((_, index) => index !== omitted);
     assert.equal(passes(task, strokes, viewport), false, `${id} passed without path ${omitted}`);
+  });
+});
+
+test('a corrected rejected first attempt no longer blocks success on multi-stroke glyphs', () => {
+  // The first try at the first stroke can be so far off-target that recognition
+  // rejects it; the redraw then succeeds and the child finishes the rest. The
+  // rejected attempt must be superseded (removed from the ink) when the redraw
+  // matches the same guide route, so the evaluation counts only the strokes the
+  // child actually got right.
+  const viewport = VIEWPORTS[1];
+  const cases = [
+    ['numbers', 'number-7-gross'],
+    ['letters', 'letter-A-gross'],
+    ['letters', 'letter-K-gross'],
+  ];
+  cases.forEach(([category, id]) => {
+    const source = EXERCISE_BANKS[category].find((task) => task.id === id);
+    const task = adaptTaskToViewport(source, viewport);
+    const tolerance = options(viewport).completionTolerance;
+    const badFirst = task.strokes[0].map((point) => ({ x: point.x + 0.28, y: point.y + 0.30 }));
+
+    // 1. The bad first attempt is rejected: it stays in the ink (still visible)
+    //    but is remembered for the route it best-matches.
+    const pending = new Map();
+    const first = resolveRejectedRedraw(task, [badFirst], [], pending, { ...viewport, tolerance });
+    assert.equal(first.changed, false, `${id}: first bad attempt should not be removed`);
+    const rejectedRoute = [...pending.keys()][0];
+    assert.ok(rejectedRoute !== undefined, `${id}: rejected attempt should be remembered for a route`);
+
+    // 2. The redraw of the same route supersedes the rejected attempt.
+    const redraw = task.strokes[rejectedRoute];
+    const second = resolveRejectedRedraw(task, [badFirst, redraw], [], pending, { ...viewport, tolerance });
+    assert.equal(second.changed, true, `${id}: redraw should supersede the rejected attempt`);
+    assert.equal(second.userStrokes.length, 1, `${id}: rejected attempt should be removed from the ink`);
+    assert.equal(second.userStrokes[0], redraw, `${id}: the successful redraw stays`);
+
+    // 3. Finishing the remaining strokes passes, and the ghost ink alone would
+    //    have kept failing (which is what the interactive resolution fixes).
+    const rest = task.strokes.filter((_, index) => index !== rejectedRoute);
+    const finished = [...second.userStrokes, ...rest];
+    assert.equal(passes(task, finished, viewport), true, `${id}: corrected multi-stroke drawing must pass`);
+    const ghost = [badFirst, ...task.strokes];
+    assert.equal(passes(task, ghost, viewport), false, `${id}: unresolved ghost ink must not pass on its own`);
+  });
+});
+
+test('a dot tap is recognised instead of rejected on easy', () => {
+  // The dot of an i/J or umlaut is a single-point route, and a child's tap is
+  // nearly point-like too. A tap on the dot must count as a successful attempt
+  // (not be rejected as "too short to judge"), or the level feels impossible.
+  const viewport = VIEWPORTS[1];
+  const tolerance = options(viewport).completionTolerance;
+  const cases = ['letter-i-gross', 'letter-j-gross', 'letter-ä-gross', 'letter-ö-gross', 'letter-ü-gross'];
+  cases.forEach((id) => {
+    const task = adaptTaskToViewport(EXERCISE_BANKS.letters.find((candidate) => candidate.id === id), viewport);
+    const leftmost = Math.min(...task.strokes.flat().map((point) => point.x));
+    const farX = Math.max(0, leftmost - (tolerance + 10) / viewport.width);
+    task.strokes.forEach((route, routeIndex) => {
+      if (route.length > 1) return; // only the dot marks
+      const dot = route[0];
+      const tap = [
+        { x: dot.x, y: dot.y },
+        { x: dot.x + 3 / viewport.width, y: dot.y + 2 / viewport.height },
+        { x: dot.x + 1 / viewport.width, y: dot.y + 3 / viewport.height },
+      ];
+      assert.equal(
+        strokeMatchesAnyRoute(task, tap, { ...viewport, tolerance }),
+        true,
+        `${id} rejected a tap on dot ${routeIndex}`,
+      );
+      const far = [
+        { x: farX, y: dot.y },
+        { x: farX, y: Math.min(1, dot.y + 0.1) },
+      ];
+      assert.equal(
+        strokeMatchesAnyRoute(task, far, { ...viewport, tolerance }),
+        false,
+        `${id} accepted a tap far from dot ${routeIndex}`,
+      );
+    });
+  });
+});
+
+test('a missing small mark cannot be hidden by a long neighbour stroke on any viewport', () => {
+  // The diagonal of a "7" passes through the crossbar area. Without dedicated
+  // assignment for small marks the identity check used to credit the diagonal
+  // for covering the crossbar on the landscape phone (844×390) layout, which
+  // awarded success after the first stroke.
+  const cases = [
+    ['numbers', 'number-7-gross', 1],
+    ['letters', 'letter-A-gross', 1],
+    ['letters', 'letter-i-gross', 1],
+    ['letters', 'letter-j-gross', 1],
+  ];
+  VIEWPORTS.forEach((viewport) => {
+    cases.forEach(([category, id, omitted]) => {
+      const source = EXERCISE_BANKS[category].find((task) => task.id === id);
+      const task = adaptTaskToViewport(source, viewport);
+      const strokes = task.strokes.filter((_, index) => index !== omitted);
+      assert.equal(
+        passes(task, strokes, viewport),
+        false,
+        `${id} passed without path ${omitted} on ${viewport.width}x${viewport.height}`,
+      );
+    });
   });
 });
 

@@ -141,7 +141,7 @@ test('the home screen shows the current app version discreetly', () => {
 });
 
 test('approved reference images supply every standard letter and digit template', () => {
-  const expectedCharacters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const expectedCharacters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöü0123456789';
   assert.deepEqual(Object.keys(CHARACTER_TEMPLATE_CROPS).sort(), [...expectedCharacters].sort());
   assert.deepEqual(Object.keys(CHARACTER_STROKES).sort(), [...expectedCharacters].sort());
   assert.deepEqual(Object.keys(CHARACTER_STROKE_GEOMETRY).sort(), [...expectedCharacters].sort());
@@ -154,7 +154,12 @@ test('approved reference images supply every standard letter and digit template'
   });
   Object.entries(CHARACTER_STROKE_GEOMETRY).forEach(([character, geometry]) => {
     assert.ok(CHARACTER_STROKES[character].length > 0, `${character} has no Fino route`);
-    assert.ok(geometry.maximumRouteError <= 8, `${character} misses its template by ${geometry.maximumRouteError}px`);
+    // Umlaut bases are the smaller Z-row letters whose thin apexes sit just
+    // outside the skeleton's reach; the dot routes are points inside their
+    // dots. Allow the slightly wider band there, keep the strict one for the
+    // standalone letters and digits.
+    const errorLimit = 'ÄÖÜäöü'.includes(character) ? 12 : 8;
+    assert.ok(geometry.maximumRouteError <= errorLimit, `${character} misses its template by ${geometry.maximumRouteError}px`);
     assert.ok(geometry.routeWidth > 0 && geometry.routeHeight > 0, `${character} has invalid source bounds`);
     CHARACTER_STROKES[character].forEach((stroke, strokeIndex) => {
       for (let index = 1; index < stroke.length - 1; index += 1) {
@@ -199,7 +204,7 @@ test('approved reference images supply every standard letter and digit template'
 });
 
 test('every placed character preserves the source template aspect ratio', () => {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöü0123456789';
   [...characters].forEach((character) => {
     const number = /\d/.test(character);
     const task = (number ? EXERCISE_BANKS.numbers : EXERCISE_BANKS.letters)
@@ -220,7 +225,7 @@ test('every placed character preserves the source template aspect ratio', () => 
 });
 
 test('every visible template lands on the same canvas bounds as Fino and scoring', () => {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöü0123456789';
   [...characters].forEach((character) => {
     const number = /\d/.test(character);
     const task = (number ? EXERCISE_BANKS.numbers : EXERCISE_BANKS.letters)
@@ -403,8 +408,8 @@ test('approved lowercase l and q retain their distinct exits', () => {
   const l = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-l-gross');
   const q = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-q-gross');
   const lStroke = relativeStroke(l.strokes[0]);
-  assert.ok(lStroke[0].x > 0.8, 'l beginnt am Einstrich oben rechts');
-  assert.ok(lStroke[1].x < lStroke[0].x, 'l pull left onto the stem before descending');
+  assert.ok(lStroke[0].x < 0.35, 'l beginnt oben am Stamm (Schreibanleitung: oben beginnen)');
+  assert.ok(lStroke[1].y > lStroke[0].y, 'l first travels down the stem');
   assert.ok(l.strokes[0].at(-1).x > l.strokes[0].at(-2).x, 'l should finish with a small rightward curve');
   assert.equal(q.strokes.length, 1, 'q ist ein Strich: Rund läuft in den Schwanz');
   const qDescenderXs = q.strokes[0].slice(-4).map((point) => point.x);

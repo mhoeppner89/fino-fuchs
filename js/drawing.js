@@ -3,8 +3,8 @@
 import {
   CHARACTER_TEMPLATE_SHEETS,
   characterTemplateCrop,
-} from './handwriting-template-data.js?v=1.3.24';
-import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.24';
+} from './handwriting-template-data.js?v=1.3.29';
+import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.29';
 import {
   connectInkWidthForBoard,
   connectTrailCollision,
@@ -12,7 +12,7 @@ import {
   mazeWallCollision,
   nextMazeSolutionPoint,
   pointDistanceInPixels,
-} from './mini-games.js?v=1.3.24';
+} from './mini-games.js?v=1.3.29';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -47,6 +47,25 @@ export function demoRunDuration(pathLength, boundsHeight, { reducedMotion = fals
   if (!pathLength || pathLength <= 0) return 300;
   const speed = clamp(boundsHeight * 0.55, 70, 140) * multiplier;
   return Math.max(1, (pathLength / speed) * 1000);
+}
+
+/**
+ * Guide indexes Fino demonstrates next. Normally just the first unfinished
+ * stroke. When that stroke is a dot (single-point mark), all still-pending
+ * dots of the same symbol are included so Fino hops between them and the
+ * child sees the full pattern (ä/ö/ü, i/J) in one preview.
+ */
+export function dotDemoIndexes(task, nextIndex) {
+  const strokes = task?.strokes ?? [];
+  if (!strokes.length) return [nextIndex];
+  const indexes = [nextIndex];
+  if (strokes[nextIndex]?.length > 1) return indexes;
+  const group = task.completionGroups?.find((candidates) => candidates.includes(nextIndex)) ?? null;
+  if (!group) return indexes;
+  for (let index = nextIndex + 1; index < strokes.length && group.includes(index); index += 1) {
+    if (strokes[index].length <= 1) indexes.push(index);
+  }
+  return indexes;
 }
 export const INK_COLORS = Object.freeze(['#284B73', '#C75C7B', '#2A9D8F', '#9A63BA', '#DD8530']);
 // The guide remains easy to find at every difficulty. Difficulty comes from
@@ -839,8 +858,13 @@ function drawingIdentity(task, userStrokes, width, height, assist = 'easy') {
         const detailTolerance = identityTolerance * (assist === 'easy' ? 1.6 : assist === 'medium' ? 1.4 : 1.25);
         return { index, coverage: nearest <= detailTolerance ? 1 : 0, longestGap: nearest <= detailTolerance ? 0 : 1, pass: nearest <= detailTolerance };
       }
-      const coverage = bandCoverage(samples, alignedPoints, identityTolerance);
-      const longestGap = longestUncoveredRun(samples, alignedPoints, identityTolerance);
+      // Small marks (a crossbar, dot, or tail) need a tighter coverage band
+      // than the identity's generous alignment rescue.  Without the scale,
+      // a long neighbour stroke (the diagonal of a 7, the stem of a t) can
+      // credit itself with covering a small mark it only passes near.
+      const pathTolerance = Math.min(identityTolerance, Math.max(8, pathLength * 0.18));
+      const coverage = bandCoverage(samples, alignedPoints, pathTolerance);
+      const longestGap = longestUncoveredRun(samples, alignedPoints, pathTolerance);
       return { index, coverage, longestGap, pass: coverage >= profile.pathCoverage && longestGap <= profile.pathGap };
     });
     const pass = best.coreCoverage >= profile.coverage
@@ -858,6 +882,72 @@ function drawingIdentity(task, userStrokes, width, height, assist = 'easy') {
     )))
     : 0;
   return { pass, completion, groups: groupMetrics, tolerance: identityTolerance };
+}
+
+/**
+ * Stroke-by-stroke redo resolution for multi-stroke glyphs (letters, numbers,
+ * and names). A child may need several tries at one pen movement: the first
+ * try can be so far off-target that recognition rejects it, then the redraw
+ * succeeds. The rejected stroke would otherwise stay in the ink and keep
+ * dragging down the whole-task score. The app knows the child redid that exact
+ * pen movement (the redraw matches the same guide route), so this removes the
+ * superseded attempt and keeps only the successful strokes. Extra marks from a
+ * different letter (a G's bar drawn for a C) are never rejected-then-redone,
+ * so they stay in the ink and keep failing the wrong-glyph checks.
+ *
+ * `pendingRejected` maps a guide route index to the stroke objects waiting for
+ * a successful redraw of that route; it is mutated in place so the board can
+ * keep it across pen movements.
+ */
+export function resolveRejectedRedraw(task, userStrokes, strokeColors, pendingRejected, {
+  width = 900,
+  height = 620,
+  tolerance = Math.min(width, height) * 0.11,
+} = {}) {
+  if (!['letters', 'numbers', 'name'].includes(task?.category) || !userStrokes.length) {
+    return { userStrokes, strokeColors, pendingRejected, changed: false };
+  }
+  const last = userStrokes.at(-1);
+  if (!last || last.length < 2) return { userStrokes, strokeColors, pendingRejected, changed: false };
+
+  let route = -1;
+  let fit = null;
+  let bestScore = -1;
+  task.strokes.forEach((expected, index) => {
+    if (!expected?.length) return;
+    const candidate = judgeStrokeAgainstRoute(last, expected, { width, height, tolerance });
+    if (!candidate) return;
+    const score = Math.min(candidate.coverage, candidate.precision);
+    if (score > bestScore) { bestScore = score; route = index; fit = candidate; }
+  });
+  const accepted = Boolean(fit && (fit.coverage >= 0.5 || fit.precision >= 0.8));
+
+  if (!accepted) {
+    // The newest stroke is itself a failed attempt: remember it for its
+    // nearest route so a later successful redraw of that route supersedes it.
+    if (route >= 0) {
+      if (!pendingRejected.has(route)) pendingRejected.set(route, []);
+      const refs = pendingRejected.get(route);
+      if (!refs.includes(last)) refs.push(last);
+    }
+    return { userStrokes, strokeColors, pendingRejected, changed: false };
+  }
+
+  const refs = pendingRejected.get(route);
+  if (!refs?.length) return { userStrokes, strokeColors, pendingRejected, changed: false };
+  pendingRejected.delete(route);
+  const nextStrokes = [...userStrokes];
+  const nextColors = [...strokeColors];
+  let changed = false;
+  refs.forEach((ref) => {
+    const index = nextStrokes.indexOf(ref);
+    if (index >= 0) {
+      nextStrokes.splice(index, 1);
+      nextColors.splice(index, 1);
+      changed = true;
+    }
+  });
+  return { userStrokes: nextStrokes, strokeColors: nextColors, pendingRejected, changed };
 }
 
 /** Activity-aware completion keeps forgiving line distance while preventing a
@@ -969,7 +1059,19 @@ export function judgeStrokeAgainstRoute(userStroke, expectedStroke, {
   if (!expectedStroke?.length || !userStroke?.length) return null;
   const expectedPixels = expectedStroke.map((point) => toPixels(point, width, height));
   const userPixels = userStroke.map((point) => toPixels(point, width, height));
-  if (pixelPolylineLength(userPixels) < 10) return null;
+  const userLength = pixelPolylineLength(userPixels);
+  // A dot (i/J/ä/ö/ü) is a single-point route with almost no polyline length,
+  // and the child's tap is short too. Judge those marks by proximity instead
+  // of length so a small dot is recognised instead of rejected for being
+  // under 10 px. Longer strokes crossing a dot still use the normal path fit.
+  if (pixelPolylineLength(expectedPixels) <= 12 && userLength < 10) {
+    const expectedSamples = resampleStroke(expectedStroke, width, height, 6);
+    const userSamples = resampleStroke(userStroke, width, height, 6);
+    const targetMatch = nearestDistanceMetrics(expectedSamples, [userPixels], tolerance);
+    const userMatch = nearestDistanceMetrics(userSamples, [expectedPixels], tolerance);
+    return { coverage: targetMatch.coverage, precision: userMatch.coverage };
+  }
+  if (userLength < 10) return null;
   const expectedSamples = resampleStroke(expectedStroke, width, height, 6);
   const userSamples = resampleStroke(userStroke, width, height, 6);
   const targetMatch = nearestDistanceMetrics(expectedSamples, [userPixels], tolerance);
@@ -1217,6 +1319,9 @@ export class DrawingBoard {
     this.gameErrorUntil = 0;
     this.inkRevision = 0;
     this.evaluationCache = null;
+    // Rejected pen movements waiting for a successful redraw of the same
+    // guide route, keyed by route index. See resolveRejectedRedraw().
+    this.pendingRejected = new Map();
     this.renderFrame = 0;
     this.mazeLayers = null;
     this.connectBackdrop = null;
@@ -1396,6 +1501,7 @@ export class DrawingBoard {
     this.highlightUntil = 0;
     this.inkRevision += 1;
     this.evaluationCache = null;
+    this.pendingRejected = new Map();
     this.initializeGameState();
     this.mazeLayers = null;
     this.connectBackdrop = null;
@@ -1417,6 +1523,7 @@ export class DrawingBoard {
     this.highlightUntil = 0;
     this.inkRevision += 1;
     this.evaluationCache = null;
+    this.pendingRejected = new Map();
     this.initializeGameState();
     this.mazeLayers = null;
     this.render();
@@ -1445,6 +1552,7 @@ export class DrawingBoard {
     cancelAnimationFrame(this.jumpFrame);
     this.inkRevision += 1;
     this.evaluationCache = null;
+    this.pendingRejected = new Map();
     this.render();
     this.hooks.onInkChange?.(this.hasInk());
     return true;
@@ -1470,6 +1578,7 @@ export class DrawingBoard {
       : null;
     this.inkRevision += 1;
     this.evaluationCache = null;
+    this.pendingRejected = new Map();
     if (this.task?.gameMode === 'maze') {
       const endpoint = this.userStrokes.at(-1)?.at(-1) ?? null;
       this.gameState = {
@@ -1510,6 +1619,7 @@ export class DrawingBoard {
       : null;
     this.inkRevision += 1;
     this.evaluationCache = null;
+    this.pendingRejected = new Map();
     this.render();
     this.hooks.onInkChange?.(this.hasInk());
   }
@@ -1612,6 +1722,32 @@ export class DrawingBoard {
     return fit ? 'accepted' : 'rejected';
   }
 
+  /**
+   * Stroke-by-stroke redo: when the newest stroke is a rejected attempt, keep
+   * it visible but remember it for the route it best-matches. When a later
+   * stroke is accepted for that same route, remove the superseded rejected
+   * strokes from the ink so the whole-task score reflects only the successful
+   * attempts. Called after every completed pen movement (letters/numbers only).
+   */
+  resolveRejectedRedraw() {
+    if (this.isGameTask()) return false;
+    const tolerance = this.evaluationOptions().completionTolerance;
+    const result = resolveRejectedRedraw(this.task, this.userStrokes, this.strokeColors, this.pendingRejected, {
+      width: this.width,
+      height: this.height,
+      tolerance,
+    });
+    if (result.changed) {
+      this.userStrokes = result.userStrokes;
+      this.strokeColors = result.strokeColors;
+      this.inkRevision += 1;
+      this.evaluationCache = null;
+      this.render();
+      this.hooks.onInkChange?.(this.hasInk());
+    }
+    return result.changed;
+  }
+
   activeGuideStageIndex() {
     const stages = this.guideStages();
     if (!stages.length || !this.hasInk()) return 0;
@@ -1709,6 +1845,10 @@ export class DrawingBoard {
     });
   }
 
+  demoIndexesFor(nextIndex) {
+    return dotDemoIndexes(this.task, nextIndex);
+  }
+
   startDemo() {
     if (!this.task || this.demoProgress !== null) return Promise.resolve();
     if (this.isGameTask()) return this.startGameHint();
@@ -1717,8 +1857,12 @@ export class DrawingBoard {
     // the recognition stays order-agnostic for the finished shape.
     this.jumpAnimation = null;
     cancelAnimationFrame(this.jumpFrame);
-    // Fino demonstrates one mark, then leaves the next turn to the child.
-    this.demoStrokeIndexes = [this.nextGuideStrokeIndex()];
+    // Fino demonstrates one mark, then leaves the next turn to the child. A
+    // dot (single-point mark) has no path to run along, so all still-pending
+    // dots of the same symbol (ä/ö/ü, i/J) are demonstrated together, hopping
+    // between them, so the child sees the whole pattern instead of Fino just
+    // standing still on one dot.
+    this.demoStrokeIndexes = this.demoIndexesFor(this.nextGuideStrokeIndex());
     const demoStrokes = this.demoStrokeIndexes.map((index) => this.task.strokes[index]);
     if (!demoStrokes.length) return Promise.resolve();
     this.demoProgress = 0;
@@ -1726,10 +1870,12 @@ export class DrawingBoard {
     this.lastDemoFrameAt = 0;
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     // Pace the helper by distance, not stroke count. Fino runs at one
-    // constant speed no matter how long the preview is; only a single-point
-    // mark (a dot) gets a short readable pause because it has no path length.
+    // constant speed no matter how long the preview is; a single-point dot has
+    // no path length, so give each dot its own short readable pause.
     const pathLength = demoStrokes.reduce((sum, stroke) => sum + polylineLength(stroke, this.width, this.height), 0);
-    const duration = demoRunDuration(pathLength, drawingBounds(this.width, this.height).height, { reducedMotion });
+    const duration = pathLength > 0
+      ? demoRunDuration(pathLength, drawingBounds(this.width, this.height).height, { reducedMotion })
+      : 300 * demoStrokes.length;
     const startedAt = performance.now();
 
     return new Promise((resolve) => {
@@ -2222,13 +2368,13 @@ export class DrawingBoard {
       const visibleGroup = group.filter((index) => visible.has(index));
       if (!visibleGroup.length) return;
       const symbol = symbols[groupIndex];
-      const baseSymbol = ({ Ä: 'A', Ö: 'O', Ü: 'U', ä: 'a', ö: 'o', ü: 'u' })[symbol] ?? symbol;
-      const crop = characterTemplateCrop(baseSymbol);
-      const geometry = characterStrokeGeometry(baseSymbol);
+      // Umlauts have their own source crops (base letter plus the real dots)
+      // and their own route geometry, so every symbol is drawn directly from
+      // its own crop instead of falling back to a base letter.
+      const crop = characterTemplateCrop(symbol);
+      const geometry = characterStrokeGeometry(symbol);
       const image = crop ? this.templateImages.get(crop.sheet) : null;
-      const imageIndexes = symbol === baseSymbol
-        ? group
-        : group.slice(0, geometry?.routeCount ?? 0);
+      const imageIndexes = group;
       const bounds = pixelBoundsForStrokes(
         imageIndexes.map((index) => this.task.strokes[index]),
         this.width,
@@ -2276,6 +2422,18 @@ export class DrawingBoard {
     // WebKit from turning almost-collinear points into very long miter spikes.
     context.miterLimit = 2;
     strokes.forEach((stroke, index) => {
+      // A dot (single-point mark, e.g. the umlaut dots of ä/ö/ü or the i/J
+      // dot) has no line to trace. Draw it as a filled circle at the stroke
+      // width so the grey preview, the guide, and the child's own tap all
+      // show a visible dot instead of nothing.
+      if (stroke.length === 1) {
+        const point = toPixels(stroke[0], this.width, this.height);
+        context.fillStyle = color;
+        context.beginPath();
+        context.arc(point.x, point.y, Math.max(1, width / 2), 0, Math.PI * 2);
+        context.fill();
+        return;
+      }
       const useAngular = angularForStroke ? angularForStroke(stroke, index) : angular;
       context.lineJoin = lineJoin ?? (useAngular ? 'miter' : 'round');
       context.beginPath();

@@ -5,13 +5,13 @@ import {
   DIFFICULTIES,
   normalizeName,
   reflowTaskWithInk,
-} from './curriculum.js?v=1.3.24';
+} from './curriculum.js?v=1.3.29';
 import {
   DrawingBoard,
   evaluateTaskDrawing,
   feedbackForEvaluation,
   passesDrawingCriteria,
-} from './drawing.js?v=1.3.24';
+} from './drawing.js?v=1.3.29';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -715,10 +715,19 @@ board = new DrawingBoard(elements.drawingCanvas, {
   },
   onStrokeStart() {
     clearAutoCheck();
+    // The child is starting a fresh pen movement: the previous Fino demo no
+    // longer reflects what the child is about to draw, so the next guide
+    // stroke should be previewed again even if the guide index is the same.
+    state.previewedStrokeIndex = null;
     updateRoundControls();
   },
   onStrokeEnd() {
-    if (!board.isGameTask()) scheduleAutoCheck();
+    if (!board.isGameTask()) {
+      // A stroke that redoes a previously-rejected pen movement supersedes it:
+      // drop the old attempt so the evaluation counts only successful strokes.
+      board.resolveRejectedRedraw();
+      scheduleAutoCheck();
+    }
     updateRoundControls();
   },
   onGameProgress(snapshot) {

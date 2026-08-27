@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  dotDemoIndexes,
   demoRunDuration,
   demoStageAtProgress,
   DEMO_SPEED_MULTIPLIER,
@@ -296,6 +297,55 @@ test('Fino previews run at one constant speed regardless of path length', () => 
   assert.ok(demoRunDuration(600, 620) < demoRunDuration(1200, 620), 'longer previews take proportionally longer');
   assert.equal(demoRunDuration(0, 620), 300, 'a single-point dot gets a short readable pause');
   assert.equal(demoRunDuration(500, 620, { reducedMotion: true }), 1);
+});
+
+test('a single-point dot is drawn as a filled circle, not an invisible line', () => {
+  // The umlaut dots of ä/ö/ü (and the i/J dot) are single-point strokes. They
+  // must render as visible grey dots in the template instead of vanishing
+  // (a 1-point polyline has nothing to stroke).
+  const calls = [];
+  const context = new Proxy({}, {
+    get(target, property) {
+      return (...args) => { calls.push([String(property), ...args]); };
+    },
+    set(target, property, value) {
+      calls.push([`set:${String(property)}`, value]);
+      return true;
+    },
+  });
+  const board = Object.assign(Object.create(DrawingBoard.prototype), {
+    width: 900,
+    height: 600,
+  });
+  board.drawStrokeSet(context, [[{ x: 0.5, y: 0.5 }]], { color: '#3E7F95', width: 10, alpha: 0.29, angular: true });
+  const arcs = calls.filter(([name]) => name === 'arc');
+  assert.equal(arcs.length, 1, 'a dot stroke should draw exactly one circle');
+  assert.ok(arcs[0][5] === Math.PI * 2, 'the dot circle should be full');
+  assert.ok(calls.some(([name]) => name === 'fill'), 'the dot should be filled');
+  const strokes = calls.filter(([name]) => name === 'stroke');
+  assert.equal(strokes.length, 0, 'a dot stroke should not try to stroke an empty path');
+});
+
+test('a dot preview groups the umlaut dots so Fino hops between them', () => {
+  // The dots of ä/ö/ü have no path to run along; standing on one conveys
+  // nothing. When the next mark is a dot, all pending dots of the same symbol
+  // are demonstrated together so the child sees the whole pattern.
+  const umlaut = {
+    strokes: [
+      [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+      [{ x: 0.4, y: 0.2 }],
+      [{ x: 0.6, y: 0.2 }],
+    ],
+    completionGroups: [[0, 1, 2]],
+  };
+  assert.deepEqual(dotDemoIndexes(umlaut, 0), [0], 'the base letter is previewed alone');
+  assert.deepEqual(dotDemoIndexes(umlaut, 1), [1, 2], 'both pending dots are previewed together');
+  assert.deepEqual(dotDemoIndexes(umlaut, 2), [2], 'a single remaining dot is previewed alone');
+  const normal = {
+    strokes: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 0.5, y: 0.5 }],
+    completionGroups: [[0, 1, 2]],
+  };
+  assert.deepEqual(dotDemoIndexes(normal, 0), [0], 'a normal stroke never groups following marks');
 });
 
 test('letters and numbers follow the pen while drawing and still preview the next stroke', () => {

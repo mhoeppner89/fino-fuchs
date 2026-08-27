@@ -121,7 +121,7 @@ def mask_bounds(masks):
 
 
 def split_pair_components(component_masks):
-    """Group a pair cell's components into (uppercase bounds, lowercase bounds)."""
+    """Group a pair cell's components into (uppercase, lowercase) bounds+masks."""
     intervals = sorted(
         (int(xs.min()), int(xs.max()), label)
         for label, mask in component_masks.items()
@@ -136,12 +136,47 @@ def split_pair_components(component_masks):
         raise ValueError('pair glyphs overlap without a separating gap')
     upper = [component_masks[intervals[i][2]] for i in range(index + 1)]
     lower = [component_masks[intervals[i][2]] for i in range(index + 1, len(intervals))]
-    return mask_bounds(upper), mask_bounds(lower)
+    return mask_bounds(upper), mask_bounds(lower), upper, lower
 
 
-def glyph_image(source_alpha, box):
+def split_umlaut_pair(component_masks):
+    """Split an umlaut cell (Ää, Öö, Üü) into (uppercase, lowercase) bounds.
+
+    Each cell contains six disconnected components: the uppercase base and
+    its two dots, then the lowercase base and its two dots. The dots sit
+    above their base in the same x-range, so the largest horizontal gap
+    separates the two cases; each side must hold exactly base + 2 dots.
+    """
+    intervals = sorted(
+        (int(np.where(mask)[1].min()), int(np.where(mask)[1].max()), label)
+        for label, mask in component_masks.items()
+    )
+    gaps = [
+        (right[0] - left[1], index)
+        for index, (left, right) in enumerate(zip(intervals, intervals[1:]))
+    ]
+    _, index = max(gaps)
+    upper = [component_masks[intervals[i][2]] for i in range(index + 1)]
+    lower = [component_masks[intervals[i][2]] for i in range(index + 1, len(intervals))]
+    if len(upper) != 3 or len(lower) != 3:
+        raise ValueError(f'umlaut cell must have base + two dots per case, got {len(upper)} / {len(lower)}')
+    return mask_bounds(upper), mask_bounds(lower), upper, lower
+
+
+def glyph_image(source_alpha, box, keep_masks=None):
+    """Crop one glyph, keeping only its own components' pixels.
+
+    Neighbouring glyphs bleed into a crop box: descenders of the row above
+    (g, j, y, p, q) dip into the next row's cells, so a raw rectangle crop
+    would carry foreign ink (e.g. the g tail that poked into the l box and
+    looked like a stray blob on the l sprite). When keep_masks is given,
+    every pixel outside those components is cleared.
+    """
     x0, y0, x1, y1 = box
     alpha = source_alpha[y0:y1, x0:x1].copy()
+    if keep_masks:
+        keep = np.logical_or.reduce([mask[y0:y1, x0:x1] for mask in keep_masks])
+        alpha = np.where(keep, alpha, 0)
     rgba = np.zeros((*alpha.shape, 4), dtype=np.uint8)
     rgba[:, :, 0] = INK_RGB[0]
     rgba[:, :, 1] = INK_RGB[1]
@@ -167,12 +202,15 @@ def main():
                 COLUMN_STARTS[column_index + 1] - 48 if column_index < 4 else COLUMN_END,
             )
             masks = cell_component_masks(labels, assignment, row_index, x_range)
-            if len(pair) == 1 or pair[0] in 'ÄÖÜ':
+            if len(pair) == 1:
                 continue
             upper, lower = pair
-            upper_box, lower_box = split_pair_components(masks)
-            glyphs[upper] = glyph_image(alpha, upper_box)
-            glyphs[lower] = glyph_image(alpha, lower_box)
+            if pair in ('Ää', 'Öö', 'Üü'):
+                upper_box, lower_box, upper_masks, lower_masks = split_umlaut_pair(masks)
+            else:
+                upper_box, lower_box, upper_masks, lower_masks = split_pair_components(masks)
+            glyphs[upper] = glyph_image(alpha, upper_box, upper_masks)
+            glyphs[lower] = glyph_image(alpha, lower_box, lower_masks)
 
     digit_top, digit_bottom = digits_band
     columns = ink[digit_top:digit_bottom, 90:1440].any(axis=0)
@@ -196,14 +234,15 @@ def main():
     for (cell_left, cell_right), label in zip(merged, DIGIT_CELLS):
         masks = cell_component_masks(labels, assignment, len(letter_bands), (90 + cell_left - 3, 90 + cell_right + 3))
         if label == '10':
-            _, zero_box = split_pair_components(masks)
-            glyphs['0'] = glyph_image(alpha, zero_box)
+            _, zero_box, _, zero_masks = split_pair_components(masks)
+            glyphs['0'] = glyph_image(alpha, zero_box, zero_masks)
         else:
-            glyphs[label] = glyph_image(alpha, mask_bounds(list(masks.values())))
+            keep = list(masks.values())
+            glyphs[label] = glyph_image(alpha, mask_bounds(keep), keep)
 
     expected = [chr(c) for c in range(ord('A'), ord('Z') + 1)] + \
                [chr(c) for c in range(ord('a'), ord('z') + 1)] + \
-               [str(d) for d in range(10)]
+               list('ÄÖÜäöü') + [str(d) for d in range(10)]
     missing = [character for character in expected if character not in glyphs]
     assert not missing, f'missing glyphs: {missing}'
 
@@ -244,8 +283,8 @@ def main():
         out.save(REFERENCE / name, optimize=True)
         print(f'{name}: {out.size}, cell {cell_w}x{cell_h}')
 
-    build_sheet([chr(c) for c in range(ord('A'), ord('Z') + 1)], 'uppercase-v2.png')
-    build_sheet([chr(c) for c in range(ord('a'), ord('z') + 1)], 'lowercase-v3.png')
+    build_sheet([chr(c) for c in range(ord('A'), ord('Z') + 1)] + list('ÄÖÜ'), 'uppercase-v2.png')
+    build_sheet([chr(c) for c in range(ord('a'), ord('z') + 1)] + list('äöü'), 'lowercase-v3.png')
     build_sheet([str(d) for d in range(10)], 'digits-v2.png')
     sizes = {c: (glyphs[c].width, glyphs[c].height) for c in expected}
     print('glyph sizes:', sizes)
@@ -269,14 +308,17 @@ def baseline_offsets():
     boxes = {}
     for row_index, (band, pairs) in enumerate(zip(letter_bands, ROW_LETTERS)):
         for column_index, pair in enumerate(pairs):
-            if len(pair) == 1 or pair[0] in '\u00c4\u00d6\u00dc':
+            if len(pair) == 1:
                 continue
             x_range = (
                 COLUMN_STARTS[column_index] - 6,
                 COLUMN_STARTS[column_index + 1] - 48 if column_index < 4 else COLUMN_END,
             )
             masks = cell_component_masks(labels, assignment, row_index, x_range)
-            upper_box, lower_box = split_pair_components(masks)
+            if pair in ('Ää', 'Öö', 'Üü'):
+                upper_box, lower_box, _, _ = split_umlaut_pair(masks)
+            else:
+                upper_box, lower_box, _, _ = split_pair_components(masks)
             boxes[pair[0]] = (*upper_box, row_index)
             boxes[pair[1]] = (*lower_box, row_index)
     baselines = {}
@@ -292,6 +334,7 @@ def baseline_offsets():
     print('const SCHULSCHRIFT_BASELINE_OFFSETS = Object.freeze({')
     letters = [chr(c) for c in range(ord('A'), ord('Z') + 1)]
     letters += [chr(c) for c in range(ord('a'), ord('z') + 1)]
+    letters += list('ÄÖÜäöü')
     for character in letters:
         x0, y0, _, _, row_index = boxes[character]
         offset = baselines[row_index] - y0
