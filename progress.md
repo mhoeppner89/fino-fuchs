@@ -372,3 +372,86 @@ Original prompt: 1. 100 unique exercises for each activity. These should feel me
 - Updated the curriculum test that asserted the old top-right entry.
 - Version bumped to v1.3.29 so the service worker serves the regenerated
   template masks and stroke data.
+
+## v1.3.30 — Sprite audit: loop start points corrected
+
+- Full audit of all 68 sprites against SCHULSCHRIFT.png: every mask crop is
+  pixel-faithful (IoU >= 0.88, bbox delta <= 1px, exact component counts; the
+  a/O/P outliers are pure antialiasing edge bands).
+- Route audit against schreib_anleitung.md found the closed-loop letters
+  (O, o, and the round bases of Ö/ö) starting at 3 o'clock instead of
+  "oben rechts": endpoint projection snapped to the nearest extremum corner
+  because pure loops have no junction anchors. Pure loops now allow pen-down
+  on any skeleton node.
+- Q keeps its ring-right pen-down (its tail junction anchors the snap);
+  flagged as a minor deviation. The M anleitung text ("Unten links
+  beginnen") describes a print M that does not match the approved artwork,
+  which has no bottom-left upright; the route follows the artwork.
+- Version bumped to v1.3.30 for the regenerated stroke data.
+
+## 2026-08-27 – Whole-glyph cell assignment (v1.3.31): the M sprite regains its left upright
+
+The user spotted the capital M missing its left vertical bar. Root cause: the
+glyph extractor assigned components to cells by clipping a fixed rectangle
+that started 6px right of each COLUMN_START — but the Schulschrift M leans
+22px left of its column start, so the bar (16px of ink) was amputated. G
+(-7px) and W (-11px) lost their left tips the same way. Pixel audits had
+missed it because the masks were compared against the same clipped boxes.
+
+Fixes:
+- `extract_schulschrift_glyphs.py` now keeps components whole and assigns
+  each to the cell whose span contains its centre; the span boundaries sit
+  mid-way in the 42px no-man's-land between the old rectangles
+  (COLUMN_START-27). Verified every one of the 68 glyphs lands in its
+  intended cell with the expected component count.
+- The sheet builder writes `sheet-layout.json` (cell width/height, row tops,
+  columns) and `extract_handwriting_templates.py` reads it instead of
+  hardcoding cell geometry that silently went stale when glyphs grew.
+- M route hint restored to the anleitung: "Unten links beginnen" — up the
+  left bar, zigzag through the valley, down the right upright (one stroke).
+- Curriculum W baseline offset 102 → 103 (whole-glyph crop top moved 1px).
+- Tests: template-error band extended to M (junction wedge, 8.25px, same
+  cosmetic class as the Ä apex); M construction test now asserts the
+  bottom-left start.
+
+Verified: 130/130 tests; all 68 app crops ≥ 0.901 IoU vs fresh source
+extraction (G/M/W ≈ 0.944, residual is the antialias edge band); worst
+centre-line miss back to the known Ä apex artifact (11.46px).
+
+## 2026-08-27 – Sprite canvas clamp (v1.3.32): the M's top no longer gets cut off
+
+The user reported the M sprite occasionally clipping at the top of the board.
+Cause: exercise cells fit Fino's centre-line route, but the grey template
+sprite is anchored to the route and reaches past it (crop padding, plus the
+M's apex wedge ~19px above the walked junction). In cells near the board
+edge (easy rounds alternate ±5% vertical shifts) the sprite poked off-board.
+
+Fix (`fitSymbolStrokes` in curriculum.js): keep the route-fit size, then
+shrink the fit only as much as the sprite needs to stay on the board
+(6px design margin), applied uniformly so the sprite and route stay glued.
+A 0.5× floor guards against pathological cells. Applies to letters and
+digits in the easy, custom, and name-letter rounds.
+
+Verified: 130/130 tests; exhaustive sweep of 100 easy cells × 68 symbols,
+name-rect × 68, and all single-symbol bank tasks — every sprite placement
+stays on-board (worst margin 0.97% of board height); recognition tests
+(child-sized deviations) still pass since familiar letter sizes are kept.
+
+## 2026-08-27 – Presentation-time sprite clamp (v1.3.33): the real M fix
+
+The v1.3.32 clamp fixed the exercise-cell fit, but the board re-fits every
+task at presentation time (`adaptTaskToViewport` → `fitGroupToBox`), and that
+re-fit still mapped only Fino's route into the presentation box — so the M's
+sprite (crop is 36% taller than its route: padding plus the apex wedge)
+poked off the top and bottom of the card. That was the cut the user saw.
+
+Fix: `fitGroupToBox` now takes a sprite pad (crop margins expressed as
+ratios of the raw route, so pre-scaled exercise strokes work) and, only when
+the sprite would cross the board's top or bottom edge by more than 3% of the
+board height, shrinks the fit to bring it back inside (1.5% safety). Fit
+sizes for every other symbol are untouched, so calibrated evaluator
+behaviour is preserved; horizontal spills stay as before (they only soften
+the band's flank mid-stroke).
+
+Verified: 130/130 tests; M and 8 sprite placements stay on-board across six
+viewports (320×568 … 1280×800).

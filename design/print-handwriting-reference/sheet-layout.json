@@ -1,0 +1,33 @@
+{
+  "uppercase": {
+    "file": "uppercase-v2.png",
+    "columns": 13,
+    "row_tops": [
+      0,
+      157,
+      314
+    ],
+    "cell_width": 167,
+    "cell_height": 157
+  },
+  "lowercase": {
+    "file": "lowercase-v3.png",
+    "columns": 13,
+    "row_tops": [
+      0,
+      153,
+      306
+    ],
+    "cell_width": 143,
+    "cell_height": 153
+  },
+  "digits": {
+    "file": "digits-v2.png",
+    "columns": 13,
+    "row_tops": [
+      0
+    ],
+    "cell_width": 109,
+    "cell_height": 146
+  }
+}

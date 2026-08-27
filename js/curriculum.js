@@ -5,14 +5,15 @@
 
 import {
   CHARACTER_STROKES,
-} from './handwriting-stroke-data.js?v=1.3.29';
+  CHARACTER_STROKE_GEOMETRY,
+} from './handwriting-stroke-data.js?v=1.3.33';
 import {
   connectSolutionStrokes,
   createConnectSpec,
   createMazeSpec,
   layoutConnect,
   layoutMaze,
-} from './mini-games.js?v=1.3.29';
+} from './mini-games.js?v=1.3.33';
 
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));
@@ -569,8 +570,45 @@ export function layoutProfileForViewport({ width = CANONICAL_DRAWING_WIDTH, heig
   });
 }
 
+function fitSymbolStrokes(character, strokes, rect) {
+  const routeBounds = boundsOf(strokes);
+  const geometry = CHARACTER_STROKE_GEOMETRY[character];
+  if (!geometry) return fitStrokesToBounds(strokes, rect, routeBounds);
+  // Route-fit first: the strokes fill the exercise cell exactly as before.
+  const routeWidth = Math.max(1, (routeBounds.maxX - routeBounds.minX) * CANONICAL_DRAWING_WIDTH);
+  const routeHeight = Math.max(1, (routeBounds.maxY - routeBounds.minY) * CANONICAL_DRAWING_HEIGHT);
+  const cellWidth = rect.width * CANONICAL_DRAWING_WIDTH;
+  const cellHeight = rect.height * CANONICAL_DRAWING_HEIGHT;
+  let scale = Math.min(cellWidth / routeWidth, cellHeight / routeHeight);
+  // The grey template crop reaches past the centre-line route: by the crop's
+  // padding, and for the M by the apex wedge above the walked junction. The
+  // sprite is anchored to the route, so a cell near the board edge let it
+  // poke off-board and get cut off (the M's top). Shrink the fit only as much
+  // as the sprite needs to stay on the board.
+  const centerX = (rect.x + rect.width / 2) * CANONICAL_DRAWING_WIDTH;
+  const centerY = (rect.y + rect.height / 2) * CANONICAL_DRAWING_HEIGHT;
+  const boardMargin = 6;
+  const spriteTopPad = geometry.routeY + routeHeight / 2;
+  const spriteBottomPad = geometry.cropHeight - geometry.routeY - routeHeight / 2;
+  const spriteLeftPad = geometry.routeX + routeWidth / 2;
+  const spriteRightPad = geometry.cropWidth - geometry.routeX - routeWidth / 2;
+  scale = Math.min(
+    scale,
+    Math.max(scale * 0.5, (centerY - boardMargin) / Math.max(1, spriteTopPad)),
+    Math.max(scale * 0.5, (CANONICAL_DRAWING_HEIGHT - centerY - boardMargin) / Math.max(1, spriteBottomPad)),
+    Math.max(scale * 0.5, (centerX - boardMargin) / Math.max(1, spriteLeftPad)),
+    Math.max(scale * 0.5, (CANONICAL_DRAWING_WIDTH - centerX - boardMargin) / Math.max(1, spriteRightPad)),
+  );
+  const sourceCenterX = ((routeBounds.minX + routeBounds.maxX) / 2) * CANONICAL_DRAWING_WIDTH;
+  const sourceCenterY = ((routeBounds.minY + routeBounds.maxY) / 2) * CANONICAL_DRAWING_HEIGHT;
+  return strokes.map((stroke) => stroke.map((point) => p(
+    (centerX + (point.x * CANONICAL_DRAWING_WIDTH - sourceCenterX) * scale) / CANONICAL_DRAWING_WIDTH,
+    (centerY + (point.y * CANONICAL_DRAWING_HEIGHT - sourceCenterY) * scale) / CANONICAL_DRAWING_HEIGHT,
+  )));
+}
+
 function fitLetterStrokes(letter, rect) {
-  return fitStrokesToBounds(letterStrokes[letter], rect, boundsOf(letterStrokes[letter]));
+  return fitSymbolStrokes(letter, letterStrokes[letter], rect);
 }
 
 function transformStrokes(strokes, { scale = 1, dx = 0, dy = 0, mirrorX = false, mirrorY = false } = {}) {
@@ -591,7 +629,7 @@ function textCharacters(rawText) {
 const SCHULSCHRIFT_BASELINE_OFFSETS = Object.freeze({
   A: 112, B: 113, C: 114, D: 111, E: 112, F: 108, G: 110, H: 109, I: 109,
   J: 108, K: 109, L: 107, M: 107, N: 108, O: 108, P: 110, Q: 109, R: 110,
-  S: 110, T: 108, U: 102, V: 103, W: 102, X: 104, Y: 104, Z: 102,
+  S: 110, T: 108, U: 102, V: 103, W: 103, X: 104, Y: 104, Z: 102,
   a: 64, b: 112, c: 67, d: 111, e: 67, f: 108, g: 67, h: 108, i: 75, j: 76,
   k: 107, l: 104, m: 60, n: 61, o: 62, p: 69, q: 67, r: 66, s: 69, t: 96,
   u: 59, v: 60, w: 59, x: 62, y: 63, z: 60,
@@ -826,7 +864,7 @@ function strokesInCells(source, symbols, cells) {
     const symbol = symbols[index];
     const fitted = source === letterStrokes
       ? fitLetterStrokes(symbol, cell)
-      : fitStrokes(source[symbol], cell);
+      : fitSymbolStrokes(symbol, source[symbol], cell);
     const firstStroke = strokes.length;
     strokes.push(...fitted);
     completionGroups.push(fitted.map((_, strokeIndex) => firstStroke + strokeIndex));
@@ -899,7 +937,7 @@ function createEasySymbolBank(category, option) {
     const symbol = symbols[index % symbols.length];
     const fitted = category === 'letters'
       ? fitLetterStrokes(symbol, easySymbolCell(index))
-      : fitStrokes(source[symbol], easySymbolCell(index));
+      : fitSymbolStrokes(symbol, source[symbol], easySymbolCell(index));
     return makeTask({
       id: `${category}-easy-${symbols.join('')}-${index}`,
       category,
@@ -1342,17 +1380,60 @@ function physicalBounds(strokes) {
   }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
 }
 
-function fitGroupToBox(strokes, box, profile) {
+function fitGroupToBox(strokes, box, profile, spritePad = null) {
   const source = physicalBounds(strokes);
   const sourceWidth = Math.max(26, source.maxX - source.minX);
   const sourceHeight = Math.max(26, source.maxY - source.minY);
-  const scale = Math.min(box.width / sourceWidth, box.height / sourceHeight);
+  let scale = Math.min(box.width / sourceWidth, box.height / sourceHeight);
   const sourceCenterX = (source.minX + source.maxX) / 2;
   const sourceCenterY = (source.minY + source.maxY) / 2;
+  let spriteOffsetX = 0;
+  let spriteOffsetY = 0;
+  if (spritePad) {
+    // The grey template sprite reaches past the centre-line route (crop
+    // padding, plus the M's apex wedge above the walked junction). Route-fit
+    // sizes stay untouched unless the sprite would leave the board around
+    // the (possibly varied) box centre — then shrink just enough to keep it
+    // fully visible, so Fino and the grey template stay glued together. A
+    // small spill stays untouched: it only softens the antialiased edge of
+    // the band, and recalibrating every size for it would be worse.
+    const spriteHeight = sourceHeight + spritePad.top + spritePad.bottom;
+    // Vertical only: a top or bottom cut removes taught geometry (the apex
+    // wedge, the baseline hooks where strokes start and end). A horizontal
+    // spill merely flattens the band's soft flank mid-stroke and has never
+    // read as a defect, so the familiar presented sizes stay untouched.
+    const spillTolerance = profile.height * 0.03;
+    const safety = profile.height * 0.015;
+    const halfHeight = (spriteHeight * scale) / 2;
+    const roomHeight = Math.min(box.centerY, profile.height - box.centerY);
+    if (halfHeight > roomHeight + spillTolerance) {
+      scale *= Math.max(0.5, (roomHeight - safety) / halfHeight);
+    }
+    spriteOffsetX = (spritePad.left - spritePad.right) / 2;
+    spriteOffsetY = (spritePad.top - spritePad.bottom) / 2;
+  }
   return strokes.map((stroke) => stroke.map((point) => p(
-    (box.centerX + ((point.x * CANONICAL_DRAWING_WIDTH) - sourceCenterX) * scale) / profile.width,
-    (box.centerY + ((point.y * CANONICAL_DRAWING_HEIGHT) - sourceCenterY) * scale) / profile.height,
+    (box.centerX + ((point.x * CANONICAL_DRAWING_WIDTH) - sourceCenterX + spriteOffsetX) * scale) / profile.width,
+    (box.centerY + ((point.y * CANONICAL_DRAWING_HEIGHT) - sourceCenterY + spriteOffsetY) * scale) / profile.height,
   )));
+}
+
+function symbolSpritePad(category, symbol, sourceStrokes) {
+  if (!['letters', 'numbers', 'name'].includes(category)) return null;
+  const geometry = CHARACTER_STROKE_GEOMETRY[symbol];
+  if (!geometry) return null;
+  // The source strokes may already be pre-scaled into an exercise cell, so
+  // express the crop margins as fractions of the raw route and re-apply them
+  // to whatever route size arrives here. Fits are uniform, so the ratios hold.
+  const source = physicalBounds(sourceStrokes);
+  const xRatio = (source.maxX - source.minX) / Math.max(1, geometry.routeWidth);
+  const yRatio = (source.maxY - source.minY) / Math.max(1, geometry.routeHeight);
+  return {
+    left: geometry.routeX * xRatio,
+    top: geometry.routeY * yRatio,
+    right: (geometry.cropWidth - geometry.routeX - geometry.routeWidth) * xRatio,
+    bottom: (geometry.cropHeight - geometry.routeY - geometry.routeHeight) * yRatio,
+  };
 }
 
 function letterPresentationBox(symbol, box) {
@@ -1496,10 +1577,11 @@ export function adaptTaskToViewport(task, viewport) {
     const sourceIndexes = groups[groupIndex];
     const sourceStrokes = sourceIndexes.map((strokeIndex) => task.strokes[strokeIndex]);
     const variedBox = variedSymbolBox(task, boxes[visibleIndex], visibleIndex, profile, groupIndexes.length);
+    const symbol = taskSymbols(task)[groupIndex] ?? '';
     const presentationBox = task.category === 'letters' || task.category === 'name'
-      ? letterPresentationBox(taskSymbols(task)[groupIndex] ?? '', variedBox)
+      ? letterPresentationBox(symbol, variedBox)
       : variedBox;
-    const fitted = fitGroupToBox(sourceStrokes, presentationBox, profile);
+    const fitted = fitGroupToBox(sourceStrokes, presentationBox, profile, symbolSpritePad(task.category, symbol, sourceStrokes));
     const firstStroke = strokes.length;
     sourceIndexes.forEach((strokeIndex, index) => sourceToTarget.set(strokeIndex, firstStroke + index));
     strokes.push(...fitted);

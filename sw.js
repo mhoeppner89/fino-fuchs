@@ -1,18 +1,18 @@
 const CACHE_PREFIX = 'fino-schreibt-';
-const CACHE_NAME = `${CACHE_PREFIX}v1.3.29`;
+const CACHE_NAME = `${CACHE_PREFIX}v1.3.33`;
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css',
-  './styles.css?v=1.3.29',
+  './styles.css?v=1.3.33',
   './manifest.webmanifest',
   './js/app.js',
-  './js/app.js?v=1.3.29',
-  './js/curriculum.js?v=1.3.29',
-  './js/drawing.js?v=1.3.29',
-  './js/mini-games.js?v=1.3.29',
-  './js/handwriting-template-data.js?v=1.3.29',
-  './js/handwriting-stroke-data.js?v=1.3.29',
+  './js/app.js?v=1.3.33',
+  './js/curriculum.js?v=1.3.33',
+  './js/drawing.js?v=1.3.33',
+  './js/mini-games.js?v=1.3.33',
+  './js/handwriting-template-data.js?v=1.3.33',
+  './js/handwriting-stroke-data.js?v=1.3.33',
   './js/curriculum.js',
   './js/drawing.js',
   './js/mini-games.js',

@@ -30,22 +30,23 @@ STROKE_DATA = ROOT / 'js' / 'handwriting-stroke-data.js'
 QA_OUTPUT = ROOT / 'qa-stroke-system-2026-07-31'
 
 # Sheets generated from the approved Schulschrift artwork by
-# scripts/extract_schulschrift_glyphs.py.
+# scripts/extract_schulschrift_glyphs.py, which also writes sheet-layout.json
+# holding each sheet's cell geometry. Reading it (instead of hardcoding
+# cell sizes) keeps slicing correct whenever a glyph grows and the cells
+# are re-laid-out.
+_SHEET_LAYOUT = json.loads((REFERENCE / 'sheet-layout.json').read_text())
 SHEETS = (
     {
-        'key': 'uppercase', 'file': 'uppercase-v2.png',
-        'characters': 'ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜ', 'columns': 13,
-        'left': 0, 'row_tops': (0, 157, 314), 'cell_width': 156, 'cell_height': 157,
+        'key': 'uppercase', 'left': 0,
+        'characters': 'ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜ', **_SHEET_LAYOUT['uppercase'],
     },
     {
-        'key': 'lowercase', 'file': 'lowercase-v3.png',
-        'characters': 'abcdefghijklmnopqrstuvwxyzäöü', 'columns': 13,
-        'left': 0, 'row_tops': (0, 153, 306), 'cell_width': 143, 'cell_height': 153,
+        'key': 'lowercase', 'left': 0,
+        'characters': 'abcdefghijklmnopqrstuvwxyzäöü', **_SHEET_LAYOUT['lowercase'],
     },
     {
-        'key': 'digits', 'file': 'digits-v2.png',
-        'characters': '0123456789', 'columns': 10,
-        'left': 0, 'row_tops': (0,), 'cell_width': 109, 'cell_height': 146,
+        'key': 'digits', 'left': 0,
+        'characters': '0123456789', **_SHEET_LAYOUT['digits'],
     },
 )
 
@@ -92,7 +93,9 @@ ROUTE_HINTS = {
     'K': route_hints(((0.08, 0), (0.08, 1)), ((0.9, 0.05), (0.06, 0.5)),
                      ((0.06, 0.5), (0.95, 0.97))),
     'L': route_hints(((0.08, 0), (0.08, 0.95), (0.95, 0.95))),
-    'M': route_hints(((0.0, 0.285), (0.0, 0.0), (0.5, 0.92), (0.98, 0), (0.98, 1))),
+    # "Unten links beginnen": up the left upright, zigzag through the
+    # middle valley, then down the right upright -- one stroke, like N.
+    'M': route_hints(((0.02, 1), (0.02, 0), (0.5, 0.92), (0.98, 0), (0.98, 1))),
     'N': route_hints(((0.02, 1), (0.02, 0), (0.98, 1), (0.98, 0))),
     'O': route_hints(((0.85, 0.2), (0.4, 0.02), (0.05, 0.4), (0.3, 0.9), (0.7, 0.98),
                       (0.97, 0.55), (0.85, 0.2))),
@@ -650,10 +653,18 @@ def mapped_hint_routes(hints, graph, component_ids, components, skeleton_bounds)
             # vertical or horizontal stem.
             extrema.add(min(group))
             extrema.add(max(group))
-        # Pen-down and pen-up positions occur at visible ends, crossings, or
-        # outer extrema.  Restricting endpoint projection to these landmarks
-        # prevents an A leg from snapping to its nearby crossbar.
-        anchors = {node for node, degree in degrees.items() if degree != 2} | extrema
+        junctions = {node for node, degree in degrees.items() if degree != 2}
+        if junctions:
+            # Pen-down and pen-up positions occur at visible ends, crossings, or
+            # outer extrema.  Restricting endpoint projection to these landmarks
+            # prevents an A leg from snapping to its nearby crossbar.
+            anchors = junctions | extrema
+        else:
+            # A pure closed loop (O, o and the round bases) has no ends or
+            # crossings: every skeleton node is a legitimate pen-down position.
+            # Restricting to extrema would drag the hint's top-right start
+            # around the ring to the rightmost point (3 o'clock).
+            anchors = nodes
         component_anchors.append(anchors or nodes)
 
     mapped_strokes = []

@@ -12,6 +12,7 @@ Umlauts are derived in the app from the base letters, and ß is normalised to
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -39,6 +40,21 @@ COLUMN_STARTS = (95, 372, 640, 920, 1225)
 COLUMN_END = 1435
 SHEET_COLUMNS = 13
 CELL_PADDING = 18
+# Cell membership is decided by which span a component's centre falls into,
+# keeping glyphs whole instead of clipping a fixed rectangle. The old cell
+# rectangles ran from COLUMN_START-6 to the next start minus 48, which
+# amputated the M's left upright (16px), G's left tip (7px) and W's left
+# tip (11px). The spans below split that 42px no-man's-land at its middle;
+# every glyph centre clears its cell boundary by >100px.
+CELL_BOUNDARIES = tuple(start - 27 for start in COLUMN_STARTS[1:])
+
+
+def column_of_center(center_x):
+    """Sheet column whose cell span contains center_x."""
+    for index, boundary in enumerate(CELL_BOUNDARIES):
+        if center_x < boundary:
+            return index
+    return len(CELL_BOUNDARIES)
 
 
 def row_bands(ink):
@@ -100,19 +116,37 @@ def component_rows(ink, bands):
     return labels, assignment
 
 
-def cell_component_masks(labels, assignment, row_index, x_range):
-    """Full-image masks of one row's components inside an x-range."""
+def cell_component_masks(labels, assignment, row_index, column):
+    """Full-image masks of one row's components in one sheet cell.
+
+    ``column`` is either a letter-column index (membership decided by the
+    spans bounded by CELL_BOUNDARIES) or an explicit ``(x_min, x_max)``
+    span as used by the digit cells. Components are kept whole and belong
+    to the cell containing their horizontal centre: no rectangle clipping.
+    """
+    if isinstance(column, tuple):
+        x_min, x_max = column
+    elif column == 0:
+        x_min, x_max = 0, CELL_BOUNDARIES[0]
+    else:
+        x_min = CELL_BOUNDARIES[column - 1]
+        x_max = CELL_BOUNDARIES[column] if column < len(CELL_BOUNDARIES) else float('inf')
     chosen = [label for label, row in assignment.items() if row == row_index]
     if not chosen:
         raise ValueError(f'row {row_index} has no components')
-    masked = np.where(np.isin(labels, chosen), labels, 0)
-    x0, x1 = x_range
-    masked[:, :x0] = 0
-    masked[:, x1:] = 0
-    present = [int(label) for label in np.unique(masked) if label]
+    present = []
+    masks = {}
+    for label in chosen:
+        mask = labels == label
+        xs = np.where(mask)[1]
+        center = (int(xs.min()) + int(xs.max())) / 2
+        if not (x_min <= center < x_max):
+            continue
+        present.append(label)
+        masks[label] = mask
     if not present:
-        raise ValueError(f'row {row_index} x-range {x_range} is empty')
-    return {label: (masked == label) for label in present}
+        raise ValueError(f'row {row_index} column {column} is empty')
+    return masks
 
 
 def mask_bounds(masks):
@@ -197,11 +231,7 @@ def main():
     glyphs = {}
     for row_index, (band, pairs) in enumerate(zip(letter_bands, ROW_LETTERS)):
         for column_index, pair in enumerate(pairs):
-            x_range = (
-                COLUMN_STARTS[column_index] - 6,
-                COLUMN_STARTS[column_index + 1] - 48 if column_index < 4 else COLUMN_END,
-            )
-            masks = cell_component_masks(labels, assignment, row_index, x_range)
+            masks = cell_component_masks(labels, assignment, row_index, column_index)
             if len(pair) == 1:
                 continue
             upper, lower = pair
@@ -265,7 +295,10 @@ def main():
         sheet.paste(background.convert('RGB'), (left, top))
     sheet.save(DEBUG_SHEET, optimize=True)
 
-    # Uniform white reference sheets at native resolution.
+    # Uniform white reference sheets at native resolution. Each sheet's
+    # cell geometry is recorded in sheet-layout.json so downstream tooling
+    # (extract_handwriting_templates.py) slices the sheets without
+    # hardcoding numbers that silently go stale when glyphs grow.
     def build_sheet(characters, name):
         cell_w = max(glyphs[c].width for c in characters) + CELL_PADDING * 2
         cell_h = max(glyphs[c].height for c in characters) + CELL_PADDING * 2
@@ -282,10 +315,21 @@ def main():
             )
         out.save(REFERENCE / name, optimize=True)
         print(f'{name}: {out.size}, cell {cell_w}x{cell_h}')
+        return {
+            'file': name,
+            'columns': SHEET_COLUMNS,
+            'row_tops': [row * cell_h for row in range(rows)],
+            'cell_width': cell_w,
+            'cell_height': cell_h,
+        }
 
-    build_sheet([chr(c) for c in range(ord('A'), ord('Z') + 1)] + list('ÄÖÜ'), 'uppercase-v2.png')
-    build_sheet([chr(c) for c in range(ord('a'), ord('z') + 1)] + list('äöü'), 'lowercase-v3.png')
-    build_sheet([str(d) for d in range(10)], 'digits-v2.png')
+    layouts = {
+        'uppercase': build_sheet([chr(c) for c in range(ord('A'), ord('Z') + 1)] + list('ÄÖÜ'), 'uppercase-v2.png'),
+        'lowercase': build_sheet([chr(c) for c in range(ord('a'), ord('z') + 1)] + list('äöü'), 'lowercase-v3.png'),
+        'digits': build_sheet([str(d) for d in range(10)], 'digits-v2.png'),
+    }
+    (REFERENCE / 'sheet-layout.json').write_text(json.dumps(layouts, indent=2) + '\n')
+    print(f'wrote sheet layout: {REFERENCE / "sheet-layout.json"}')
     sizes = {c: (glyphs[c].width, glyphs[c].height) for c in expected}
     print('glyph sizes:', sizes)
     print(f'wrote {len(glyphs)} glyphs; debug sheet: {DEBUG_SHEET}')
@@ -310,11 +354,7 @@ def baseline_offsets():
         for column_index, pair in enumerate(pairs):
             if len(pair) == 1:
                 continue
-            x_range = (
-                COLUMN_STARTS[column_index] - 6,
-                COLUMN_STARTS[column_index + 1] - 48 if column_index < 4 else COLUMN_END,
-            )
-            masks = cell_component_masks(labels, assignment, row_index, x_range)
+            masks = cell_component_masks(labels, assignment, row_index, column_index)
             if pair in ('Ää', 'Öö', 'Üü'):
                 upper_box, lower_box, _, _ = split_umlaut_pair(masks)
             else:
