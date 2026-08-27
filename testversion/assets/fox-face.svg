@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Fino der Fuchs">
+  <title>Fino der Fuchs</title>
+  <circle cx="100" cy="100" r="94" fill="#FFF6E7"/>
+  <g id="fino-face">
+    <path d="M33 83C36 58 44 38 52 22c17 11 30 22 39 36 6-3 12-4 18 0 9-14 22-25 39-36 8 16 16 36 19 61 11 18 10 44-1 63-13 23-37 36-66 36s-53-13-66-36C23 127 22 101 33 83Z" fill="#F47B3D"/>
+    <path d="M51 41c9 7 18 15 25 24-12 1-23 5-33 11 1-12 4-24 8-35Z" fill="#7C3E32"/>
+    <path d="M149 41c-9 7-18 15-25 24 12 1 23 5 33 11-1-12-4-24-8-35Z" fill="#7C3E32"/>
+    <path d="M100 113C84 98 61 98 49 114c-12 16-7 36 9 46 12 8 27 11 42 12 15-1 30-4 42-12 16-10 21-30 9-46-12-16-35-16-51-1Z" fill="#FFF0D7"/>
+    <path d="M69 105c3-7 10-10 15-5 4 4 3 12-1 16-5 5-13 3-15-3-1-3-1-6 1-8Z" fill="#27314A"/>
+    <path d="M131 105c-3-7-10-10-15-5-4 4-3 12 1 16 5 5 13 3 15-3 1-3 1-6-1-8Z" fill="#27314A"/>
+    <circle cx="78" cy="106" r="2" fill="#FFF"/><circle cx="122" cy="106" r="2" fill="#FFF"/>
+    <path d="M93 137c3-4 11-4 14 0 1 2 1 4-1 6-4 4-8 4-12 0-2-2-2-4-1-6Z" fill="#27314A"/>
+    <path d="M89 150c3 4 7 6 11 6s8-2 11-6" fill="none" stroke="#27314A" stroke-width="3.5" stroke-linecap="round"/>
+    <ellipse cx="64" cy="135" rx="8" ry="5" fill="#F3A29B" opacity=".62"/>
+    <ellipse cx="136" cy="135" rx="8" ry="5" fill="#F3A29B" opacity=".62"/>
+  </g>
+</svg>
