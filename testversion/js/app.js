@@ -6,13 +6,13 @@ import {
   DIFFICULTIES,
   normalizeName,
   reflowTaskWithInk,
-} from './curriculum.js?v=1.3.34';
+} from './curriculum.js?v=1.3.35';
 import {
   DrawingBoard,
   evaluateTaskDrawing,
   feedbackForEvaluation,
   passesDrawingCriteria,
-} from './drawing.js?v=1.3.34';
+} from './drawing.js?v=1.3.35';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -319,7 +319,7 @@ function normalizeNumberSet(value) {
 }
 
 function normalizeLetterSet(value) {
-  return [...new Set([...String(value ?? '').normalize('NFC')].filter((character) => /[A-Za-zÄÖÜäöü]/.test(character)))].join('');
+  return [...new Set([...String(value ?? '').replace(/ẞ/g, 'ß').normalize('NFC')].filter((character) => /[A-Za-zÄÖÜäöüß]/.test(character)))].join('');
 }
 
 function updateCustomSetField(category, { focus = false } = {}) {

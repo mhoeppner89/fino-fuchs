@@ -1,6 +1,6 @@
 # Testversion (Tester-Build)
 
-Diese Ordner enthält einen **statischen Schnappschuss** der App für Tester.
+Dieser Ordner enthält einen **statischen Schnappschuss** der App für Tester.
 
 Live unter: https://mhoeppner89.github.io/fino-fuchs/testversion/
 
@@ -37,5 +37,5 @@ auch aus dem Snapshot verschwinden.
 ## Testmodus
 
 Mit `?test` im URL erscheint im Hauptmenü die Karte „Alle Symbole“ – sie
-läuft alle 68 Buchstaben und Zahlen einmal durch (Review-Modus). Für Tester
-normal nicht sichtbar.
+läuft alle 69 Buchstaben, Umlaute, ß und Zahlen einmal durch (Review-Modus).
+Für Tester normal nicht sichtbar.

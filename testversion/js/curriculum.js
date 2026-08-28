@@ -6,14 +6,14 @@
 import {
   CHARACTER_STROKES,
   CHARACTER_STROKE_GEOMETRY,
-} from './handwriting-stroke-data.js?v=1.3.34';
+} from './handwriting-stroke-data.js?v=1.3.35';
 import {
   connectSolutionStrokes,
   createConnectSpec,
   createMazeSpec,
   layoutConnect,
   layoutMaze,
-} from './mini-games.js?v=1.3.34';
+} from './mini-games.js?v=1.3.35';
 
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));
@@ -423,7 +423,7 @@ const numberTemplates = Object.entries(digitStrokes).map(([digit, strokes]) => m
 }));
 
 export const letterStrokes = Object.fromEntries(
-  [...'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöü'].map((letter) => [letter, CHARACTER_STROKES[letter]]),
+  [...'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöüß'].map((letter) => [letter, CHARACTER_STROKES[letter]]),
 );
 Object.freeze(letterStrokes);
 
@@ -435,6 +435,7 @@ const letterMeta = {
   Q: ['Qualle', 'round', 3], R: ['Regen', 'mixed', 3], S: ['Sonne', 'round', 3], T: ['Tiger', 'straight', 1],
   U: ['Uhu', 'round', 2], V: ['Vogel', 'diagonal', 1], W: ['Wolke', 'diagonal', 3], X: ['Xylofon', 'diagonal', 2],
   Y: ['Yak', 'diagonal', 2], Z: ['Zebra', 'diagonal', 2], Ä: ['Äpfel', 'diagonal', 3], Ö: ['Öl', 'round', 3], Ü: ['Überraschung', 'round', 3],
+  ß: ['Straße', 'mixed', 3],
   ...Object.fromEntries([...'abcdefghijklmnopqrstuvwxyzäöü'].map((letter) => [letter, [`kleines ${letter}`, 'lowercase', 2]])),
 };
 
@@ -637,6 +638,7 @@ const SCHULSCHRIFT_BASELINE_OFFSETS = Object.freeze({
   k: 107, l: 104, m: 60, n: 61, o: 62, p: 69, q: 67, r: 66, s: 69, t: 96,
   u: 59, v: 60, w: 59, x: 62, y: 63, z: 60,
   Ä: 113, Ö: 116, Ü: 112, ä: 84, ö: 85, ü: 78,
+  ß: 106,
 });
 const SCHULSCHRIFT_DESIGN_TOP = 114;
 export const baselineOffsets = SCHULSCHRIFT_BASELINE_OFFSETS;
@@ -1718,7 +1720,7 @@ export function buildSession({ category, difficulty = 'easy', option = '', name 
  */
 export function buildReviewSession() {
   const sequence = [
-    ...'ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜ',
+    ...'ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜß',
     ...'abcdefghijklmnopqrstuvwxyzäöü',
     ...'0123456789',
   ];
