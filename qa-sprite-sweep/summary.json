@@ -1,0 +1,419 @@
+{
+  "url": "http://127.0.0.1:4173/?test",
+  "captured": [
+    {
+      "index": 1,
+      "symbol": "A",
+      "taskId": "letter-A-gross",
+      "file": "01-A.png"
+    },
+    {
+      "index": 2,
+      "symbol": "B",
+      "taskId": "letter-B-gross",
+      "file": "02-B.png"
+    },
+    {
+      "index": 3,
+      "symbol": "C",
+      "taskId": "letter-C-gross",
+      "file": "03-C.png"
+    },
+    {
+      "index": 4,
+      "symbol": "D",
+      "taskId": "letter-D-gross",
+      "file": "04-D.png"
+    },
+    {
+      "index": 5,
+      "symbol": "E",
+      "taskId": "letter-E-gross",
+      "file": "05-E.png"
+    },
+    {
+      "index": 6,
+      "symbol": "F",
+      "taskId": "letter-F-gross",
+      "file": "06-F.png"
+    },
+    {
+      "index": 7,
+      "symbol": "G",
+      "taskId": "letter-G-gross",
+      "file": "07-G.png"
+    },
+    {
+      "index": 8,
+      "symbol": "H",
+      "taskId": "letter-H-gross",
+      "file": "08-H.png"
+    },
+    {
+      "index": 9,
+      "symbol": "I",
+      "taskId": "letter-I-gross",
+      "file": "09-I.png"
+    },
+    {
+      "index": 10,
+      "symbol": "J",
+      "taskId": "letter-J-gross",
+      "file": "10-J.png"
+    },
+    {
+      "index": 11,
+      "symbol": "K",
+      "taskId": "letter-K-gross",
+      "file": "11-K.png"
+    },
+    {
+      "index": 12,
+      "symbol": "L",
+      "taskId": "letter-L-gross",
+      "file": "12-L.png"
+    },
+    {
+      "index": 13,
+      "symbol": "M",
+      "taskId": "letter-M-gross",
+      "file": "13-M.png"
+    },
+    {
+      "index": 14,
+      "symbol": "N",
+      "taskId": "letter-N-gross",
+      "file": "14-N.png"
+    },
+    {
+      "index": 15,
+      "symbol": "O",
+      "taskId": "letter-O-gross",
+      "file": "15-O.png"
+    },
+    {
+      "index": 16,
+      "symbol": "P",
+      "taskId": "letter-P-gross",
+      "file": "16-P.png"
+    },
+    {
+      "index": 17,
+      "symbol": "Q",
+      "taskId": "letter-Q-gross",
+      "file": "17-Q.png"
+    },
+    {
+      "index": 18,
+      "symbol": "R",
+      "taskId": "letter-R-gross",
+      "file": "18-R.png"
+    },
+    {
+      "index": 19,
+      "symbol": "S",
+      "taskId": "letter-S-gross",
+      "file": "19-S.png"
+    },
+    {
+      "index": 20,
+      "symbol": "T",
+      "taskId": "letter-T-gross",
+      "file": "20-T.png"
+    },
+    {
+      "index": 21,
+      "symbol": "U",
+      "taskId": "letter-U-gross",
+      "file": "21-U.png"
+    },
+    {
+      "index": 22,
+      "symbol": "V",
+      "taskId": "letter-V-gross",
+      "file": "22-V.png"
+    },
+    {
+      "index": 23,
+      "symbol": "W",
+      "taskId": "letter-W-gross",
+      "file": "23-W.png"
+    },
+    {
+      "index": 24,
+      "symbol": "X",
+      "taskId": "letter-X-gross",
+      "file": "24-X.png"
+    },
+    {
+      "index": 25,
+      "symbol": "Y",
+      "taskId": "letter-Y-gross",
+      "file": "25-Y.png"
+    },
+    {
+      "index": 26,
+      "symbol": "Z",
+      "taskId": "letter-Z-gross",
+      "file": "26-Z.png"
+    },
+    {
+      "index": 27,
+      "symbol": "Ä",
+      "taskId": "letter-Ä-gross",
+      "file": "27-Ä.png"
+    },
+    {
+      "index": 28,
+      "symbol": "Ö",
+      "taskId": "letter-Ö-gross",
+      "file": "28-Ö.png"
+    },
+    {
+      "index": 29,
+      "symbol": "Ü",
+      "taskId": "letter-Ü-gross",
+      "file": "29-Ü.png"
+    },
+    {
+      "index": 30,
+      "symbol": "ß",
+      "taskId": "letter-ß-gross",
+      "file": "30-ß.png"
+    },
+    {
+      "index": 31,
+      "symbol": "a",
+      "taskId": "letter-a-gross",
+      "file": "31-a.png"
+    },
+    {
+      "index": 32,
+      "symbol": "b",
+      "taskId": "letter-b-gross",
+      "file": "32-b.png"
+    },
+    {
+      "index": 33,
+      "symbol": "c",
+      "taskId": "letter-c-gross",
+      "file": "33-c.png"
+    },
+    {
+      "index": 34,
+      "symbol": "d",
+      "taskId": "letter-d-gross",
+      "file": "34-d.png"
+    },
+    {
+      "index": 35,
+      "symbol": "e",
+      "taskId": "letter-e-gross",
+      "file": "35-e.png"
+    },
+    {
+      "index": 36,
+      "symbol": "f",
+      "taskId": "letter-f-gross",
+      "file": "36-f.png"
+    },
+    {
+      "index": 37,
+      "symbol": "g",
+      "taskId": "letter-g-gross",
+      "file": "37-g.png"
+    },
+    {
+      "index": 38,
+      "symbol": "h",
+      "taskId": "letter-h-gross",
+      "file": "38-h.png"
+    },
+    {
+      "index": 39,
+      "symbol": "i",
+      "taskId": "letter-i-gross",
+      "file": "39-i.png"
+    },
+    {
+      "index": 40,
+      "symbol": "j",
+      "taskId": "letter-j-gross",
+      "file": "40-j.png"
+    },
+    {
+      "index": 41,
+      "symbol": "k",
+      "taskId": "letter-k-gross",
+      "file": "41-k.png"
+    },
+    {
+      "index": 42,
+      "symbol": "l",
+      "taskId": "letter-l-gross",
+      "file": "42-l.png"
+    },
+    {
+      "index": 43,
+      "symbol": "m",
+      "taskId": "letter-m-gross",
+      "file": "43-m.png"
+    },
+    {
+      "index": 44,
+      "symbol": "n",
+      "taskId": "letter-n-gross",
+      "file": "44-n.png"
+    },
+    {
+      "index": 45,
+      "symbol": "o",
+      "taskId": "letter-o-gross",
+      "file": "45-o.png"
+    },
+    {
+      "index": 46,
+      "symbol": "p",
+      "taskId": "letter-p-gross",
+      "file": "46-p.png"
+    },
+    {
+      "index": 47,
+      "symbol": "q",
+      "taskId": "letter-q-gross",
+      "file": "47-q.png"
+    },
+    {
+      "index": 48,
+      "symbol": "r",
+      "taskId": "letter-r-gross",
+      "file": "48-r.png"
+    },
+    {
+      "index": 49,
+      "symbol": "s",
+      "taskId": "letter-s-gross",
+      "file": "49-s.png"
+    },
+    {
+      "index": 50,
+      "symbol": "t",
+      "taskId": "letter-t-gross",
+      "file": "50-t.png"
+    },
+    {
+      "index": 51,
+      "symbol": "u",
+      "taskId": "letter-u-gross",
+      "file": "51-u.png"
+    },
+    {
+      "index": 52,
+      "symbol": "v",
+      "taskId": "letter-v-gross",
+      "file": "52-v.png"
+    },
+    {
+      "index": 53,
+      "symbol": "w",
+      "taskId": "letter-w-gross",
+      "file": "53-w.png"
+    },
+    {
+      "index": 54,
+      "symbol": "x",
+      "taskId": "letter-x-gross",
+      "file": "54-x.png"
+    },
+    {
+      "index": 55,
+      "symbol": "y",
+      "taskId": "letter-y-gross",
+      "file": "55-y.png"
+    },
+    {
+      "index": 56,
+      "symbol": "z",
+      "taskId": "letter-z-gross",
+      "file": "56-z.png"
+    },
+    {
+      "index": 57,
+      "symbol": "ä",
+      "taskId": "letter-ä-gross",
+      "file": "57-ä.png"
+    },
+    {
+      "index": 58,
+      "symbol": "ö",
+      "taskId": "letter-ö-gross",
+      "file": "58-ö.png"
+    },
+    {
+      "index": 59,
+      "symbol": "ü",
+      "taskId": "letter-ü-gross",
+      "file": "59-ü.png"
+    },
+    {
+      "index": 60,
+      "symbol": "0",
+      "taskId": "number-0-gross",
+      "file": "60-0.png"
+    },
+    {
+      "index": 61,
+      "symbol": "1",
+      "taskId": "number-1-gross",
+      "file": "61-1.png"
+    },
+    {
+      "index": 62,
+      "symbol": "2",
+      "taskId": "number-2-gross",
+      "file": "62-2.png"
+    },
+    {
+      "index": 63,
+      "symbol": "3",
+      "taskId": "number-3-gross",
+      "file": "63-3.png"
+    },
+    {
+      "index": 64,
+      "symbol": "4",
+      "taskId": "number-4-gross",
+      "file": "64-4.png"
+    },
+    {
+      "index": 65,
+      "symbol": "5",
+      "taskId": "number-5-gross",
+      "file": "65-5.png"
+    },
+    {
+      "index": 66,
+      "symbol": "6",
+      "taskId": "number-6-gross",
+      "file": "66-6.png"
+    },
+    {
+      "index": 67,
+      "symbol": "7",
+      "taskId": "number-7-gross",
+      "file": "67-7.png"
+    },
+    {
+      "index": 68,
+      "symbol": "8",
+      "taskId": "number-8-gross",
+      "file": "68-8.png"
+    },
+    {
+      "index": 69,
+      "symbol": "9",
+      "taskId": "number-9-gross",
+      "file": "69-9.png"
+    }
+  ]
+}

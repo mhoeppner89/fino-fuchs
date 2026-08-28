@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import {
   adaptTaskToViewport,
   baselineOffsets,
+  buildReviewSession,
   createNameExerciseBank,
   TASKS,
   buildSession,
@@ -32,13 +33,13 @@ const geometryKey = (task) => JSON.stringify(task.strokes.map((stroke) => stroke
 
 test('every activity has distinct exercises, without repeated shape variants', () => {
   const banks = { ...EXERCISE_BANKS, name: createNameExerciseBank('Käthe') };
-  const expectedSizes = { lines: 100, shapes: 36, numbers: 100, letters: 100, maze: 100, connect: 100, mixed: 100, name: 100 };
+  const expectedSizes = { lines: 100, shapes: 36, numbers: 100, letters: 101, maze: 100, connect: 100, mixed: 100, name: 100 };
   Object.entries(banks).forEach(([category, bank]) => {
     assert.equal(bank.length, expectedSizes[category], `${category} bank size`);
     assert.equal(new Set(bank.map((task) => task.id)).size, expectedSizes[category], `${category} IDs`);
     assert.equal(new Set(bank.map(geometryKey)).size, expectedSizes[category], `${category} paths`);
   });
-  assert.equal(TASKS.length, 636);
+  assert.equal(TASKS.length, 637);
   assert.deepEqual(EXERCISE_BANKS.shapes.map((task) => task.id), [
     'shape-circle', 'shape-oval', 'shape-square', 'shape-triangle', 'shape-cross',
     'shape-diamond', 'shape-heart', 'shape-star', 'shape-rectangle', 'shape-pentagon',
@@ -141,7 +142,7 @@ test('the home screen shows the current app version discreetly', () => {
 });
 
 test('approved reference images supply every standard letter and digit template', () => {
-  const expectedCharacters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöü0123456789';
+  const expectedCharacters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöüß0123456789';
   assert.deepEqual(Object.keys(CHARACTER_TEMPLATE_CROPS).sort(), [...expectedCharacters].sort());
   assert.deepEqual(Object.keys(CHARACTER_STROKES).sort(), [...expectedCharacters].sort());
   assert.deepEqual(Object.keys(CHARACTER_STROKE_GEOMETRY).sort(), [...expectedCharacters].sort());
@@ -262,10 +263,10 @@ test('every visible template lands on the same canvas bounds as Fino and scoring
   });
 });
 
-test('lowercase letters are included in the regular 100-exercise letter bank', () => {
+test('lowercase letters are included in the regular letter bank alongside ß', () => {
   const labels = new Set(EXERCISE_BANKS.letters.map((task) => task.label.replace(/\s/g, '')));
-  ['a', 'm', 'z', 'ä', 'ö', 'ü'].forEach((letter) => assert.ok(labels.has(letter), `missing ${letter}`));
-  assert.equal(EXERCISE_BANKS.letters.length, 100);
+  ['a', 'm', 'z', 'ä', 'ö', 'ü', 'ß'].forEach((letter) => assert.ok(labels.has(letter), `missing ${letter}`));
+  assert.equal(EXERCISE_BANKS.letters.length, 101);
 });
 
 const relativeStroke = (stroke) => {
@@ -316,6 +317,23 @@ test('approved digits 1, 7, and 9 retain their Schulschrift forms', () => {
     && nine.strokes[0][27].y > nine.strokes[0][0].y, '9 Rund schließt sich zurück zum Ausgangspunkt (ohne Absetzen)');
   assert.ok(nine.strokes[0].at(-1).y > nine.strokes[0][27].y, '9 Schaft läuft vom Rund aus nach unten in den Auslauf');
   assert.ok(nine.strokes[0].at(-1).x < nine.strokes[0][0].x && nine.strokes[0].at(-1).y > 0.8, '9 Auslauf endet unten und nach links ausgerichtet');
+});
+
+test('approved ß follows the Schreibanleitung: one stroke from the stem bottom', () => {
+  const ess = EXERCISE_BANKS.letters.find((task) => task.id === 'letter-ß-gross');
+  assert.ok(ess, 'ß has a single-symbol bank task');
+  assert.equal(ess.strokes.length, 1, 'ß ist ein Strich: Stamm, oberer Bogen und Unterlänge in einem Zug');
+  const route = relativeStroke(ess.strokes[0]);
+  // "Unten am langen linken Stamm beginnen": the pen starts at the stem's
+  // bottom-left end, not on one of the bowls.
+  assert.ok(route[0].x < 0.2 && route[0].y > 0.9, 'ß beginnt unten am linken Stamm');
+  // "Oben rund nach rechts": the route reaches the top of the glyph.
+  assert.ok(Math.min(...route.map((point) => point.y)) < 0.05, 'ß führt über den Stamm bis nach oben');
+  // "in den großen unteren Bogen nach rechts": the lower bowl reaches far right.
+  assert.ok(Math.max(...route.map((point) => point.x)) > 0.85, 'ß großer unterer Bogen reicht nach rechts');
+  // "Unten rund nach links ziehen und dort enden": the pen ends on the
+  // bottom curl, left of centre and below the waist.
+  assert.ok(route.at(-1).x < 0.55 && route.at(-1).y > 0.55, 'ß endet unten rund nach links');
 });
 
 test('digit 5 is drawn as a belly first and its top bar second', () => {
@@ -436,6 +454,22 @@ test('curriculum uses text and drawing data instead of emoji decorations', () =>
     assert.equal(pictographic.test(`${task.label} ${task.title} ${task.speech}`), false, `${task.id} includes an emoji`);
   });
 });
+
+test('review mode walks every letter and digit exactly once in fixed order', () => {
+  const session = buildReviewSession();
+  const expected = [
+    ...'ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜß',
+    ...'abcdefghijklmnopqrstuvwxyzäöü',
+    ...'0123456789',
+  ];
+  assert.equal(session.length, 69);
+  assert.deepEqual(session.map((task) => task.value), expected);
+  assert.equal(new Set(session.map((task) => task.id)).size, 69, 'a symbol appears twice');
+  assert.ok(session.every((task) => task.assist === 'easy'), 'review tasks should preview Fino');
+  assert.ok(session.every((task) => task.strokes.length > 0), 'review task has no strokes');
+  assert.ok(session.every((task) => task.layout === 'gross'), 'review tasks should be single-symbol');
+  assert.equal(session[29].value, 'ß', 'ß follows the uppercase umlauts');
+});;
 
 test('every category creates a 10-task session', () => {
   const cases = [

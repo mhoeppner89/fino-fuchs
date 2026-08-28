@@ -6,8 +6,8 @@ the single source of truth for the new font.  This script cuts it into the
 62 exercisable characters (A-Z, a-z, 0-9), lays them out on uniform white
 reference sheets, and writes a debug contact sheet for visual review.
 
-Umlauts are derived in the app from the base letters, and ß is normalised to
-"ss" for names, so the pair cells Ää, Öö, Üü and ß are intentionally skipped.
+Umlauts are derived in the app from the base letters plus their dots; the ß
+is extracted as a single tall glyph into the uppercase sheet.
 """
 
 from __future__ import annotations
@@ -233,6 +233,9 @@ def main():
         for column_index, pair in enumerate(pairs):
             masks = cell_component_masks(labels, assignment, row_index, column_index)
             if len(pair) == 1:
+                # The ß cell holds a single tall glyph, not an upper/lower pair.
+                keep = list(masks.values())
+                glyphs['ß'] = glyph_image(alpha, mask_bounds(keep), keep)
                 continue
             upper, lower = pair
             if pair in ('Ää', 'Öö', 'Üü'):
@@ -272,7 +275,7 @@ def main():
 
     expected = [chr(c) for c in range(ord('A'), ord('Z') + 1)] + \
                [chr(c) for c in range(ord('a'), ord('z') + 1)] + \
-               list('ÄÖÜäöü') + [str(d) for d in range(10)]
+               list('ÄÖÜäöü') + ['ß'] + [str(d) for d in range(10)]
     missing = [character for character in expected if character not in glyphs]
     assert not missing, f'missing glyphs: {missing}'
 
@@ -324,7 +327,7 @@ def main():
         }
 
     layouts = {
-        'uppercase': build_sheet([chr(c) for c in range(ord('A'), ord('Z') + 1)] + list('ÄÖÜ'), 'uppercase-v2.png'),
+        'uppercase': build_sheet([chr(c) for c in range(ord('A'), ord('Z') + 1)] + list('ÄÖÜ') + ['ß'], 'uppercase-v2.png'),
         'lowercase': build_sheet([chr(c) for c in range(ord('a'), ord('z') + 1)] + list('äöü'), 'lowercase-v3.png'),
         'digits': build_sheet([str(d) for d in range(10)], 'digits-v2.png'),
     }
@@ -353,6 +356,9 @@ def baseline_offsets():
     for row_index, (band, pairs) in enumerate(zip(letter_bands, ROW_LETTERS)):
         for column_index, pair in enumerate(pairs):
             if len(pair) == 1:
+                masks = cell_component_masks(labels, assignment, row_index, column_index)
+                keep = list(masks.values())
+                boxes['ß'] = (*mask_bounds(keep), row_index)
                 continue
             masks = cell_component_masks(labels, assignment, row_index, column_index)
             if pair in ('Ää', 'Öö', 'Üü'):
@@ -375,6 +381,7 @@ def baseline_offsets():
     letters = [chr(c) for c in range(ord('A'), ord('Z') + 1)]
     letters += [chr(c) for c in range(ord('a'), ord('z') + 1)]
     letters += list('ÄÖÜäöü')
+    letters.append('ß')
     for character in letters:
         x0, y0, _, _, row_index = boxes[character]
         offset = baselines[row_index] - y0

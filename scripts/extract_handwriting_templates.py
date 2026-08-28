@@ -38,7 +38,7 @@ _SHEET_LAYOUT = json.loads((REFERENCE / 'sheet-layout.json').read_text())
 SHEETS = (
     {
         'key': 'uppercase', 'left': 0,
-        'characters': 'ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜ', **_SHEET_LAYOUT['uppercase'],
+        'characters': 'ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜß', **_SHEET_LAYOUT['uppercase'],
     },
     {
         'key': 'lowercase', 'left': 0,
@@ -169,6 +169,16 @@ ROUTE_HINTS = {
     'x': route_hints(((0.05, 0.05), (0.95, 0.95)), ((0.95, 0.05), (0.05, 0.95))),
     'y': route_hints(((0.05, 0.08), (0.5, 0.8)), ((0.95, 0.08), (0.5, 0.8), (0.25, 1), (0.02, 0.9))),
     'z': route_hints(((0.05, 0.08), (0.95, 0.08), (0.05, 0.92), (0.95, 0.92))),
+    # Schreibanleitung: "Unten am langen linken Stamm beginnen und gerade nach
+    # oben ziehen. Oben rund nach rechts und wieder nach unten zur Mitte
+    # führen. Dort nach innen biegen und sofort in den großen unteren Bogen
+    # nach rechts und unten weitergehen. Unten rund nach links ziehen und dort
+    # enden. Alles in einem Zug." One continuous pen motion: up the long left
+    # stem, round the top bowl, down to the middle waist, out around the big
+    # lower bowl, curling left along the bottom.
+    'ß': route_hints(((0.10, 0.99), (0.11, 0.05), (0.42, 0.0), (0.78, 0.16), (0.80, 0.24),
+                      (0.62, 0.33), (0.42, 0.39), (0.60, 0.45), (0.88, 0.51), (0.98, 0.57),
+                      (0.90, 0.67), (0.68, 0.73), (0.45, 0.79), (0.40, 0.81))),
     '0': route_hints(((0.55, 0.02), (0.2, 0.18), (0.04, 0.5), (0.3, 0.92), (0.7, 0.98),
                       (0.95, 0.62), (0.8, 0.22), (0.55, 0.02))),
     '1': route_hints(((0.02, 0.5), (0.92, 0.02), (0.88, 0.98))),

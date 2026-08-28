@@ -6,14 +6,14 @@
 import {
   CHARACTER_STROKES,
   CHARACTER_STROKE_GEOMETRY,
-} from './handwriting-stroke-data.js?v=1.3.33';
+} from './handwriting-stroke-data.js?v=1.3.35';
 import {
   connectSolutionStrokes,
   createConnectSpec,
   createMazeSpec,
   layoutConnect,
   layoutMaze,
-} from './mini-games.js?v=1.3.33';
+} from './mini-games.js?v=1.3.35';
 
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));
@@ -423,7 +423,7 @@ const numberTemplates = Object.entries(digitStrokes).map(([digit, strokes]) => m
 }));
 
 export const letterStrokes = Object.fromEntries(
-  [...'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöü'].map((letter) => [letter, CHARACTER_STROKES[letter]]),
+  [...'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöüß'].map((letter) => [letter, CHARACTER_STROKES[letter]]),
 );
 Object.freeze(letterStrokes);
 
@@ -435,6 +435,7 @@ const letterMeta = {
   Q: ['Qualle', 'round', 3], R: ['Regen', 'mixed', 3], S: ['Sonne', 'round', 3], T: ['Tiger', 'straight', 1],
   U: ['Uhu', 'round', 2], V: ['Vogel', 'diagonal', 1], W: ['Wolke', 'diagonal', 3], X: ['Xylofon', 'diagonal', 2],
   Y: ['Yak', 'diagonal', 2], Z: ['Zebra', 'diagonal', 2], Ä: ['Äpfel', 'diagonal', 3], Ö: ['Öl', 'round', 3], Ü: ['Überraschung', 'round', 3],
+  ß: ['Straße', 'mixed', 3],
   ...Object.fromEntries([...'abcdefghijklmnopqrstuvwxyzäöü'].map((letter) => [letter, [`kleines ${letter}`, 'lowercase', 2]])),
 };
 
@@ -463,6 +464,9 @@ export const CATEGORY_CONFIG = Object.freeze({
   maze: { label: 'Labyrinth', speech: 'Finde den Weg durchs Labyrinth', icon: 'maze' },
   connect: { label: 'Funkelpunkte', speech: 'Verbinde die auftauchenden Punkte', icon: 'connect' },
   mixed: { label: 'Bunte Mischung', speech: 'Alles gemischt', icon: 'mixed' },
+  // Nur über den Testmodus (?test) erreichbar: alle Buchstaben und Zahlen
+  // nacheinander als Einzelaufgabe, für die visuelle Symbolprüfung.
+  review: { label: 'Alle Symbole', speech: 'Alle Buchstaben und Zahlen ansehen', icon: 'review' },
 });
 
 export const DIFFICULTIES = Object.freeze({
@@ -634,6 +638,7 @@ const SCHULSCHRIFT_BASELINE_OFFSETS = Object.freeze({
   k: 107, l: 104, m: 60, n: 61, o: 62, p: 69, q: 67, r: 66, s: 69, t: 96,
   u: 59, v: 60, w: 59, x: 62, y: 63, z: 60,
   Ä: 113, Ö: 116, Ü: 112, ä: 84, ö: 85, ü: 78,
+  ß: 106,
 });
 const SCHULSCHRIFT_DESIGN_TOP = 114;
 export const baselineOffsets = SCHULSCHRIFT_BASELINE_OFFSETS;
@@ -1705,6 +1710,33 @@ export function buildSession({ category, difficulty = 'easy', option = '', name 
     assist: index === SESSION_SIZE - 1 ? 'easy' : assistancePlans[difficulty][index % assistancePlans[difficulty].length],
     slot: index,
   }));
+}
+
+/**
+ * Test/review session: every letter (upper and lower case) and every digit
+ * exactly once, in a fixed order, as a single-symbol task. Lets a reviewer
+ * sweep the whole sprite library symbol by symbol instead of typing custom
+ * sets by hand. Fino previews every task (assist 'easy').
+ */
+export function buildReviewSession() {
+  const sequence = [
+    ...'ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜß',
+    ...'abcdefghijklmnopqrstuvwxyzäöü',
+    ...'0123456789',
+  ];
+  return sequence.map((symbol, index) => {
+    const isDigit = /[0-9]/.test(symbol);
+    const bank = isDigit ? EXERCISE_BANKS.numbers : EXERCISE_BANKS.letters;
+    const id = isDigit ? `number-${symbol}-gross` : `letter-${symbol}-gross`;
+    const task = bank.find((candidate) => candidate.id === id);
+    if (!task) throw new Error(`Review mode: no single-symbol task for ${symbol}`);
+    return {
+      ...task,
+      uid: `${task.id}-review-${index}`,
+      assist: 'easy',
+      slot: index,
+    };
+  });
 }
 
 /** Small deterministic RNG for tests and repeatable demos. */

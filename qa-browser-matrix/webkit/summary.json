@@ -1,0 +1,1182 @@
+{
+  "engine": "webkit",
+  "url": "http://127.0.0.1:4173/?test",
+  "captured": 69,
+  "failures": [],
+  "errors": [],
+  "capturedList": [
+    {
+      "index": 1,
+      "expected": "A",
+      "symbol": "A",
+      "taskId": "letter-A-gross",
+      "inkPixels": 89145,
+      "inkBox": [
+        79,
+        21,
+        904,
+        654
+      ],
+      "foxPixels": 758,
+      "probeError": null,
+      "ok": true,
+      "file": "01-A.png"
+    },
+    {
+      "index": 2,
+      "expected": "B",
+      "symbol": "B",
+      "taskId": "letter-B-gross",
+      "inkPixels": 84633,
+      "inkBox": [
+        79,
+        47,
+        904,
+        623
+      ],
+      "foxPixels": 749,
+      "probeError": null,
+      "ok": true,
+      "file": "02-B.png"
+    },
+    {
+      "index": 3,
+      "expected": "C",
+      "symbol": "C",
+      "taskId": "letter-C-gross",
+      "inkPixels": 64243,
+      "inkBox": [
+        79,
+        39,
+        904,
+        637
+      ],
+      "foxPixels": 753,
+      "probeError": null,
+      "ok": true,
+      "file": "03-C.png"
+    },
+    {
+      "index": 4,
+      "expected": "D",
+      "symbol": "D",
+      "taskId": "letter-D-gross",
+      "inkPixels": 84758,
+      "inkBox": [
+        79,
+        46,
+        904,
+        629
+      ],
+      "foxPixels": 756,
+      "probeError": null,
+      "ok": true,
+      "file": "04-D.png"
+    },
+    {
+      "index": 5,
+      "expected": "E",
+      "symbol": "E",
+      "taskId": "letter-E-gross",
+      "inkPixels": 74470,
+      "inkBox": [
+        79,
+        49,
+        904,
+        626
+      ],
+      "foxPixels": 755,
+      "probeError": null,
+      "ok": true,
+      "file": "05-E.png"
+    },
+    {
+      "index": 6,
+      "expected": "F",
+      "symbol": "F",
+      "taskId": "letter-F-gross",
+      "inkPixels": 64370,
+      "inkBox": [
+        79,
+        33,
+        904,
+        638
+      ],
+      "foxPixels": 750,
+      "probeError": null,
+      "ok": true,
+      "file": "06-F.png"
+    },
+    {
+      "index": 7,
+      "expected": "G",
+      "symbol": "G",
+      "taskId": "letter-G-gross",
+      "inkPixels": 89555,
+      "inkBox": [
+        79,
+        49,
+        904,
+        626
+      ],
+      "foxPixels": 757,
+      "probeError": null,
+      "ok": true,
+      "file": "07-G.png"
+    },
+    {
+      "index": 8,
+      "expected": "H",
+      "symbol": "H",
+      "taskId": "letter-H-gross",
+      "inkPixels": 90552,
+      "inkBox": [
+        79,
+        27,
+        904,
+        649
+      ],
+      "foxPixels": 752,
+      "probeError": null,
+      "ok": true,
+      "file": "08-H.png"
+    },
+    {
+      "index": 9,
+      "expected": "I",
+      "symbol": "I",
+      "taskId": "letter-I-gross",
+      "inkPixels": 36852,
+      "inkBox": [
+        79,
+        27,
+        904,
+        644
+      ],
+      "foxPixels": 754,
+      "probeError": null,
+      "ok": true,
+      "file": "09-I.png"
+    },
+    {
+      "index": 10,
+      "expected": "J",
+      "symbol": "J",
+      "taskId": "letter-J-gross",
+      "inkPixels": 44404,
+      "inkBox": [
+        79,
+        41,
+        904,
+        635
+      ],
+      "foxPixels": 754,
+      "probeError": null,
+      "ok": true,
+      "file": "10-J.png"
+    },
+    {
+      "index": 11,
+      "expected": "K",
+      "symbol": "K",
+      "taskId": "letter-K-gross",
+      "inkPixels": 87379,
+      "inkBox": [
+        79,
+        28,
+        904,
+        649
+      ],
+      "foxPixels": 757,
+      "probeError": null,
+      "ok": true,
+      "file": "11-K.png"
+    },
+    {
+      "index": 12,
+      "expected": "L",
+      "symbol": "L",
+      "taskId": "letter-L-gross",
+      "inkPixels": 52512,
+      "inkBox": [
+        79,
+        35,
+        904,
+        634
+      ],
+      "foxPixels": 746,
+      "probeError": null,
+      "ok": true,
+      "file": "12-L.png"
+    },
+    {
+      "index": 13,
+      "expected": "M",
+      "symbol": "M",
+      "taskId": "letter-M-gross",
+      "inkPixels": 126386,
+      "inkBox": [
+        79,
+        38,
+        904,
+        636
+      ],
+      "foxPixels": 759,
+      "probeError": null,
+      "ok": true,
+      "file": "13-M.png"
+    },
+    {
+      "index": 14,
+      "expected": "N",
+      "symbol": "N",
+      "taskId": "letter-N-gross",
+      "inkPixels": 106006,
+      "inkBox": [
+        79,
+        34,
+        904,
+        645
+      ],
+      "foxPixels": 758,
+      "probeError": null,
+      "ok": true,
+      "file": "14-N.png"
+    },
+    {
+      "index": 15,
+      "expected": "O",
+      "symbol": "O",
+      "taskId": "letter-O-gross",
+      "inkPixels": 88816,
+      "inkBox": [
+        79,
+        40,
+        904,
+        634
+      ],
+      "foxPixels": 753,
+      "probeError": null,
+      "ok": true,
+      "file": "15-O.png"
+    },
+    {
+      "index": 16,
+      "expected": "P",
+      "symbol": "P",
+      "taskId": "letter-P-gross",
+      "inkPixels": 72740,
+      "inkBox": [
+        79,
+        38,
+        904,
+        633
+      ],
+      "foxPixels": 761,
+      "probeError": null,
+      "ok": true,
+      "file": "16-P.png"
+    },
+    {
+      "index": 17,
+      "expected": "Q",
+      "symbol": "Q",
+      "taskId": "letter-Q-gross",
+      "inkPixels": 103386,
+      "inkBox": [
+        79,
+        38,
+        904,
+        637
+      ],
+      "foxPixels": 755,
+      "probeError": null,
+      "ok": true,
+      "file": "17-Q.png"
+    },
+    {
+      "index": 18,
+      "expected": "R",
+      "symbol": "R",
+      "taskId": "letter-R-gross",
+      "inkPixels": 88580,
+      "inkBox": [
+        79,
+        41,
+        904,
+        632
+      ],
+      "foxPixels": 755,
+      "probeError": null,
+      "ok": true,
+      "file": "18-R.png"
+    },
+    {
+      "index": 19,
+      "expected": "S",
+      "symbol": "S",
+      "taskId": "letter-S-gross",
+      "inkPixels": 66022,
+      "inkBox": [
+        79,
+        47,
+        904,
+        630
+      ],
+      "foxPixels": 756,
+      "probeError": null,
+      "ok": true,
+      "file": "19-S.png"
+    },
+    {
+      "index": 20,
+      "expected": "T",
+      "symbol": "T",
+      "taskId": "letter-T-gross",
+      "inkPixels": 56727,
+      "inkBox": [
+        79,
+        36,
+        904,
+        638
+      ],
+      "foxPixels": 750,
+      "probeError": null,
+      "ok": true,
+      "file": "20-T.png"
+    },
+    {
+      "index": 21,
+      "expected": "U",
+      "symbol": "U",
+      "taskId": "letter-U-gross",
+      "inkPixels": 84533,
+      "inkBox": [
+        79,
+        42,
+        904,
+        639
+      ],
+      "foxPixels": 748,
+      "probeError": null,
+      "ok": true,
+      "file": "21-U.png"
+    },
+    {
+      "index": 22,
+      "expected": "V",
+      "symbol": "V",
+      "taskId": "letter-V-gross",
+      "inkPixels": 82329,
+      "inkBox": [
+        79,
+        16,
+        904,
+        657
+      ],
+      "foxPixels": 760,
+      "probeError": null,
+      "ok": true,
+      "file": "22-V.png"
+    },
+    {
+      "index": 23,
+      "expected": "W",
+      "symbol": "W",
+      "taskId": "letter-W-gross",
+      "inkPixels": 148110,
+      "inkBox": [
+        79,
+        24,
+        904,
+        645
+      ],
+      "foxPixels": 752,
+      "probeError": null,
+      "ok": true,
+      "file": "23-W.png"
+    },
+    {
+      "index": 24,
+      "expected": "X",
+      "symbol": "X",
+      "taskId": "letter-X-gross",
+      "inkPixels": 75705,
+      "inkBox": [
+        79,
+        44,
+        904,
+        631
+      ],
+      "foxPixels": 749,
+      "probeError": null,
+      "ok": true,
+      "file": "24-X.png"
+    },
+    {
+      "index": 25,
+      "expected": "Y",
+      "symbol": "Y",
+      "taskId": "letter-Y-gross",
+      "inkPixels": 59130,
+      "inkBox": [
+        79,
+        33,
+        904,
+        644
+      ],
+      "foxPixels": 752,
+      "probeError": null,
+      "ok": true,
+      "file": "25-Y.png"
+    },
+    {
+      "index": 26,
+      "expected": "Z",
+      "symbol": "Z",
+      "taskId": "letter-Z-gross",
+      "inkPixels": 86422,
+      "inkBox": [
+        79,
+        44,
+        904,
+        631
+      ],
+      "foxPixels": 745,
+      "probeError": null,
+      "ok": true,
+      "file": "26-Z.png"
+    },
+    {
+      "index": 27,
+      "expected": "Ä",
+      "symbol": "Ä",
+      "taskId": "letter-Ä-gross",
+      "inkPixels": 73737,
+      "inkBox": [
+        79,
+        40,
+        904,
+        634
+      ],
+      "foxPixels": 752,
+      "probeError": null,
+      "ok": true,
+      "file": "27-Ä.png"
+    },
+    {
+      "index": 28,
+      "expected": "Ö",
+      "symbol": "Ö",
+      "taskId": "letter-Ö-gross",
+      "inkPixels": 73498,
+      "inkBox": [
+        79,
+        44,
+        904,
+        633
+      ],
+      "foxPixels": 753,
+      "probeError": null,
+      "ok": true,
+      "file": "28-Ö.png"
+    },
+    {
+      "index": 29,
+      "expected": "Ü",
+      "symbol": "Ü",
+      "taskId": "letter-Ü-gross",
+      "inkPixels": 67766,
+      "inkBox": [
+        79,
+        41,
+        904,
+        635
+      ],
+      "foxPixels": 753,
+      "probeError": null,
+      "ok": true,
+      "file": "29-Ü.png"
+    },
+    {
+      "index": 30,
+      "expected": "ß",
+      "symbol": "ß",
+      "taskId": "letter-ß-gross",
+      "inkPixels": 58885,
+      "inkBox": [
+        79,
+        48,
+        904,
+        630
+      ],
+      "foxPixels": 756,
+      "probeError": null,
+      "ok": true,
+      "file": "30-ß.png"
+    },
+    {
+      "index": 31,
+      "expected": "a",
+      "symbol": "a",
+      "taskId": "letter-a-gross",
+      "inkPixels": 75690,
+      "inkBox": [
+        79,
+        232,
+        904,
+        622
+      ],
+      "foxPixels": 756,
+      "probeError": null,
+      "ok": true,
+      "file": "31-a.png"
+    },
+    {
+      "index": 32,
+      "expected": "b",
+      "symbol": "b",
+      "taskId": "letter-b-gross",
+      "inkPixels": 57207,
+      "inkBox": [
+        79,
+        84,
+        904,
+        632
+      ],
+      "foxPixels": 751,
+      "probeError": null,
+      "ok": true,
+      "file": "32-b.png"
+    },
+    {
+      "index": 33,
+      "expected": "c",
+      "symbol": "c",
+      "taskId": "letter-c-gross",
+      "inkPixels": 47281,
+      "inkBox": [
+        79,
+        233,
+        904,
+        627
+      ],
+      "foxPixels": 762,
+      "probeError": null,
+      "ok": true,
+      "file": "33-c.png"
+    },
+    {
+      "index": 34,
+      "expected": "d",
+      "symbol": "d",
+      "taskId": "letter-d-gross",
+      "inkPixels": 64050,
+      "inkBox": [
+        79,
+        81,
+        904,
+        636
+      ],
+      "foxPixels": 753,
+      "probeError": null,
+      "ok": true,
+      "file": "34-d.png"
+    },
+    {
+      "index": 35,
+      "expected": "e",
+      "symbol": "e",
+      "taskId": "letter-e-gross",
+      "inkPixels": 63997,
+      "inkBox": [
+        79,
+        236,
+        904,
+        618
+      ],
+      "foxPixels": 753,
+      "probeError": null,
+      "ok": true,
+      "file": "35-e.png"
+    },
+    {
+      "index": 36,
+      "expected": "f",
+      "symbol": "f",
+      "taskId": "letter-f-gross",
+      "inkPixels": 42671,
+      "inkBox": [
+        79,
+        84,
+        904,
+        635
+      ],
+      "foxPixels": 753,
+      "probeError": null,
+      "ok": true,
+      "file": "36-f.png"
+    },
+    {
+      "index": 37,
+      "expected": "g",
+      "symbol": "g",
+      "taskId": "letter-g-gross",
+      "inkPixels": 62918,
+      "inkBox": [
+        79,
+        121,
+        904,
+        637
+      ],
+      "foxPixels": 761,
+      "probeError": null,
+      "ok": true,
+      "file": "37-g.png"
+    },
+    {
+      "index": 38,
+      "expected": "h",
+      "symbol": "h",
+      "taskId": "letter-h-gross",
+      "inkPixels": 57760,
+      "inkBox": [
+        79,
+        83,
+        904,
+        634
+      ],
+      "foxPixels": 750,
+      "probeError": null,
+      "ok": true,
+      "file": "38-h.png"
+    },
+    {
+      "index": 39,
+      "expected": "i",
+      "symbol": "i",
+      "taskId": "letter-i-gross",
+      "inkPixels": 27095,
+      "inkBox": [
+        79,
+        185,
+        904,
+        626
+      ],
+      "foxPixels": 751,
+      "probeError": null,
+      "ok": true,
+      "file": "39-i.png"
+    },
+    {
+      "index": 40,
+      "expected": "j",
+      "symbol": "j",
+      "taskId": "letter-j-gross",
+      "inkPixels": 28581,
+      "inkBox": [
+        79,
+        119,
+        904,
+        640
+      ],
+      "foxPixels": 751,
+      "probeError": null,
+      "ok": true,
+      "file": "40-j.png"
+    },
+    {
+      "index": 41,
+      "expected": "k",
+      "symbol": "k",
+      "taskId": "letter-k-gross",
+      "inkPixels": 57070,
+      "inkBox": [
+        79,
+        79,
+        904,
+        639
+      ],
+      "foxPixels": 753,
+      "probeError": null,
+      "ok": true,
+      "file": "41-k.png"
+    },
+    {
+      "index": 42,
+      "expected": "l",
+      "symbol": "l",
+      "taskId": "letter-l-gross",
+      "inkPixels": 38248,
+      "inkBox": [
+        79,
+        72,
+        904,
+        645
+      ],
+      "foxPixels": 754,
+      "probeError": null,
+      "ok": true,
+      "file": "42-l.png"
+    },
+    {
+      "index": 43,
+      "expected": "m",
+      "symbol": "m",
+      "taskId": "letter-m-gross",
+      "inkPixels": 64626,
+      "inkBox": [
+        79,
+        278,
+        904,
+        577
+      ],
+      "foxPixels": 749,
+      "probeError": null,
+      "ok": true,
+      "file": "43-m.png"
+    },
+    {
+      "index": 44,
+      "expected": "n",
+      "symbol": "n",
+      "taskId": "letter-n-gross",
+      "inkPixels": 70665,
+      "inkBox": [
+        79,
+        236,
+        904,
+        623
+      ],
+      "foxPixels": 753,
+      "probeError": null,
+      "ok": true,
+      "file": "44-n.png"
+    },
+    {
+      "index": 45,
+      "expected": "o",
+      "symbol": "o",
+      "taskId": "letter-o-gross",
+      "inkPixels": 68213,
+      "inkBox": [
+        79,
+        225,
+        904,
+        628
+      ],
+      "foxPixels": 756,
+      "probeError": null,
+      "ok": true,
+      "file": "45-o.png"
+    },
+    {
+      "index": 46,
+      "expected": "p",
+      "symbol": "p",
+      "taskId": "letter-p-gross",
+      "inkPixels": 60552,
+      "inkBox": [
+        79,
+        116,
+        904,
+        639
+      ],
+      "foxPixels": 753,
+      "probeError": null,
+      "ok": true,
+      "file": "46-p.png"
+    },
+    {
+      "index": 47,
+      "expected": "q",
+      "symbol": "q",
+      "taskId": "letter-q-gross",
+      "inkPixels": 66611,
+      "inkBox": [
+        79,
+        114,
+        904,
+        650
+      ],
+      "foxPixels": 752,
+      "probeError": null,
+      "ok": true,
+      "file": "47-q.png"
+    },
+    {
+      "index": 48,
+      "expected": "r",
+      "symbol": "r",
+      "taskId": "letter-r-gross",
+      "inkPixels": 47282,
+      "inkBox": [
+        79,
+        227,
+        904,
+        633
+      ],
+      "foxPixels": 755,
+      "probeError": null,
+      "ok": true,
+      "file": "48-r.png"
+    },
+    {
+      "index": 49,
+      "expected": "s",
+      "symbol": "s",
+      "taskId": "letter-s-gross",
+      "inkPixels": 45085,
+      "inkBox": [
+        79,
+        234,
+        904,
+        617
+      ],
+      "foxPixels": 758,
+      "probeError": null,
+      "ok": true,
+      "file": "49-s.png"
+    },
+    {
+      "index": 50,
+      "expected": "t",
+      "symbol": "t",
+      "taskId": "letter-t-gross",
+      "inkPixels": 32209,
+      "inkBox": [
+        79,
+        189,
+        904,
+        623
+      ],
+      "foxPixels": 755,
+      "probeError": null,
+      "ok": true,
+      "file": "50-t.png"
+    },
+    {
+      "index": 51,
+      "expected": "u",
+      "symbol": "u",
+      "taskId": "letter-u-gross",
+      "inkPixels": 79373,
+      "inkBox": [
+        79,
+        221,
+        904,
+        633
+      ],
+      "foxPixels": 753,
+      "probeError": null,
+      "ok": true,
+      "file": "51-u.png"
+    },
+    {
+      "index": 52,
+      "expected": "v",
+      "symbol": "v",
+      "taskId": "letter-v-gross",
+      "inkPixels": 63538,
+      "inkBox": [
+        79,
+        209,
+        904,
+        646
+      ],
+      "foxPixels": 751,
+      "probeError": null,
+      "ok": true,
+      "file": "52-v.png"
+    },
+    {
+      "index": 53,
+      "expected": "w",
+      "symbol": "w",
+      "taskId": "letter-w-gross",
+      "inkPixels": 81448,
+      "inkBox": [
+        79,
+        245,
+        904,
+        605
+      ],
+      "foxPixels": 754,
+      "probeError": null,
+      "ok": true,
+      "file": "53-w.png"
+    },
+    {
+      "index": 54,
+      "expected": "x",
+      "symbol": "x",
+      "taskId": "letter-x-gross",
+      "inkPixels": 63376,
+      "inkBox": [
+        79,
+        229,
+        904,
+        632
+      ],
+      "foxPixels": 745,
+      "probeError": null,
+      "ok": true,
+      "file": "54-x.png"
+    },
+    {
+      "index": 55,
+      "expected": "y",
+      "symbol": "y",
+      "taskId": "letter-y-gross",
+      "inkPixels": 54481,
+      "inkBox": [
+        79,
+        105,
+        904,
+        660
+      ],
+      "foxPixels": 752,
+      "probeError": null,
+      "ok": true,
+      "file": "55-y.png"
+    },
+    {
+      "index": 56,
+      "expected": "z",
+      "symbol": "z",
+      "taskId": "letter-z-gross",
+      "inkPixels": 65694,
+      "inkBox": [
+        79,
+        226,
+        904,
+        623
+      ],
+      "foxPixels": 754,
+      "probeError": null,
+      "ok": true,
+      "file": "56-z.png"
+    },
+    {
+      "index": 57,
+      "expected": "ä",
+      "symbol": "ä",
+      "taskId": "letter-ä-gross",
+      "inkPixels": 43433,
+      "inkBox": [
+        79,
+        238,
+        904,
+        620
+      ],
+      "foxPixels": 748,
+      "probeError": null,
+      "ok": true,
+      "file": "57-ä.png"
+    },
+    {
+      "index": 58,
+      "expected": "ö",
+      "symbol": "ö",
+      "taskId": "letter-ö-gross",
+      "inkPixels": 38163,
+      "inkBox": [
+        79,
+        235,
+        904,
+        619
+      ],
+      "foxPixels": 755,
+      "probeError": null,
+      "ok": true,
+      "file": "58-ö.png"
+    },
+    {
+      "index": 59,
+      "expected": "ü",
+      "symbol": "ü",
+      "taskId": "letter-ü-gross",
+      "inkPixels": 44021,
+      "inkBox": [
+        79,
+        233,
+        904,
+        621
+      ],
+      "foxPixels": 757,
+      "probeError": null,
+      "ok": true,
+      "file": "59-ü.png"
+    },
+    {
+      "index": 60,
+      "expected": "0",
+      "symbol": "0",
+      "taskId": "number-0-gross",
+      "inkPixels": 82179,
+      "inkBox": [
+        79,
+        42,
+        904,
+        628
+      ],
+      "foxPixels": 749,
+      "probeError": null,
+      "ok": true,
+      "file": "60-0.png"
+    },
+    {
+      "index": 61,
+      "expected": "1",
+      "symbol": "1",
+      "taskId": "number-1-gross",
+      "inkPixels": 52085,
+      "inkBox": [
+        79,
+        28,
+        904,
+        643
+      ],
+      "foxPixels": 753,
+      "probeError": null,
+      "ok": true,
+      "file": "61-1.png"
+    },
+    {
+      "index": 62,
+      "expected": "2",
+      "symbol": "2",
+      "taskId": "number-2-gross",
+      "inkPixels": 73377,
+      "inkBox": [
+        79,
+        41,
+        904,
+        635
+      ],
+      "foxPixels": 753,
+      "probeError": null,
+      "ok": true,
+      "file": "62-2.png"
+    },
+    {
+      "index": 63,
+      "expected": "3",
+      "symbol": "3",
+      "taskId": "number-3-gross",
+      "inkPixels": 71010,
+      "inkBox": [
+        79,
+        41,
+        904,
+        634
+      ],
+      "foxPixels": 751,
+      "probeError": null,
+      "ok": true,
+      "file": "63-3.png"
+    },
+    {
+      "index": 64,
+      "expected": "4",
+      "symbol": "4",
+      "taskId": "number-4-gross",
+      "inkPixels": 70199,
+      "inkBox": [
+        79,
+        33,
+        904,
+        639
+      ],
+      "foxPixels": 747,
+      "probeError": null,
+      "ok": true,
+      "file": "64-4.png"
+    },
+    {
+      "index": 65,
+      "expected": "5",
+      "symbol": "5",
+      "taskId": "number-5-gross",
+      "inkPixels": 77685,
+      "inkBox": [
+        79,
+        47,
+        904,
+        633
+      ],
+      "foxPixels": 752,
+      "probeError": null,
+      "ok": true,
+      "file": "65-5.png"
+    },
+    {
+      "index": 66,
+      "expected": "6",
+      "symbol": "6",
+      "taskId": "number-6-gross",
+      "inkPixels": 84129,
+      "inkBox": [
+        79,
+        42,
+        904,
+        631
+      ],
+      "foxPixels": 760,
+      "probeError": null,
+      "ok": true,
+      "file": "66-6.png"
+    },
+    {
+      "index": 67,
+      "expected": "7",
+      "symbol": "7",
+      "taskId": "number-7-gross",
+      "inkPixels": 64467,
+      "inkBox": [
+        79,
+        33,
+        904,
+        637
+      ],
+      "foxPixels": 757,
+      "probeError": null,
+      "ok": true,
+      "file": "67-7.png"
+    },
+    {
+      "index": 68,
+      "expected": "8",
+      "symbol": "8",
+      "taskId": "number-8-gross",
+      "inkPixels": 81525,
+      "inkBox": [
+        79,
+        46,
+        904,
+        625
+      ],
+      "foxPixels": 758,
+      "probeError": null,
+      "ok": true,
+      "file": "68-8.png"
+    },
+    {
+      "index": 69,
+      "expected": "9",
+      "symbol": "9",
+      "taskId": "number-9-gross",
+      "inkPixels": 83914,
+      "inkBox": [
+        79,
+        38,
+        904,
+        637
+      ],
+      "foxPixels": 747,
+      "probeError": null,
+      "ok": true,
+      "file": "69-9.png"
+    }
+  ]
+}

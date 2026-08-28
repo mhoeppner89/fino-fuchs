@@ -1,17 +1,18 @@
 import {
   adaptTaskToViewport,
+  buildReviewSession,
   buildSession,
   CATEGORY_CONFIG,
   DIFFICULTIES,
   normalizeName,
   reflowTaskWithInk,
-} from './curriculum.js?v=1.3.33';
+} from './curriculum.js?v=1.3.35';
 import {
   DrawingBoard,
   evaluateTaskDrawing,
   feedbackForEvaluation,
   passesDrawingCriteria,
-} from './drawing.js?v=1.3.33';
+} from './drawing.js?v=1.3.35';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -318,7 +319,7 @@ function normalizeNumberSet(value) {
 }
 
 function normalizeLetterSet(value) {
-  return [...new Set([...String(value ?? '').normalize('NFC')].filter((character) => /[A-Za-zÄÖÜäöü]/.test(character)))].join('');
+  return [...new Set([...String(value ?? '').replace(/ẞ/g, 'ß').normalize('NFC')].filter((character) => /[A-Za-zÄÖÜäöüß]/.test(character)))].join('');
 }
 
 function updateCustomSetField(category, { focus = false } = {}) {
@@ -344,12 +345,17 @@ function selectedDifficulty() {
 
 function updateProgress() {
   elements.progressDots.innerHTML = '';
-  state.session.forEach((_, index) => {
-    const dot = document.createElement('span');
-    if (state.completedIndexes.has(index)) dot.classList.add('is-complete');
-    if (index === state.index) dot.classList.add('is-current');
-    elements.progressDots.append(dot);
-  });
+  // The 68-symbol review sweep would overflow the dot bar; the text counter
+  // is enough there.
+  elements.progressDots.hidden = state.category === 'review';
+  if (!elements.progressDots.hidden) {
+    state.session.forEach((_, index) => {
+      const dot = document.createElement('span');
+      if (state.completedIndexes.has(index)) dot.classList.add('is-complete');
+      if (index === state.index) dot.classList.add('is-current');
+      elements.progressDots.append(dot);
+    });
+  }
   elements.progressText.textContent = `${Math.min(state.index + 1, state.session.length)} von ${state.session.length}`;
 }
 
@@ -468,6 +474,7 @@ async function renderTask() {
 }
 
 function buildCurrentSession(viewport) {
+  if (state.category === 'review') return buildReviewSession();
   const cleanName = normalizeName(elements.childName.value);
   state.name = cleanName;
   state.difficulty = selectedDifficulty();
@@ -909,6 +916,24 @@ window.render_game_to_text = () => JSON.stringify({
 window.advanceTime = (milliseconds) => board.advanceTime(milliseconds);
 
 if (new URLSearchParams(location.search).has('test')) {
+  // Testmodus: eine „Alle Symbole"-Karte, die die feste Review-Reihenfolge
+  // startet (A–Z, Ä Ö Ü, a–z, ä ö ü, 0–9). Nur mit ?test sichtbar.
+  const reviewGrid = $('#activity-grid');
+  if (reviewGrid && !reviewGrid.querySelector('[data-category="review"]')) {
+    const reviewCard = document.createElement('button');
+    reviewCard.type = 'button';
+    reviewCard.className = 'activity-card is-test-card';
+    reviewCard.dataset.category = 'review';
+    reviewCard.setAttribute('aria-pressed', 'false');
+    reviewCard.innerHTML = `
+      <span class="activity-icon" aria-hidden="true"><strong>A a 1</strong></span>
+      <span>Alle Symbole</span>
+      <span class="card-check" aria-hidden="true">✓</span>`;
+    reviewCard.addEventListener('click', () => selectCategory('review'));
+    reviewGrid.append(reviewCard);
+    elements.activityCards = $$('.activity-card');
+  }
+
   window.__fuchsschrift = {
     getState: () => ({
       category: state.category,

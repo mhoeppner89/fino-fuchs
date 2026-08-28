@@ -455,3 +455,105 @@ the band's flank mid-stroke).
 
 Verified: 130/130 tests; M and 8 sprite placements stay on-board across six
 viewports (320×568 … 1280×800).
+
+## 2026-08-27 – Testmodus „Alle Symbole“ (v1.3.34)
+
+Review-Modus für die visuelle Symbolprüfung: `index.html?test` blendet im
+Hauptmenü eine zusätzliche Karte „Alle Symbole“ ein, die alle 68 Symbole
+nacheinander als Einzelaufgabe durchläuft – feste Reihenfolge A–Z, Ä Ö Ü,
+a–z, ä ö ü, 0–9. Jede Aufgabe ist assist „easy“, damit Fino den Startpunkt
+sofort vorführt; Navigation vor/zurück wie gewohnt. Implementiert als
+`buildReviewSession()` in curriculum.js; die Fortschrittspunkte sind bei der
+68er-Session ausgeblendet (nur Zähler), da sie überlaufen würden.
+
+Verified: 131/131 tests; live durchgespielt 1/68 „A“ … 68/68 „9“ mit Fino
+auf dem jeweils richtigen Startpunkt; Karte bleibt ohne ?test unsichtbar.
+
+## 2026-08-27 – Sprite-Sweep-Skript (Screenshot aller 68 Symbole)
+
+`scripts/screenshot_review_sweep.mjs` fährt den ?test-Review-Modus alle 68
+Symbole durch (A–Z, Ä Ö Ü, a–z, ä ö ü, 0–9) und fotografiert jede Aufgabe:
+`qa-sprite-sweep/NN-symbol.png`, plus `summary.json` und eine `index.html`-
+Galerie. Das Auto-Demo wird vor Sessionstart neutralisiert, damit Fino
+deterministisch am Startpunkt des ersten Strichs wartet (kein Timing-Glück).
+Playwright 1.62.1 als devDependency (nutzt das gecachte chromium-1234).
+
+Verified: 68/68 Screenshots mit Sprite + Fino; Stichprobe über alle Gruppen
+bestätigt die Startpunkte laut Anleitung (A/M/N unten links, O/Ö/9 oben
+rechts, T oben Mitte, i auf der Mittellinie, …).
+
+## 2026-08-28 – ß als 69. Symbol + Browser-Matrix (v1.3.35)
+
+Das fehlende Symbol **ß** ist jetzt vollständig in der Pipeline:
+
+- `scripts/extract_schulschrift_glyphs.py` schneidet die ß-Zelle (Zeile 6,
+  Spalte 5, ein einzelnes hohes Glyph) aus `SCHULSCHRIFT.png` und legt sie
+  auf das Uppercase-Blatt; `sheet-layout.json` und die Masken werden neu
+  generiert. Baseline-Offset ß: 106.
+- `scripts/extract_handwriting_templates.py` bekommt
+  `ROUTE_HINTS['ß']` laut Schreibanleitung: **ein Strich** – „Unten am langen
+  linken Stamm beginnen … Oben rund nach rechts … zur Mitte … in den großen
+  unteren Bogen … unten rund nach links enden“. Generierte Route:
+  routeCount 1, maximumRouteError 3,16 px, Startpunkt unten am Stamm
+  (verifiziert), Ende an der Unterlängen-Schlaufe.
+- `js/curriculum.js`: ß in `letterStrokes`, `letterMeta` („ß wie Straße“),
+  Review-Sequenz nach Ü (Position 30 von 69), Baseline-Offsets.
+  `js/app.js`: „Eigene Buchstaben“ akzeptiert ß (ẞ wird zu ß normalisiert).
+- Review-Test auf 69 aktualisiert + neuer Test „ß folgt der Anleitung“.
+  `npm test`: 132/132 (die Recognition-Robustheits-Suiten decken ß
+  automatisch über alle Zeichen ab).
+- Live geprüft: Aufgabe 30/69 `letter-ß-gross`, Sprite komplett auf dem
+  Feld, Fino wartet unten am linken Stamm.
+
+Browser-Matrix (`scripts/browser_matrix_check.mjs`): fährt den ?test-Modus
+mit allen **69 Symbolen** in Chromium, **WebKit (Safari-Engine)** und
+Firefox – je Symbol Screenshot (`qa-browser-matrix/<engine>/NN-symbol.png`),
+Pixel-Check (Sprite-Tinte + Fino vorhanden), Console/Page-Error-Sammlung,
+`summary.json` + Galerie pro Engine.
+
+Ergebnis: **3 × 69/69 Symbole, 0 Fehler, 0 Console-Errors.** Sprite-Rendering
+ist engine-übergreifend pixelkonsistent (mittleres min-IoU 0,994, worst 0,99).
+
+WebKit-Stolperstein: playwright pinnt auf macOS 14/arm64 Webkit-Build 2251,
+der die Setting-Nachricht `PushAPIEnabled` (PR #41660, Juli 2026) noch nicht
+kennt → newPage schlug fehl. Lokaler One-Line-Patch in
+`node_modules/playwright-core/lib/coreBundle.js` (Zeile auskommentiert;
+betrifft nur Push-API-Mocking). Ein frisches `npm install` entfernt den
+Patch – Anleitung im Kopf von `browser_matrix_check.mjs`.
+
+Playwright-Browser liegen projektlokal in `.playwright-browsers/`
+(gitignored): chromium-1234/1241, firefox-1538/1540, webkit-2251.
+`qa-sprite-sweep/` wurde auf 69 Symbole (inkl. `30-ß.png`) regeneriert.
+
+## 2026-08-28 – Funktions-Check: echtes Schreiben in Safari-Engine, Firefox, Chromium
+
+`scripts/browser_functional_check.mjs` schreibt die gelehrten Routen mit
+**echten Zeigereingaben** (Playwright-Maus-Pipeline bzw. WebDriver-Actions
+für Safari) und prüft die App-Antworten im ?test-Review-Modus:
+
+1. Fino-Preview läuft bei frischer Aufgabe (Fuchs-Pixel bewegen sich).
+2. A korrekt geschrieben (2 Striche) → Erfolgs-Overlay, Aufgabe zählt, Index
+   springt weiter.
+3. K mit nur 2 von 3 Strichen → **kein** Abschluss (completion 0,53); dritter
+   Strich → Abschluss.
+4. ß (ein langer Strich) → akzeptiert.
+5. 5 „falsch herum“: nur der Mittelstrich → kein Abschluss (completion 0,17);
+   danach Hauptstrich → Abschluss (Strich-für-Strich-Bewertung).
+6. Kritzel weit weg vom S → kein Abschluss **und** Ablehnungs-Toast „Fast!
+   Versuch es noch einmal.“; danach Löschen + korrekt schreiben → Abschluss
+   (Wiederholungs-Pfad inkl. Löschen-Knopf).
+7. ö: Grundform + zwei echte Punkt-Taps → akzeptiert.
+8. 8 in einem Zug → akzeptiert.
+9. failCurrent() wird abgelehnt, solveCurrent() beendet die Runde
+   (Finish-Screen).
+
+Ergebnis: **13/13 Checks in WebKit (Safari-Engine), Firefox und Chromium** —
+mit identischen Completion-Werten pro Aufgabe (deterministische Bewertung,
+engine-unabhängig). Reports: `qa-functional/<engine>-report.md`. 0
+Console/Page-Errors in allen Engines.
+
+Der echte Safari.app-Lauf (`--engine safari`, safaridriver/WebDriver-Actions
+ist im Skript implementiert) blockiert derzeit auf dem macOS-Schalter
+„Entwickler → Remote-Automatisierung erlauben“. Einmalig freischalten
+(Terminal: elevierter Lauf von `safaridriver --enable`, Admin-Passwort
+eingeben), danach läuft derselbe Checksatz im echten Safari.

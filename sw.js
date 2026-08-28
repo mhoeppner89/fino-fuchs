@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'fino-schreibt-';
-const CACHE_NAME = `${CACHE_PREFIX}v1.3.33`;
+const CACHE_NAME = `${CACHE_PREFIX}v1.3.35`;
 const APP_SHELL = [
   './',
   './index.html',

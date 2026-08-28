@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 .freebuff/
 serve_local.py
+node_modules/
+.playwright-browsers/
