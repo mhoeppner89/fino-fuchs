@@ -111,7 +111,7 @@ test('different digits, uppercase letters, lowercase letters, and pictures canno
   // one another's tolerance; at hard every pair separates.  The missing-ink
   // direction always fails at every level: an a drawn for a d never covers
   // the ascender, an O drawn for a Q never covers the required tail.
-  const strictPools = new Set(['letter-G-gross', 'letter-Q-gross', 'letter-O-gross']);
+  const strictPools = new Set(['letter-G-gross', 'letter-Q-gross', 'letter-O-gross', 'letter-D-gross']);
   pools.forEach((pool, poolIndex) => {
     const poolNeedsStrict = poolIndex === 2 || poolIndex === 3;
     pool.forEach((target) => {

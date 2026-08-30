@@ -68,7 +68,7 @@ def route_hints(*strokes):
 # a, d, p, q, g and 9 keep separate round-body and stem/tail hints (their
 # junction confuses the waypoint follower), and main() joins the two
 # extracted routes into the single taught stroke afterwards.
-ONE_STROKE_CHARACTERS = frozenset({'a', 'd', 'p', 'q', 'g', '9'})
+ONE_STROKE_CHARACTERS = frozenset({'a', 'd', 'p', 'q', 'g', '9', 'G'})
 
 ROUTE_HINTS = {
     'A': route_hints(((0.02, 1), (0.5, 0), (0.98, 1)), ((0.02, 0.6), (0.98, 0.6))),
@@ -84,26 +84,32 @@ ROUTE_HINTS = {
                      ((0.08, 0.5), (0.75, 0.5)), ((0.08, 0.98), (0.92, 0.98))),
     'F': route_hints(((0.08, 0), (0.08, 1)), ((0.08, 0.02), (0.88, 0.02)),
                      ((0.08, 0.5), (0.72, 0.5))),
+    # Two hint strokes that ONE_STROKE_CHARACTERS joins into one pen
+    # motion: (1) the C part, ending at the bottom-right; (2) from the
+    # right edge, inward bar (right->left), back (left->right), then down
+    # the right edge to the bottom.
     'G': route_hints(((0.95, 0.12), (0.55, 0.02), (0.15, 0.15), (0.02, 0.5), (0.2, 0.85),
                       (0.6, 0.98), (0.95, 0.95)),
-                     ((0.55, 0.55), (0.92, 0.5), (0.95, 0.97))),
+                     ((0.92, 0.5), (0.55, 0.55), (0.92, 0.5), (0.95, 0.97))),
     'H': route_hints(((0.05, 0), (0.05, 1)), ((0.95, 0), (0.95, 1)), ((0.05, 0.5), (0.95, 0.5))),
     'I': route_hints(((0.5, 0), (0.5, 1))),
     'J': route_hints(((0.55, 0), (0.55, 0.65), (0.3, 0.97), (0.05, 0.8))),
-    'K': route_hints(((0.08, 0), (0.08, 1)), ((0.9, 0.05), (0.06, 0.5)),
+    # 3 strokes: stem top-down; mid -> diagonally up to top-right;
+    # mid -> diagonally down to bottom-right.
+    'K': route_hints(((0.08, 0), (0.08, 1)), ((0.06, 0.5), (0.9, 0.05)),
                      ((0.06, 0.5), (0.95, 0.97))),
     'L': route_hints(((0.08, 0), (0.08, 0.95), (0.95, 0.95))),
     # "Unten links beginnen": up the left upright, zigzag through the
     # middle valley, then down the right upright -- one stroke, like N.
     'M': route_hints(((0.02, 1), (0.02, 0), (0.5, 0.92), (0.98, 0), (0.98, 1))),
     'N': route_hints(((0.02, 1), (0.02, 0), (0.98, 1), (0.98, 0))),
-    'O': route_hints(((0.85, 0.2), (0.4, 0.02), (0.05, 0.4), (0.3, 0.9), (0.7, 0.98),
-                      (0.97, 0.55), (0.85, 0.2))),
+    'O': route_hints(((0.4, 0.02), (0.05, 0.4), (0.3, 0.9), (0.7, 0.98),
+                      (0.97, 0.55), (0.85, 0.2), (0.4, 0.02))),
     'P': route_hints(((0.08, 0), (0.08, 1)),
                      ((0.08, 0.03), (0.55, 0.02), (0.92, 0.2), (0.75, 0.45), (0.3, 0.52),
                       (0.08, 0.5))),
-    'Q': route_hints(((0.85, 0.2), (0.4, 0.02), (0.05, 0.4), (0.3, 0.9), (0.7, 0.98),
-                      (0.97, 0.55), (0.85, 0.2)),
+    'Q': route_hints(((0.4, 0.02), (0.05, 0.4), (0.3, 0.9), (0.7, 0.98),
+                      (0.97, 0.55), (0.85, 0.2), (0.4, 0.02)),
                      ((0.4, 0.62), (0.9, 0.98))),
     'R': route_hints(((0.08, 0), (0.08, 1)),
                      ((0.08, 0.03), (0.55, 0.02), (0.92, 0.2), (0.75, 0.45), (0.3, 0.52),
@@ -150,8 +156,8 @@ ROUTE_HINTS = {
                       (0.42, 0.08), (0.82, 0.08), (0.82, 0.95), (1, 0.97))),
     'n': route_hints(((0.06, 0.1), (0.06, 0.95), (0.06, 0.1), (0.5, 0.08), (0.88, 0.35),
                       (0.88, 0.95), (1, 0.97))),
-    'o': route_hints(((0.85, 0.25), (0.4, 0.02), (0.05, 0.4), (0.25, 0.9), (0.65, 0.98),
-                      (0.95, 0.65), (0.85, 0.25))),
+    'o': route_hints(((0.4, 0.02), (0.05, 0.4), (0.25, 0.9), (0.65, 0.98),
+                      (0.95, 0.65), (0.85, 0.25), (0.4, 0.02))),
     'p': route_hints(((0.06, 0.05), (0.06, 1)),
                      ((0.06, 0.08), (0.5, 0.02), (0.88, 0.25), (0.6, 0.55), (0.08, 0.52))),
     'q': route_hints(((0.85, 0.25), (0.4, 0.02), (0.05, 0.35), (0.15, 0.8), (0.55, 0.98),
@@ -167,7 +173,9 @@ ROUTE_HINTS = {
     'v': route_hints(((0.03, 0.05), (0.5, 0.97), (0.97, 0.05))),
     'w': route_hints(((0.02, 0.05), (0.26, 0.97), (0.5, 0.1), (0.74, 0.97), (0.98, 0.05))),
     'x': route_hints(((0.05, 0.05), (0.95, 0.95)), ((0.95, 0.05), (0.05, 0.95))),
-    'y': route_hints(((0.05, 0.08), (0.5, 0.8)), ((0.95, 0.08), (0.5, 0.8), (0.25, 1), (0.02, 0.9))),
+    # 2 strokes: (1) straight diagonal top-left -> junction (down-right).
+    # (2) long diagonal top-right -> through junction -> tail bottom-left.
+    'y': route_hints(((0.02, 0.0), (0.5, 0.72)), ((0.98, 0.0), (0.5, 0.72), (0.25, 1), (0.02, 0.88))),
     'z': route_hints(((0.05, 0.08), (0.95, 0.08), (0.05, 0.92), (0.95, 0.92))),
     # Schreibanleitung: "Unten am langen linken Stamm beginnen und gerade nach
     # oben ziehen. Oben rund nach rechts und wieder nach unten zur Mitte
