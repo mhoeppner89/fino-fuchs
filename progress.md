@@ -557,3 +557,19 @@ ist im Skript implementiert) blockiert derzeit auf dem macOS-Schalter
 „Entwickler → Remote-Automatisierung erlauben“. Einmalig freischalten
 (Terminal: elevierter Lauf von `safaridriver --enable`, Admin-Passwort
 eingeben), danach läuft derselbe Checksatz im echten Safari.
+
+## 2026-09-14 — sequential stroke audit and agreed changes
+
+- Current request supersedes the original permissive stroke policy: ages 5–8, pen input; one complete continuous stroke per step; incomplete pen lifts must be retried in full. Strict Schulschrift order/start/direction is a home-menu option, ON by default. Relaxed mode accepts any unfinished stroke of the current character; shapes allow either direction and arbitrary closed-outline starts.
+- Difficulty remains fixed throughout the round. Geometric tolerances scale with symbol/stroke size; dots have separate placement tolerance. A coherent modest shift/scale is allowed. Each stroke must fit both its route and already accepted parts.
+- Failed ink stays visually unchanged and is excluded immediately from all later scoring. Undo removes the latest visible attempt and reopens its step if it had been accepted.
+- Audit found: route matching uses coverage OR precision against any route; guidance advances from raw ink coverage; rejected ink is only removed after a matching redraw; score relaxation can award success after retries; difficulty is mixed within rounds. Live acceptance must use a separate explicit ledger.
+- Implementing shared sequential stroke validator, board integration, fixed levels, main-menu setting, and focused logic/browser regression coverage. Legacy whole-drawing metrics remain available for diagnostics.
+- New live validator and board integration completed. Acceptance occurs synchronously at pen-up; raw failed ink remains visible; undo/reflow rebuilds the same sequential decisions. The main-menu strict option defaults on. Guides and raster templates follow the common accepted placement.
+- Exact and coherently transformed traces pass for all 105 symbols on three levels and three screen sizes. Strict/relaxed order, partial strokes, dot separation, connected and future attachment points, and size-normalized precision have regressions.
+- Full suite passed 148 tests before the additional shape-identity check. Chromium pen events and WebKit pointer events passed 18 browser scenarios. Chromium offline reload passed; WebKit runtime aborts offline navigation, so WebKit verification checks its cache instead.
+- Additional 3,780-pair shape sweep exposed circle/pentagon/hexagon confusion. Added a structural corner check for simple closed shapes; running the combined 7,950 wrong-target sweep and positive wobble checks before finalizing.
+- Final verification: `npm test` passed all 149 tests (53.1 s), including 945 exact + 945 transformed drawings, positive polygon wobble, and 7,950 complete wrong-target comparisons. Corner tolerance was adjusted to preserve a slightly wobbly hexagon's six corners while rejecting pentagon/hexagon substitutions for circles.
+- Final browser verification: 20 scenarios passed across Chromium (pen events) and WebKit (pointer events), with no console errors. Inspected phone/landscape menus, rejected-ink retry screenshots, and shifted templates. Chromium offline reload passed; WebKit cache verified, with the runtime's offline-navigation limitation documented.
+- `CONTROL-AUDIT.md` contains the agreed behavior, findings/repairs, numerical tolerance policy, verification evidence, and limitations. README and root PWA version/cache are updated to 1.3.36. No deployment or testversion snapshot refresh was performed.
+- Requested implementation work is complete. No open implementation TODOs; physical pen and child-handwriting calibration were outside the available automated evidence.

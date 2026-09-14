@@ -6,14 +6,14 @@
 import {
   CHARACTER_STROKES,
   CHARACTER_STROKE_GEOMETRY,
-} from './handwriting-stroke-data.js?v=1.3.35';
+} from './handwriting-stroke-data.js?v=1.3.36';
 import {
   connectSolutionStrokes,
   createConnectSpec,
   createMazeSpec,
   layoutConnect,
   layoutMaze,
-} from './mini-games.js?v=1.3.35';
+} from './mini-games.js?v=1.3.36';
 
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));
@@ -1284,12 +1284,6 @@ function taskPool(category, option, name) {
   return getExerciseBank(category, { option, name });
 }
 
-const assistancePlans = {
-  easy: ['easy', 'easy', 'easy', 'easy', 'medium', 'easy', 'easy'],
-  medium: ['easy', 'medium', 'medium', 'medium', 'hard', 'medium', 'easy'],
-  hard: ['medium', 'hard', 'hard', 'hard', 'hard', 'medium', 'easy'],
-};
-
 /**
  * Choose distinct task templates first, rotating through each available symbol
  * before a symbol can appear again. A custom one-symbol set still gets varied
@@ -1677,7 +1671,7 @@ export function buildSession({ category, difficulty = 'easy', option = '', name 
     return sequence.map((task, index) => ({
       ...task,
       uid: `${task.id}-${index}`,
-      assist: index === sequence.length - 1 ? 'easy' : assistancePlans[difficulty][index % assistancePlans[difficulty].length],
+      assist: difficulty,
       slot: index,
     }));
   }
@@ -1707,7 +1701,7 @@ export function buildSession({ category, difficulty = 'easy', option = '', name 
   return sampled.map((task, index) => ({
     ...task,
     uid: `${task.id}-${index}`,
-    assist: index === SESSION_SIZE - 1 ? 'easy' : assistancePlans[difficulty][index % assistancePlans[difficulty].length],
+    assist: difficulty,
     slot: index,
   }));
 }

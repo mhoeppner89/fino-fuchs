@@ -484,7 +484,7 @@ test('every category creates a 10-task session', () => {
   cases.forEach((config, index) => {
     const session = buildSession({ ...config, rng: seededRandom(index + 4) });
     assert.equal(session.length, SESSION_SIZE);
-    assert.equal(session.at(-1).assist, 'easy');
+    assert.ok(session.every((task) => task.assist === config.difficulty));
     assert.ok(session.every((task) => task.strokes.length > 0));
   });
 });
@@ -517,7 +517,7 @@ test('name rounds adapt to the name: each character comes first, then the whole 
   assert.deepEqual(session.slice(0, -1).map((task) => task.layout), ['single-letter', 'single-letter', 'single-letter', 'single-letter']);
   assert.equal(session.at(-1).label, 'Anna');
   assert.equal(session.at(-1).layout, 'whole-name');
-  assert.equal(session.at(-1).assist, 'easy');
+  assert.ok(session.every((task) => task.assist === 'medium'));
 });
 
 test('a playthrough samples 10 distinct exercises without repetition', () => {

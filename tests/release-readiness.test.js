@@ -11,7 +11,7 @@ const manifest = JSON.parse(read('manifest.webmanifest'));
 const html = read('index.html');
 const styles = read('styles.css');
 const serviceWorker = read('sw.js');
-const scripts = ['app.js', 'curriculum.js', 'drawing.js', 'mini-games.js', 'handwriting-template-data.js', 'handwriting-stroke-data.js']
+const scripts = ['app.js', 'curriculum.js', 'drawing.js', 'stroke-validation.js', 'mini-games.js', 'handwriting-template-data.js', 'handwriting-stroke-data.js']
   .map((file) => [`js/${file}`, read(`js/${file}`)]);
 
 function shellPaths() {

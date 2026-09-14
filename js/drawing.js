@@ -1,10 +1,12 @@
 /** Canvas input, rendering, and forgiving local handwriting scoring. */
 
+import { StrokeProgress } from './stroke-validation.js?v=1.3.36';
+
 import {
   CHARACTER_TEMPLATE_SHEETS,
   characterTemplateCrop,
-} from './handwriting-template-data.js?v=1.3.35';
-import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.35';
+} from './handwriting-template-data.js?v=1.3.36';
+import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.36';
 import {
   connectInkWidthForBoard,
   connectTrailCollision,
@@ -12,7 +14,7 @@ import {
   mazeWallCollision,
   nextMazeSolutionPoint,
   pointDistanceInPixels,
-} from './mini-games.js?v=1.3.35';
+} from './mini-games.js?v=1.3.36';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -1293,6 +1295,8 @@ export class DrawingBoard {
     this.hooks = hooks;
     this.task = null;
     this.assist = 'easy';
+    this.strictSchulschrift = true;
+    this.strokeProgress = null;
     this.userStrokes = [];
     this.strokeColors = [];
     this.activeStroke = null;
@@ -1319,9 +1323,6 @@ export class DrawingBoard {
     this.gameErrorUntil = 0;
     this.inkRevision = 0;
     this.evaluationCache = null;
-    // Rejected pen movements waiting for a successful redraw of the same
-    // guide route, keyed by route index. See resolveRejectedRedraw().
-    this.pendingRejected = new Map();
     this.renderFrame = 0;
     this.mazeLayers = null;
     this.connectBackdrop = null;
@@ -1501,8 +1502,8 @@ export class DrawingBoard {
     this.highlightUntil = 0;
     this.inkRevision += 1;
     this.evaluationCache = null;
-    this.pendingRejected = new Map();
     this.initializeGameState();
+    this.resetStrokeProgress();
     this.mazeLayers = null;
     this.connectBackdrop = null;
     cancelAnimationFrame(this.demoFrame);
@@ -1523,8 +1524,8 @@ export class DrawingBoard {
     this.highlightUntil = 0;
     this.inkRevision += 1;
     this.evaluationCache = null;
-    this.pendingRejected = new Map();
     this.initializeGameState();
+    this.resetStrokeProgress();
     this.mazeLayers = null;
     this.render();
     this.hooks.onInkChange?.(false);
@@ -1552,7 +1553,7 @@ export class DrawingBoard {
     cancelAnimationFrame(this.jumpFrame);
     this.inkRevision += 1;
     this.evaluationCache = null;
-    this.pendingRejected = new Map();
+    this.resetStrokeProgress({ replay: true });
     this.render();
     this.hooks.onInkChange?.(this.hasInk());
     return true;
@@ -1570,6 +1571,37 @@ export class DrawingBoard {
     return [...this.strokeColors];
   }
 
+  setStrictSchulschrift(strict) {
+    this.strictSchulschrift = Boolean(strict);
+    this.resetStrokeProgress({ replay: true });
+  }
+
+  resetStrokeProgress({ replay = false } = {}) {
+    const previous = this.strokeProgress?.attempts ?? [];
+    this.strokeProgress = this.task && !this.isGameTask()
+      ? new StrokeProgress(this.task, { width: this.width, height: this.height, assist: this.assist, strict: this.strictSchulschrift })
+      : null;
+    if (replay && this.strokeProgress) {
+      this.userStrokes.forEach((stroke, i) => this.strokeProgress.submit(stroke, { cancelled: previous[i]?.reason === 'interrupted' }));
+    }
+    this.evaluationCache = null;
+  }
+
+  recordFinishedStroke({ cancelled = false } = {}) {
+    if (!this.strokeProgress) return null;
+    const result = this.strokeProgress.submit(this.userStrokes.at(-1), { cancelled });
+    this.evaluationCache = null;
+    return result;
+  }
+
+  getAcceptedStrokes() {
+    return this.userStrokes.filter((_, i) => this.strokeProgress?.attempts[i]?.status === 'accepted');
+  }
+
+  guideStroke(index) {
+    return this.strokeProgress?.guideStroke(index) ?? this.task?.strokes[index] ?? [];
+  }
+
   setUserStrokes(strokes) {
     this.userStrokes = strokes.map((stroke) => stroke.map((point) => ({ x: point.x, y: point.y, pressure: point.pressure ?? 0.5 })));
     this.strokeColors = this.userStrokes.map((_, index) => this.task?.strokeColors?.[index] ?? inkColorAt(index));
@@ -1578,7 +1610,8 @@ export class DrawingBoard {
       : null;
     this.inkRevision += 1;
     this.evaluationCache = null;
-    this.pendingRejected = new Map();
+    this.resetStrokeProgress();
+    if (this.strokeProgress) this.userStrokes.forEach((stroke) => this.strokeProgress.submit(stroke));
     if (this.task?.gameMode === 'maze') {
       const endpoint = this.userStrokes.at(-1)?.at(-1) ?? null;
       this.gameState = {
@@ -1619,7 +1652,7 @@ export class DrawingBoard {
       : null;
     this.inkRevision += 1;
     this.evaluationCache = null;
-    this.pendingRejected = new Map();
+    this.resetStrokeProgress({ replay: true });
     this.render();
     this.hooks.onInkChange?.(this.hasInk());
   }
@@ -1693,59 +1726,12 @@ export class DrawingBoard {
 
   currentEvaluation() {
     if (!this.task || this.isGameTask()) return null;
-    if (this.evaluationCache?.revision === this.inkRevision) return this.evaluationCache.result;
-    const result = evaluateTaskDrawing(this.task, this.userStrokes, {
-      ...this.evaluationOptions(),
-      completionGroups: this.task.completionGroups,
-    });
-    this.evaluationCache = { revision: this.inkRevision, result };
-    return result;
+    return this.strokeProgress.snapshot();
   }
 
-  /**
-   * Stroke-by-stroke recognition: judge only the most recently completed
-   * stroke against the guide routes. Returns 'accepted' when the stroke lies
-   * near at least one route, 'rejected' when it matches nothing (wrong
-   * letter, mirrored, far-off trace, or a scribble), and null when there is
-   * no stroke to judge. The whole-task check still decides final completion;
-   * this only decides whether the newest stroke counts as progress.
-   */
+  // Acceptance is recorded synchronously at pen-up, before Fino can advance.
   judgeLastStroke() {
-    if (!this.task || this.isGameTask() || !this.userStrokes.length) return null;
-    const finished = this.userStrokes.at(-1);
-    if (!finished || finished.length < 2) return null;
-    const fit = strokeMatchesAnyRoute(this.task, finished, {
-      width: this.width,
-      height: this.height,
-      tolerance: this.evaluationOptions().completionTolerance,
-    });
-    return fit ? 'accepted' : 'rejected';
-  }
-
-  /**
-   * Stroke-by-stroke redo: when the newest stroke is a rejected attempt, keep
-   * it visible but remember it for the route it best-matches. When a later
-   * stroke is accepted for that same route, remove the superseded rejected
-   * strokes from the ink so the whole-task score reflects only the successful
-   * attempts. Called after every completed pen movement (letters/numbers only).
-   */
-  resolveRejectedRedraw() {
-    if (this.isGameTask()) return false;
-    const tolerance = this.evaluationOptions().completionTolerance;
-    const result = resolveRejectedRedraw(this.task, this.userStrokes, this.strokeColors, this.pendingRejected, {
-      width: this.width,
-      height: this.height,
-      tolerance,
-    });
-    if (result.changed) {
-      this.userStrokes = result.userStrokes;
-      this.strokeColors = result.strokeColors;
-      this.inkRevision += 1;
-      this.evaluationCache = null;
-      this.render();
-      this.hooks.onInkChange?.(this.hasInk());
-    }
-    return result.changed;
+    return this.strokeProgress?.attempts.at(-1)?.status ?? null;
   }
 
   activeGuideStageIndex() {
@@ -1763,6 +1749,8 @@ export class DrawingBoard {
   }
 
   visibleGuideStrokeIndexes() {
+    // Shapes can be constructed in any order; keep the full target visible.
+    if (this.task?.category === 'shapes') return this.task.strokes.map((_, index) => index);
     // A full name is one tidy writing line. Show the complete transparent
     // word from the start so every letter has an obvious size and baseline;
     // Fino still demonstrates only the current letter.
@@ -1854,7 +1842,7 @@ export class DrawingBoard {
     if (this.isGameTask()) return this.startGameHint();
     // Letters and numbers are also taught one stroke at a time. Fino runs the
     // next unfinished stroke and then follows the child's pen while drawing;
-    // the recognition stays order-agnostic for the finished shape.
+    // acceptance follows the selected Schulschrift setting.
     this.jumpAnimation = null;
     cancelAnimationFrame(this.jumpFrame);
     // Fino demonstrates one mark, then leaves the next turn to the child. A
@@ -1863,7 +1851,7 @@ export class DrawingBoard {
     // between them, so the child sees the whole pattern instead of Fino just
     // standing still on one dot.
     this.demoStrokeIndexes = this.demoIndexesFor(this.nextGuideStrokeIndex());
-    const demoStrokes = this.demoStrokeIndexes.map((index) => this.task.strokes[index]);
+    const demoStrokes = this.demoStrokeIndexes.map((index) => this.guideStroke(index));
     if (!demoStrokes.length) return Promise.resolve();
     this.demoProgress = 0;
     this.demoAngle = null;
@@ -1938,12 +1926,12 @@ export class DrawingBoard {
     if (!stage) return null;
     if (stage.type === 'run') {
       const strokeIndex = this.demoStrokeIndexes[stage.strokeIndex];
-      return pointAlongGuidePath(this.task.strokes[strokeIndex] ?? [], stage.progress, this.width, this.height, this.isAngularGuide(strokeIndex))?.point ?? null;
+      return pointAlongGuidePath(this.guideStroke(strokeIndex) ?? [], stage.progress, this.width, this.height, this.isAngularGuide(strokeIndex))?.point ?? null;
     }
     const fromIndex = this.demoStrokeIndexes[stage.fromStroke];
     const toIndex = this.demoStrokeIndexes[stage.toStroke];
-    const from = pointAlongGuidePath(this.task.strokes[fromIndex] ?? [], 1, this.width, this.height, this.isAngularGuide(fromIndex));
-    const to = pointAlongGuidePath(this.task.strokes[toIndex] ?? [], 0, this.width, this.height, this.isAngularGuide(toIndex));
+    const from = pointAlongGuidePath(this.guideStroke(fromIndex) ?? [], 1, this.width, this.height, this.isAngularGuide(fromIndex));
+    const to = pointAlongGuidePath(this.guideStroke(toIndex) ?? [], 0, this.width, this.height, this.isAngularGuide(toIndex));
     if (!from || !to) return null;
     return {
       x: from.point.x + (to.point.x - from.point.x) * stage.progress,
@@ -1966,6 +1954,7 @@ export class DrawingBoard {
 
   onPointerDown(event) {
     if (!this.task || this.activePointerId !== null) return;
+    if (this.strokeProgress?.snapshot().allRequired) return;
     if (event.pointerType === 'touch' && (!event.isPrimary || performance.now() - this.lastPenAt < 900)) return;
     if (event.pointerType === 'touch' && (event.width > 48 || event.height > 48)) return;
     if (event.pointerType === 'pen') this.lastPenAt = performance.now();
@@ -2046,9 +2035,11 @@ export class DrawingBoard {
       this.onGamePointerUp(event);
       return;
     }
-    if (this.activeStroke && this.activeStroke.length === 1) {
-      const start = this.activeStroke[0];
-      this.activeStroke.push({ ...start, x: clamp(start.x + 0.002, 0, 1) });
+    if (this.activeStroke) {
+      const endpoint = this.pointFromEvent(event);
+      if (distance(toPixels(endpoint, this.width, this.height), toPixels(this.activeStroke.at(-1), this.width, this.height)) > 0.1) {
+        this.activeStroke.push(endpoint);
+      }
     }
     const finishedStroke = simplifyStroke(this.activeStroke, this.width, this.height);
     this.userStrokes[this.userStrokes.length - 1] = finishedStroke;
@@ -2060,6 +2051,7 @@ export class DrawingBoard {
     this.inkRevision += 1;
     this.evaluationCache = null;
     this.releasePointer(event.pointerId);
+    this.recordFinishedStroke();
     this.startJumpToNextStroke(finishedStroke);
     this.render();
     this.hooks.onStrokeEnd?.();
@@ -2116,6 +2108,7 @@ export class DrawingBoard {
     this.inkRevision += 1;
     this.evaluationCache = null;
     this.releasePointer(pointerId);
+    this.recordFinishedStroke({ cancelled: true });
     this.render();
     this.hooks.onStrokeEnd?.();
     this.hooks.onInkChange?.(this.hasInk());
@@ -2294,7 +2287,7 @@ export class DrawingBoard {
   }
 
   startJumpToNextStroke(finishedStroke) {
-    const nextStroke = this.task?.strokes[this.nextGuideStrokeIndex()];
+    const nextStroke = this.guideStroke(this.nextGuideStrokeIndex());
     if (!finishedStroke?.length || !nextStroke?.length) return;
     // The next-stroke preview runs from the stroke start, so the jump lands
     // there too. It starts from Fino's current on-screen position: after a
@@ -2388,6 +2381,8 @@ export class DrawingBoard {
       // narrow i/l and wide M/W forms.
       const placement = characterTemplatePlacement(bounds, crop, geometry);
       context.save();
+      const transform = this.strokeProgress?.transforms.get(groupIndex);
+      if (transform) context.transform(transform.a, transform.b, -transform.b, transform.a, transform.x, transform.y);
       context.globalAlpha = alpha;
       context.imageSmoothingEnabled = true;
       context.drawImage(
@@ -2524,7 +2519,7 @@ export class DrawingBoard {
       // where the pen should begin.
       const nextStrokeIndex = this.nextGuideStrokeIndex();
       const next = pointAlongGuidePath(
-        this.task.strokes[nextStrokeIndex] ?? [], 0, this.width, this.height,
+        this.guideStroke(nextStrokeIndex) ?? [], 0, this.width, this.height,
         this.isAngularGuide(nextStrokeIndex),
       );
       if (next) {
@@ -2548,7 +2543,7 @@ export class DrawingBoard {
     }
 
     const nextStrokeIndex = this.nextGuideStrokeIndex();
-    const nextStroke = this.task.strokes[nextStrokeIndex];
+    const nextStroke = this.guideStroke(nextStrokeIndex);
     const angular = this.isAngularGuide(nextStrokeIndex);
     // Fino waits on the invisible centre line of the visible template.
     const next = pointAlongGuidePath(nextStroke ?? [], 0.07, this.width, this.height, angular);
@@ -2589,7 +2584,7 @@ export class DrawingBoard {
 
     if (stage.type === 'run') {
       const activeIndex = this.demoStrokeIndexes[stage.strokeIndex];
-      const activeStroke = this.task.strokes[activeIndex];
+      const activeStroke = this.guideStroke(activeIndex);
       const guide = pointAlongGuidePath(activeStroke ?? [], stage.progress, this.width, this.height, this.isAngularGuide(activeIndex));
       if (guide) {
         // Ease the heading toward the guide direction at a fixed turn rate
@@ -2614,8 +2609,8 @@ export class DrawingBoard {
 
     const fromIndex = this.demoStrokeIndexes[stage.fromStroke];
     const toIndex = this.demoStrokeIndexes[stage.toStroke];
-    const from = pointAlongGuidePath(this.task.strokes[fromIndex], 1, this.width, this.height, this.isAngularGuide(fromIndex));
-    const to = pointAlongGuidePath(this.task.strokes[toIndex], 0, this.width, this.height, this.isAngularGuide(toIndex));
+    const from = pointAlongGuidePath(this.guideStroke(fromIndex), 1, this.width, this.height, this.isAngularGuide(fromIndex));
+    const to = pointAlongGuidePath(this.guideStroke(toIndex), 0, this.width, this.height, this.isAngularGuide(toIndex));
     if (from && to) {
       this.drawJumpingFox(context, {
         from: from.point,
@@ -2905,7 +2900,7 @@ export class DrawingBoard {
     if (this.task) {
       const isHighlight = performance.now() < this.highlightUntil;
       const guideIndexes = this.visibleGuideStrokeIndexes();
-      const visibleStrokes = guideIndexes.map((index) => this.task.strokes[index]);
+      const visibleStrokes = guideIndexes.map((index) => this.guideStroke(index));
       const bounds = drawingBounds(this.width, this.height);
       const guideStyle = guidePresentationForTask(this.task, this.assist);
       const templateIndexes = guideStyle.template
