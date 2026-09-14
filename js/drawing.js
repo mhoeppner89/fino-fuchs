@@ -1,12 +1,12 @@
 /** Canvas input, rendering, and forgiving local handwriting scoring. */
 
-import { StrokeProgress } from './stroke-validation.js?v=1.3.36';
+import { StrokeProgress } from './stroke-validation.js?v=1.3.37';
 
 import {
   CHARACTER_TEMPLATE_SHEETS,
   characterTemplateCrop,
-} from './handwriting-template-data.js?v=1.3.36';
-import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.36';
+} from './handwriting-template-data.js?v=1.3.37';
+import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.37';
 import {
   connectInkWidthForBoard,
   connectTrailCollision,
@@ -14,7 +14,7 @@ import {
   mazeWallCollision,
   nextMazeSolutionPoint,
   pointDistanceInPixels,
-} from './mini-games.js?v=1.3.36';
+} from './mini-games.js?v=1.3.37';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -2381,8 +2381,6 @@ export class DrawingBoard {
       // narrow i/l and wide M/W forms.
       const placement = characterTemplatePlacement(bounds, crop, geometry);
       context.save();
-      const transform = this.strokeProgress?.transforms.get(groupIndex);
-      if (transform) context.transform(transform.a, transform.b, -transform.b, transform.a, transform.x, transform.y);
       context.globalAlpha = alpha;
       context.imageSmoothingEnabled = true;
       context.drawImage(

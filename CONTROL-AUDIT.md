@@ -1,6 +1,27 @@
 # Stroke acceptance audit
 
-Local app version: **1.3.36**. Audit and implementation: **14 September 2026**.
+Original audit: **v1.3.36**, **14 September 2026**.
+
+## Correction in v1.3.37
+
+The first-stroke fit was a mistaken interpretation of placement tolerance.
+It has been removed from both scoring and rendering: the template and Fino
+remain fixed throughout the exercise. All strokes use the original coordinates.
+
+The original thresholds were too conservative to justify as child-friendly.
+The distance bands are now 8.5%, 6%, and 4% of symbol size; junction/closure
+allowances are 7.5%, 5%, and 3.5%. Length limits are 72–180%, 78–160%,
+and 84–145%; full-path and endpoint checks still reject partial strokes.
+Short-stroke caps increased from 12% to 20% of route length. Dot placement
+allowances are 12%, 10%, and 8%, still limited by nearby marks.
+These are provisional engineering settings, not calibration against children.
+
+Correction verification: all **149 tests** and **20 browser scenarios** passed,
+including 7,950 wrong-target comparisons, fixed-guide assertions, and small
+junction gaps. The displaced-stroke browser screenshot was visually inspected.
+
+The remainder documents the original v1.3.36 audit; its moving-template policy
+and original tolerance values are superseded by this correction.
 
 The previous implementation did not enforce the agreed teaching rules. It
 estimated progress from all visible ink and allowed changes in stroke order,

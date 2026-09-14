@@ -20,7 +20,7 @@ Fino schreibt ist eine statische, deutschsprachige Schreiblern-App für kurze Ü
 - **Schulschrift genau üben** ist im Hauptmenü standardmäßig eingeschaltet: Buchstaben, Zahlen und Namen folgen der vorgegebenen Strichreihenfolge, den Startpunkten und Richtungen. Ausgeschaltet sind Reihenfolge und Richtung innerhalb des aktuellen Zeichens frei; jeder Strich bleibt ein vollständiger Schritt
 - Formen erlauben eine freie Reihenfolge ihrer Teile; geschlossene Umrisse können an jeder Stelle und in beiden Richtungen begonnen werden
 - lokale Prüfung jedes Strichs und der zusammengesetzten Form: Toleranzen richten sich nach Zeichen- und Strichgröße, Punkte erhalten einen eigenen Spielraum und müssen getrennt erkennbar bleiben
-- eine kleine gemeinsame Verschiebung, Drehung oder Größenänderung wird akzeptiert; die Vorlage und Fino passen sich der akzeptierten Platzierung an
+- die Vorlage und Finos Laufweg bleiben fest; kleine Abweichungen und Lücken werden innerhalb der gewählten Toleranz akzeptiert
 - fehlgeschlagene Striche bleiben sichtbar, zählen aber sofort nicht mehr für die Auswertung. „Letzten Strich löschen“ entfernt den letzten sichtbaren Versuch; ein gelöschter akzeptierter Strich muss neu gezeichnet werden
 - freundliche, gut unterscheidbare Tintenfarben wechseln nach jedem abgesetzten Strich
 - Fino zeigt den nächsten noch offenen Startpunkt
@@ -189,3 +189,5 @@ fuchsschrift/
 ├── LICENSE
 └── package.json
 ```
+
+Entwicklertest: [Alle 105 Symbole nacheinander prüfen](https://mhoeppner89.github.io/fino-fuchs/testversion/?test). Im Menü **Alle Symbole** und die Schwierigkeit auswählen, dann mit den Pfeilen durchblättern.

@@ -6,13 +6,8 @@ import {
   DIFFICULTIES,
   normalizeName,
   reflowTaskWithInk,
-} from './curriculum.js?v=1.3.35';
-import {
-  DrawingBoard,
-  evaluateTaskDrawing,
-  feedbackForEvaluation,
-  passesDrawingCriteria,
-} from './drawing.js?v=1.3.35';
+} from './curriculum.js?v=1.3.37';
+import { DrawingBoard } from './drawing.js?v=1.3.37';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -36,6 +31,7 @@ const elements = {
   letterSet: $('#letter-set'),
   letterSetField: $('#letter-set-field'),
   letterSetHelp: $('#letter-set-help'),
+  strictSchulschrift: $('#strict-schulschrift'),
   startButton: $('#start-button'),
   soundButtons: $$('.sound-button'),
   exitButton: $('#exit-button'),
@@ -79,7 +75,6 @@ const state = {
   transitioning: false,
   screen: 'home',
   toastTimer: 0,
-  autoCheckTimer: 0,
   previewTimer: 0,
   previewedStrokeIndex: null,
   finoEnabled: true,
@@ -345,7 +340,7 @@ function selectedDifficulty() {
 
 function updateProgress() {
   elements.progressDots.innerHTML = '';
-  // The 68-symbol review sweep would overflow the dot bar; the text counter
+  // The full symbol review sweep would overflow the dot bar; the text counter
   // is enough there.
   elements.progressDots.hidden = state.category === 'review';
   if (!elements.progressDots.hidden) {
@@ -357,11 +352,6 @@ function updateProgress() {
     });
   }
   elements.progressText.textContent = `${Math.min(state.index + 1, state.session.length)} von ${state.session.length}`;
-}
-
-function clearAutoCheck() {
-  window.clearTimeout(state.autoCheckTimer);
-  state.autoCheckTimer = 0;
 }
 
 function clearPreview() {
@@ -419,20 +409,6 @@ function scheduleNextStrokePreview() {
   }, 50);
 }
 
-function scheduleAutoCheck() {
-  const task = state.activeTask;
-  const strokes = board.getUserStrokes();
-  const lastStroke = strokes.at(-1);
-  if (state.transitioning || !task || !lastStroke || lastStroke.length < 2) return;
-
-  clearAutoCheck();
-  const taskToken = state.taskToken;
-  state.autoCheckTimer = window.setTimeout(() => {
-    state.autoCheckTimer = 0;
-    if (state.taskToken === taskToken && state.screen === 'practice' && !state.transitioning) checkDrawing({ quietIncomplete: true });
-  }, 90);
-}
-
 async function renderTask() {
   const sourceTask = state.session[state.index];
   if (!sourceTask) {
@@ -445,7 +421,6 @@ async function renderTask() {
   state.activeTask = task;
 
   state.attempts = 0;
-  clearAutoCheck();
   clearPreview();
   state.transitioning = false;
   state.previewedStrokeIndex = null;
@@ -460,6 +435,7 @@ async function renderTask() {
       : `Neue Aufgabe: ${task.title}.`;
   elements.canvasHint.classList.add('is-hidden');
   board.setTask(task, task.assist);
+  board.setStrictSchulschrift(elements.strictSchulschrift.checked);
   board.setFinoEnabled(state.finoEnabled);
   updateRoundControls();
 
@@ -474,7 +450,7 @@ async function renderTask() {
 }
 
 function buildCurrentSession(viewport) {
-  if (state.category === 'review') return buildReviewSession();
+  if (state.category === 'review') return buildReviewSession({ assist: selectedDifficulty(), includeShapes: true });
   const cleanName = normalizeName(elements.childName.value);
   state.name = cleanName;
   state.difficulty = selectedDifficulty();
@@ -525,13 +501,6 @@ function beginSession() {
   });
 }
 
-function passCriteria(result, assist, task, slack = 0) {
-  const qualityAdjustment = task.category === 'name' && task.id.startsWith('word-')
-    ? 0.1
-    : task.category === 'shapes' ? 0.08 : 0.025;
-  return passesDrawingCriteria(result, assist, { qualityAdjustment, slack });
-}
-
 const praise = ['Prima!', 'Super!', 'Toll gemacht!', 'Klasse!', 'Sehr gut!'];
 
 function makeConfetti() {
@@ -550,7 +519,6 @@ function makeConfetti() {
 }
 
 function celebrate(message, { gentle = false } = {}) {
-  clearAutoCheck();
   clearPreview();
   state.transitioning = true;
   updateRoundControls();
@@ -585,26 +553,30 @@ function checkDrawing({ quietIncomplete = false } = {}) {
     }
     return { passed: false, result: snapshot, inProgress: true };
   }
-  const userStrokes = board.getUserStrokes();
-  const result = board.currentEvaluation() ?? evaluateTaskDrawing(task, userStrokes, {
-    ...board.evaluationOptions(),
-    completionGroups: task.completionGroups,
-  });
-  const passed = passCriteria(result, task.assist, task);
+  const result = board.currentEvaluation();
+  const passed = result.allRequired && result.recognizable;
+
+  if (board.judgeLastStroke() === 'accepted') {
+    window.clearTimeout(state.toastTimer);
+    elements.toast.hidden = true;
+    elements.practiceStatus.textContent = passed ? 'Geschafft!' : 'Gut! Zeichne den nächsten Strich.';
+  }
 
   if (passed) {
     celebrate(praise[Math.floor(Math.random() * praise.length)]);
     return { passed: true, result };
   }
 
-  // Stroke-by-stroke recognition: a stroke that matches none of the guide
-  // routes was drawn in the wrong place (wrong letter, mirrored, far off, or
-  // a scribble). Tell the child to try that stroke again instead of quietly
-  // waiting for the whole task to finish.
+  // The pen-up handler has already judged this entire attempt. Failed ink
+  // stays visible but cannot advance the guide or affect later checks.
   if (board.judgeLastStroke() === 'rejected') {
     state.attempts += 1;
     board.flashGuide();
-    showToast('Fast! Versuch es noch einmal.', 1800);
+    const message = result.lastReason === 'connections'
+      ? 'Verbinde diesen Strich mit den anderen. Versuch ihn noch einmal.'
+      : 'Zeichne diesen Strich noch einmal ganz.';
+    elements.practiceStatus.textContent = message;
+    showToast(message, 1800);
     return { passed: false, result, strokeRejected: true };
   }
 
@@ -615,21 +587,13 @@ function checkDrawing({ quietIncomplete = false } = {}) {
     return { passed: false, result, inProgress: true };
   }
 
-  state.attempts += 1;
-  const nearPass = state.attempts >= 2 && passCriteria(result, task.assist, task, 0.08);
-  if (nearPass) {
-    celebrate('Gut probiert!', { gentle: true });
-    return { passed: true, result, gentle: true };
-  }
-
   board.flashGuide();
-  if (!quietIncomplete || result.allRequired) showToast(feedbackForEvaluation(result), 1800);
+  if (!quietIncomplete) showToast('Zeichne den nächsten Strich ganz.', 1800);
   return { passed: false, result, quietIncomplete };
 }
 
 function finishSession() {
   if (state.screen === 'finish') return;
-  clearAutoCheck();
   clearPreview();
   state.taskToken += 1;
   state.transitioning = false;
@@ -643,7 +607,6 @@ function finishSession() {
 }
 
 function returnHome() {
-  clearAutoCheck();
   clearPreview();
   state.taskToken += 1;
   state.transitioning = false;
@@ -685,7 +648,6 @@ function handleBoardResize() {
   const viewport = board.getViewport();
   const oldViewport = state.activeTask.viewport;
   if (oldViewport && Math.abs(oldViewport.width - viewport.width) < 1 && Math.abs(oldViewport.height - viewport.height) < 1) return;
-  clearAutoCheck();
   clearPreview();
   board.stopDemo({ render: false });
   state.previewedStrokeIndex = null;
@@ -721,7 +683,6 @@ board = new DrawingBoard(elements.drawingCanvas, {
     updateRoundControls();
   },
   onStrokeStart() {
-    clearAutoCheck();
     // The child is starting a fresh pen movement: the previous Fino demo no
     // longer reflects what the child is about to draw, so the next guide
     // stroke should be previewed again even if the guide index is the same.
@@ -730,10 +691,7 @@ board = new DrawingBoard(elements.drawingCanvas, {
   },
   onStrokeEnd() {
     if (!board.isGameTask()) {
-      // A stroke that redoes a previously-rejected pen movement supersedes it:
-      // drop the old attempt so the evaluation counts only successful strokes.
-      board.resolveRejectedRedraw();
-      scheduleAutoCheck();
+      checkDrawing({ quietIncomplete: true });
     }
     updateRoundControls();
   },
@@ -811,7 +769,6 @@ elements.letterSet.addEventListener('input', () => {
 });
 
 elements.clearButton.addEventListener('click', () => {
-  clearAutoCheck();
   clearPreview();
   state.previewedStrokeIndex = null;
   board.clear();
@@ -827,7 +784,6 @@ document.addEventListener('fullscreenchange', updateFullscreenButton);
 document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
 
 elements.undoButton.addEventListener('click', () => {
-  clearAutoCheck();
   clearPreview();
   if (board.undoLastStroke()) {
     state.previewedStrokeIndex = null;
@@ -837,7 +793,6 @@ elements.undoButton.addEventListener('click', () => {
 
 function goToTask(index) {
   if (state.transitioning || board.isDrawing() || index < 0 || index >= state.session.length || index === state.index) return;
-  clearAutoCheck();
   clearPreview();
   state.index = index;
   renderTask();
@@ -907,6 +862,8 @@ window.render_game_to_text = () => JSON.stringify({
     ? { id: state.activeTask.id, title: state.activeTask.title, mode: state.activeTask.gameMode || 'trace', expectedStrokes: state.activeTask.strokes.length, expectedStrokeColors: state.activeTask.strokeColors, layout: state.activeTask.layout, viewport: state.activeTask.viewport }
     : null,
   assist: state.activeTask?.assist ?? null,
+  strictSchulschrift: elements.strictSchulschrift.checked,
+  strokeProgress: board.currentEvaluation(),
   userStrokes: board.getUserStrokes().length,
   inkColors: board.getUserStrokeColors(),
   fino: { enabled: true, mode: 'preview' },
@@ -917,7 +874,7 @@ window.advanceTime = (milliseconds) => board.advanceTime(milliseconds);
 
 if (new URLSearchParams(location.search).has('test')) {
   // Testmodus: eine „Alle Symbole"-Karte, die die feste Review-Reihenfolge
-  // startet (A–Z, Ä Ö Ü, a–z, ä ö ü, 0–9). Nur mit ?test sichtbar.
+  // startet (Buchstaben, Zahlen und Formen). Nur mit ?test sichtbar.
   const reviewGrid = $('#activity-grid');
   if (reviewGrid && !reviewGrid.querySelector('[data-category="review"]')) {
     const reviewCard = document.createElement('button');
@@ -975,16 +932,18 @@ if (new URLSearchParams(location.search).has('test')) {
       const task = state.activeTask;
       if (!task) return null;
       if (task.gameMode) return { task: task.id, index: state.index, transitioning: state.transitioning, game: board.gameSnapshot() };
-      const result = evaluateTaskDrawing(task, board.getUserStrokes(), {
-        ...board.evaluationOptions(),
-        completionGroups: task.completionGroups,
-      });
+      const result = board.currentEvaluation();
       return {
         task: task.id,
         index: state.index,
         transitioning: state.transitioning,
         completion: result.completion,
         pathCoverage: result.pathCoverage,
+        acceptedCount: result.acceptedCount,
+        rejectedCount: result.rejectedCount,
+        nextStroke: result.nextStroke,
+        lastStatus: result.lastStatus,
+        lastReason: result.lastReason,
       };
     },
     finish: () => finishSession(),

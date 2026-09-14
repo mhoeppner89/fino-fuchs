@@ -111,29 +111,6 @@ test('corner checks still accept smooth small hand wobble in circles and polygon
   }
 });
 
-test('coherent shifts, scaling, and small turns pass without moving each part independently', () => {
-  for (const assist of levels) for (const viewport of viewports) for (const sourceTask of symbols) {
-    const task = adaptTaskToViewport(sourceTask, viewport);
-    const all = task.strokes.flat().map((p) => ({ x: p.x * viewport.width, y: p.y * viewport.height }));
-    const center = { x: (Math.min(...all.map((p) => p.x)) + Math.max(...all.map((p) => p.x))) / 2,
-      y: (Math.min(...all.map((p) => p.y)) + Math.max(...all.map((p) => p.y))) / 2 };
-    const size = Math.max(...all.map((p) => p.y)) - Math.min(...all.map((p) => p.y));
-    const angle = Math.PI / 36;
-    const strokes = task.strokes.map((stroke) => stroke.map((p) => {
-      const x = p.x * viewport.width - center.x, y = p.y * viewport.height - center.y;
-      return { x: (center.x + 0.1 * size + 0.88 * (x * Math.cos(angle) - y * Math.sin(angle))) / viewport.width,
-        y: (center.y - 0.04 * size + 0.88 * (x * Math.sin(angle) + y * Math.cos(angle))) / viewport.height };
-    }));
-    // Keep the complete transformed symbol inside the writing area.
-    const moved = strokes.flat();
-    const dx = Math.max(0, 0.01 - Math.min(...moved.map((p) => p.x))) - Math.max(0, Math.max(...moved.map((p) => p.x)) - 0.99);
-    const dy = Math.max(0, 0.01 - Math.min(...moved.map((p) => p.y))) - Math.max(0, Math.max(...moved.map((p) => p.y)) - 0.99);
-    strokes.forEach((stroke) => stroke.forEach((p) => { p.x += dx; p.y += dy; }));
-    const result = submit(task, { ...viewport, assist }, strokes).snapshot();
-    assert.equal(result.recognizable, true, `${task.id}/${assist}/${viewport.width}: ${JSON.stringify(result)}`);
-  }
-});
-
 test('each umlaut dot is a separate full step, with extra placement room but no reuse', () => {
   for (const assist of levels) {
     const task = at('ä');
@@ -156,7 +133,7 @@ test('a disconnected stroke is rejected before it can spoil accepted parts', () 
   ], completionGroups: [[0, 1]] };
   const progress = new StrokeProgress(task, { width: 600, height: 600 });
   progress.submit(task.strokes[0]);
-  const broken = [{ x: 0.335, y: 0.8 }, { x: 0.7, y: 0.8 }];
+  const broken = [{ x: 0.355, y: 0.8 }, { x: 0.7, y: 0.8 }];
   const fit = progress.match(broken.map((p) => ({ x: p.x * 600, y: p.y * 600 })), 1, 0);
   assert.equal(fit.fits, true, 'this case must isolate the joint check');
   const rejection = progress.submit(broken);
@@ -172,7 +149,7 @@ test('a first stroke must leave usable attachment points for later strokes', () 
     [{ x: 0.3, y: 0.8 }, { x: 0.7, y: 0.8 }],
   ], completionGroups: [[0, 1]] };
   const progress = new StrokeProgress(task, { width: 600, height: 600 });
-  const crooked = [{ x: 0.3, y: 0.2 }, { x: 0.3, y: 0.7 }, { x: 0.26, y: 0.8 }];
+  const crooked = [{ x: 0.3, y: 0.2 }, { x: 0.3, y: 0.7 }, { x: 0.245, y: 0.8 }];
   assert.equal(progress.match(crooked.map((p) => ({ x: p.x * 600, y: p.y * 600 })), 0, 0).fits, true);
   assert.equal(progress.submit(crooked).status, 'rejected');
   assert.equal(progress.snapshot().acceptedCount, 0);
@@ -214,22 +191,21 @@ test('the same wobble is judged consistently at different sizes and more strictl
       if (previous) assert.deepEqual(results, previous, 'screen size changed tolerance');
       assert.ok(Number(results[0]) >= Number(results[1]) && Number(results[1]) >= Number(results[2]));
       if (amplitude === 0.01) assert.deepEqual(results, [true, true, true]);
-      if (amplitude === 0.05) assert.deepEqual(results, [true, true, false]);
+      if (amplitude === 0.09) assert.deepEqual(results, [true, true, false]);
       previous = results;
     }
   }
 });
 
-test('an accepted shift and scale also move the next guide stroke', () => {
-  const task = at('A');
-  const progress = new StrokeProgress(task);
-  const moved = task.strokes.map((s) => s.map((p) => ({ x: 0.5 + (p.x - 0.5) * 0.9 + 0.04, y: 0.5 + (p.y - 0.5) * 0.9 - 0.02 })));
-  assert.equal(progress.submit(moved[0]).status, 'accepted');
-  const guide = progress.guideStroke(1);
-  guide.forEach((point, i) => {
-    assert.ok(Math.hypot(point.x - moved[1][i].x, point.y - moved[1][i].y) < 1e-8);
-  });
-  assert.equal(progress.submit(guide).status, 'accepted');
+test('a slightly displaced first stroke leaves every guide fixed', () => {
+  for (const assist of levels) {
+    const task = at('A');
+    const progress = new StrokeProgress(task, { assist });
+    const moved = task.strokes[0].map((p) => ({ x: p.x + 0.01, y: p.y }));
+    assert.equal(progress.submit(moved).status, 'accepted');
+    task.strokes.forEach((stroke, i) => assert.deepEqual(progress.guideStroke(i), stroke));
+    assert.equal(progress.submit(task.strokes[1]).status, 'accepted');
+  }
 });
 
 test('complete wrong characters and shapes cannot be accepted as another target', () => {
@@ -244,5 +220,21 @@ test('complete wrong characters and shapes cannot be accepted as another target'
     // accepted as part of the target (and rejected ink is deliberately ignored).
     const everyMarkAccepted = progress.attempts.every((attempt) => attempt.status === 'accepted');
     assert.equal(progress.snapshot().recognizable && everyMarkAccepted, false, `${candidate.label} became ${target.label}/${assist}`);
+  }
+});
+
+
+test('small junction gaps and uneven stroke lengths pass without moving the target', () => {
+  const task = { category: 'letters', strokes: [
+    [{ x: 0.3, y: 0.2 }, { x: 0.3, y: 0.8 }],
+    [{ x: 0.3, y: 0.8 }, { x: 0.7, y: 0.8 }],
+  ] };
+  for (const [assist, gap] of [['easy', 0.035], ['medium', 0.025], ['hard', 0.015]]) {
+    const progress = new StrokeProgress(task, { width: 600, height: 600, assist });
+    assert.equal(progress.submit(task.strokes[0]).status, 'accepted');
+    const shortened = [{ x: 0.3 + gap, y: 0.8 }, { x: 0.7, y: 0.8 }];
+    assert.equal(progress.submit(shortened).status, 'accepted', assist);
+    assert.equal(progress.snapshot().recognizable, true);
+    assert.deepEqual(progress.guideStroke(1), task.strokes[1]);
   }
 });

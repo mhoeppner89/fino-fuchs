@@ -572,6 +572,32 @@ p {
   margin-bottom: 24px;
 }
 
+.schulschrift-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 20px;
+  padding: 12px;
+  border: 1px solid #ddd6c8;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.schulschrift-option input {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin: 1px 0;
+  accent-color: #387953;
+}
+
+.schulschrift-option small {
+  display: block;
+  margin-top: 4px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
 .difficulty-control {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2199,6 +2225,7 @@ p {
     grid-template-areas:
       "activity options"
       "activity difficulty"
+      "activity schulschrift"
       "activity start";
     gap: 6px 10px;
   }
@@ -2243,6 +2270,19 @@ p {
   .difficulty-group {
     grid-area: difficulty;
     margin: 0;
+  }
+
+  .schulschrift-option {
+    grid-area: schulschrift;
+    margin: 0;
+    padding: 6px;
+    font-size: .72rem;
+    gap: 6px;
+  }
+
+  .schulschrift-option small {
+    font-size: .65rem;
+    line-height: 1.2;
   }
 
   .difficulty-option {

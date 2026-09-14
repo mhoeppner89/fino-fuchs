@@ -1,22 +1,22 @@
-const CACHE_PREFIX = 'fino-schreibt-';
-const CACHE_NAME = `${CACHE_PREFIX}v1.3.36`;
+const CACHE_PREFIX = `fino-schreibt-${new URL(self.registration.scope).pathname}-`;
+const CACHE_NAME = `${CACHE_PREFIX}v1.3.37`;
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css',
-  './styles.css?v=1.3.36',
+  './styles.css?v=1.3.37',
   './manifest.webmanifest',
   './js/app.js',
-  './js/app.js?v=1.3.36',
-  './js/curriculum.js?v=1.3.36',
-  './js/drawing.js?v=1.3.36',
-  './js/mini-games.js?v=1.3.36',
-  './js/handwriting-template-data.js?v=1.3.36',
-  './js/handwriting-stroke-data.js?v=1.3.36',
+  './js/app.js?v=1.3.37',
+  './js/curriculum.js?v=1.3.37',
+  './js/drawing.js?v=1.3.37',
+  './js/mini-games.js?v=1.3.37',
+  './js/handwriting-template-data.js?v=1.3.37',
+  './js/handwriting-stroke-data.js?v=1.3.37',
   './js/curriculum.js',
   './js/drawing.js',
   './js/stroke-validation.js',
-  './js/stroke-validation.js?v=1.3.36',
+  './js/stroke-validation.js?v=1.3.37',
   './js/mini-games.js',
   './js/handwriting-template-data.js',
   './js/handwriting-stroke-data.js',

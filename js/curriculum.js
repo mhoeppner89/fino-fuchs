@@ -6,14 +6,14 @@
 import {
   CHARACTER_STROKES,
   CHARACTER_STROKE_GEOMETRY,
-} from './handwriting-stroke-data.js?v=1.3.36';
+} from './handwriting-stroke-data.js?v=1.3.37';
 import {
   connectSolutionStrokes,
   createConnectSpec,
   createMazeSpec,
   layoutConnect,
   layoutMaze,
-} from './mini-games.js?v=1.3.36';
+} from './mini-games.js?v=1.3.37';
 
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));
@@ -1710,27 +1710,26 @@ export function buildSession({ category, difficulty = 'easy', option = '', name 
  * Test/review session: every letter (upper and lower case) and every digit
  * exactly once, in a fixed order, as a single-symbol task. Lets a reviewer
  * sweep the whole sprite library symbol by symbol instead of typing custom
- * sets by hand. Fino previews every task (assist 'easy').
+ * sets by hand. Optionally include shapes and use the selected difficulty.
  */
-export function buildReviewSession() {
+export function buildReviewSession({ assist = 'easy', includeShapes = false } = {}) {
   const sequence = [
     ...'ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜß',
     ...'abcdefghijklmnopqrstuvwxyzäöü',
     ...'0123456789',
   ];
-  return sequence.map((symbol, index) => {
+  const tasks = sequence.map((symbol) => {
     const isDigit = /[0-9]/.test(symbol);
     const bank = isDigit ? EXERCISE_BANKS.numbers : EXERCISE_BANKS.letters;
     const id = isDigit ? `number-${symbol}-gross` : `letter-${symbol}-gross`;
     const task = bank.find((candidate) => candidate.id === id);
     if (!task) throw new Error(`Review mode: no single-symbol task for ${symbol}`);
-    return {
-      ...task,
-      uid: `${task.id}-review-${index}`,
-      assist: 'easy',
-      slot: index,
-    };
+    return task;
   });
+  if (includeShapes) tasks.push(...EXERCISE_BANKS.shapes);
+  return tasks.map((task, index) => ({
+    ...task, uid: `${task.id}-review-${index}`, assist, slot: index,
+  }));
 }
 
 /** Small deterministic RNG for tests and repeatable demos. */

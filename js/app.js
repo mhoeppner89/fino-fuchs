@@ -6,8 +6,8 @@ import {
   DIFFICULTIES,
   normalizeName,
   reflowTaskWithInk,
-} from './curriculum.js?v=1.3.36';
-import { DrawingBoard } from './drawing.js?v=1.3.36';
+} from './curriculum.js?v=1.3.37';
+import { DrawingBoard } from './drawing.js?v=1.3.37';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -340,7 +340,7 @@ function selectedDifficulty() {
 
 function updateProgress() {
   elements.progressDots.innerHTML = '';
-  // The 68-symbol review sweep would overflow the dot bar; the text counter
+  // The full symbol review sweep would overflow the dot bar; the text counter
   // is enough there.
   elements.progressDots.hidden = state.category === 'review';
   if (!elements.progressDots.hidden) {
@@ -450,7 +450,7 @@ async function renderTask() {
 }
 
 function buildCurrentSession(viewport) {
-  if (state.category === 'review') return buildReviewSession();
+  if (state.category === 'review') return buildReviewSession({ assist: selectedDifficulty(), includeShapes: true });
   const cleanName = normalizeName(elements.childName.value);
   state.name = cleanName;
   state.difficulty = selectedDifficulty();
@@ -874,7 +874,7 @@ window.advanceTime = (milliseconds) => board.advanceTime(milliseconds);
 
 if (new URLSearchParams(location.search).has('test')) {
   // Testmodus: eine „Alle Symbole"-Karte, die die feste Review-Reihenfolge
-  // startet (A–Z, Ä Ö Ü, a–z, ä ö ü, 0–9). Nur mit ?test sichtbar.
+  // startet (Buchstaben, Zahlen und Formen). Nur mit ?test sichtbar.
   const reviewGrid = $('#activity-grid');
   if (reviewGrid && !reviewGrid.querySelector('[data-category="review"]')) {
     const reviewCard = document.createElement('button');

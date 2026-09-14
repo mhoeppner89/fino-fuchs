@@ -573,3 +573,16 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
 - Final browser verification: 20 scenarios passed across Chromium (pen events) and WebKit (pointer events), with no console errors. Inspected phone/landscape menus, rejected-ink retry screenshots, and shifted templates. Chromium offline reload passed; WebKit cache verified, with the runtime's offline-navigation limitation documented.
 - `CONTROL-AUDIT.md` contains the agreed behavior, findings/repairs, numerical tolerance policy, verification evidence, and limitations. README and root PWA version/cache are updated to 1.3.36. No deployment or testversion snapshot refresh was performed.
 - Requested implementation work is complete. No open implementation TODOs; physical pen and child-handwriting calibration were outside the available automated evidence.
+
+
+## 2026-09-14 — fixed target and more forgiving acceptance (v1.3.37)
+
+- User rejected fitting the target to the first stroke and questioned strictness.
+- Removed the first-stroke transform entirely from validation, guide paths, and raster rendering. The original target stays fixed.
+- Increased distance, short-stroke, length, dot, and join allowances at all three levels while retaining complete-stroke gates and structural checks.
+- Replaced moving-target tests with fixed-guide assertions and added positive cases for small junction gaps. Original shifted/scaled acceptance guarantees no longer apply.
+- Calibration against actual children's handwriting remains outstanding; generated traces cannot establish age-appropriate acceptance rates.
+- Verification: all 149 tests and 20 Chromium/WebKit browser scenarios passed. Inspected the displaced-stroke screenshot: the original template stays fixed. No commit or push in this correction turn.
+
+- Publication requested: refreshed testversion to v1.3.37, expanded its ?test review to all 105 symbols including shapes, preserved selected difficulty, and isolated service-worker caches by app scope.
+- Release verification: 59 curriculum/release tests passed; browser review visited all 105 tasks in order on hard, verified previous/next navigation and no page errors. Screenshot inspected. Earlier correction passed all 149 tests and 20 drawing-browser scenarios.
