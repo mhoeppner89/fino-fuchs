@@ -191,3 +191,5 @@ fuchsschrift/
 ```
 
 Entwicklertest: [Alle 69 Symbole nacheinander prüfen](https://mhoeppner89.github.io/fino-fuchs/testversion/?test). Im Menü **Alle Symbole** und die Schwierigkeit auswählen, dann mit den Pfeilen durchblättern.
+
+Passende aufeinanderfolgende Striche dürfen auch bei eingeschalteter Schulschrift-Option in einem Zug verbunden werden. Jeder Teil wird geprüft; ein fehlgeschlagener kombinierter Versuch erhält keine Teilgutschrift. Zurück entfernt den ganzen gezeichneten Strich samt aller zugehörigen Schritte.

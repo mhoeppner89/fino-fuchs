@@ -276,3 +276,53 @@ test('easy accepts uneven curves across the full letter and number library', () 
     assert.equal(submit(task, { assist: 'easy' }, drawing).snapshot().recognizable, true, task.id);
   }
 });
+
+test('R screenshot succeeds with a joined bowl/leg or separate strokes', () => {
+  const fixture = JSON.parse(readFileSync(new URL('fixtures/handwritten-r.json', import.meta.url)));
+  for (const strict of [true, false]) for (const key of ['strokes', 'separateStrokes']) {
+    const progress = submit(fixture.task, { width: fixture.width, height: fixture.height, assist: 'easy', strict }, fixture[key]);
+    assert.equal(progress.snapshot().recognizable, true, `${strict}/${key}`);
+    assert.equal(progress.snapshot().acceptedCount, 3);
+    if (key === 'strokes') {
+      assert.equal(progress.attempts.length, 2);
+      assert.deepEqual(progress.attempts[1].indices, [1, 2]);
+    }
+  }
+});
+
+test('consecutive joined parts work beyond R and preserve strict direction', () => {
+  const task = { category: 'letters', strokes: [
+    [{ x: 0.2, y: 0.2 }, { x: 0.2, y: 0.8 }],
+    [{ x: 0.2, y: 0.8 }, { x: 0.8, y: 0.8 }],
+    [{ x: 0.8, y: 0.8 }, { x: 0.8, y: 0.2 }],
+  ] };
+  for (const assist of levels) {
+    const stroke = task.strokes.flat();
+    const good = submit(task, { width: 600, height: 600, assist }, [stroke]);
+    assert.equal(good.snapshot().recognizable, true, assist);
+    assert.deepEqual(good.attempts[0].indices, [0, 1, 2]);
+    const backwards = submit(task, { width: 600, height: 600, assist }, [[...stroke].reverse()]);
+    assert.equal(backwards.snapshot().acceptedCount, 0);
+  }
+});
+
+test('failed combined attempts cannot partially change the accepted ledger', () => {
+  const task = at('R');
+  for (const assist of levels) {
+    const progress = new StrokeProgress(task, { assist });
+    progress.submit(task.strokes[0]);
+    const before = progress.accepted.get(0);
+    const partialLeg = sampleStroke(task.strokes[2]).slice(0, 25);
+    assert.equal(progress.submit([...task.strokes[1], ...partialLeg]).status, 'rejected');
+    assert.equal(progress.accepted.get(0), before);
+    assert.equal(progress.snapshot().acceptedCount, 1);
+    assert.equal(progress.nextIndex(), 1);
+    assert.equal(progress.submit([...task.strokes[1], ...task.strokes[2]]).status, 'accepted');
+    assert.equal(progress.snapshot().recognizable, true);
+  }
+});
+
+test('R diagonal guide starts at the bowl/stem junction', () => {
+  const task = at('R');
+  assert.deepEqual(task.strokes[2][0], task.strokes[1].at(-1));
+});

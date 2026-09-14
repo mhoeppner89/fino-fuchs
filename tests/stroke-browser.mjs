@@ -121,7 +121,7 @@ for (const [engineName, engine] of engines) {
     assert.equal(await page.locator('#success-overlay').isVisible(), true);
     check('slightly displaced ink leaves the template and next guide fixed');
 
-    for (const name of ['handwritten-a', 'handwritten-a-rough']) for (const wobble of [0, 0.05]) {
+    for (const name of ['handwritten-a', 'handwritten-a-rough', 'handwritten-r']) for (const wobble of [0, 0.05]) {
       await start('A', 'easy', true);
       const fixture = JSON.parse(readFileSync(new URL(`fixtures/${name}.json`, import.meta.url)));
       const pixelPoints = fixture.task.strokes.flat().map((p) => ({ x: p.x * fixture.width, y: p.y * fixture.height }));
@@ -144,10 +144,29 @@ for (const [engineName, engine] of engines) {
       assert.equal(await page.locator('#success-overlay').isVisible(), false);
       const result = await draw(placed[1], { inspectWhileDown: true,
         screenshotWhileDown: `${engineName}-${name}-${wobble}.png` });
-      assert.equal(result.acceptedCount, 2, `${name} crossbar must pass`);
+      assert.equal(result.acceptedCount, fixture.task.strokes.length, `${name} remaining parts must pass`);
       assert.equal(await page.locator('#success-overlay').isVisible(), true);
       check(`${name}: easy accepts screenshot reconstruction with ${wobble} additional wobble`);
     }
+
+    const joinedR = await start('R', 'easy', true);
+    await page.evaluate(() => {
+      const board = window.__fuchsschrift.board;
+      const task = board.task;
+      board.setTask({ ...task, strokes: [...task.strokes, [{ x: 0.9, y: 0.1 }]],
+        completionGroups: [[0, 1, 2], [3]] }, 'easy');
+    });
+    await draw(joinedR.strokes[0]);
+    assert.equal((await draw([...joinedR.strokes[1], ...joinedR.strokes[2]])).acceptedCount, 3);
+    await page.locator('#undo-button').click();
+    assert.equal((await read()).acceptedCount, 1, 'Undo must reopen every part of a combined stroke');
+    assert.equal((await read()).ink, 1);
+    assert.equal((await read()).guide, 1);
+    await draw([...joinedR.strokes[1], ...joinedR.strokes[2]]);
+    await page.setViewportSize({ width: 900, height: 700 });
+    assert.equal((await read()).acceptedCount, 3, 'resize must preserve combined-stroke credit');
+    await page.setViewportSize({ width: 1024, height: 768 });
+    check('joined R parts survive resize and Undo removes both together');
 
     const dotted = await start('ä');
     await draw(dotted.strokes[0]);
@@ -162,7 +181,7 @@ for (const [engineName, engine] of engines) {
 
     await start('A');
     await page.evaluate(async () => {
-      const { EXERCISE_BANKS, adaptTaskToViewport } = await import('../js/curriculum.js?v=1.3.39');
+      const { EXERCISE_BANKS, adaptTaskToViewport } = await import('../js/curriculum.js?v=1.3.40');
       const board = window.__fuchsschrift.board;
       board.setTask(adaptTaskToViewport(EXERCISE_BANKS.shapes.find((t) => t.id === 'shape-square'), board.getViewport()), 'hard');
     });
@@ -176,7 +195,7 @@ for (const [engineName, engine] of engines) {
 
     await start('A');
     const polygon = await page.evaluate(async () => {
-      const { EXERCISE_BANKS, adaptTaskToViewport } = await import('../js/curriculum.js?v=1.3.39');
+      const { EXERCISE_BANKS, adaptTaskToViewport } = await import('../js/curriculum.js?v=1.3.40');
       const board = window.__fuchsschrift.board;
       board.setTask(adaptTaskToViewport(EXERCISE_BANKS.shapes.find((t) => t.id === 'shape-circle'), board.getViewport()), 'easy');
       return adaptTaskToViewport(EXERCISE_BANKS.shapes.find((t) => t.id === 'shape-pentagon'), board.getViewport()).strokes[0];
@@ -211,7 +230,7 @@ for (const [engineName, engine] of engines) {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
-    assert.equal(await page.evaluate(async () => Boolean(await caches.match('./js/stroke-validation.js?v=1.3.39'))), true);
+    assert.equal(await page.evaluate(async () => Boolean(await caches.match('./js/stroke-validation.js?v=1.3.40'))), true);
     // WebKit's automation runtime aborts offline navigations with an internal
     // error, even with a controlling worker. Check its cache explicitly;
     // Chromium also exercises a complete offline reload and module startup.

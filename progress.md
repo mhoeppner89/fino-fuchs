@@ -599,3 +599,12 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
 - Added both A fixtures and rougher variants, multi-scale checks, positive wobbly examples across all 69 letters/numbers, and real browser pen replay. Replaced obsolete tests that required rejecting harmless future-join deviations.
 - All 152 tests passed; 28 browser scenarios passed on Chromium and WebKit. Inspected screenshots of both the original-like and deliberately rougher A. All 7,950 exact wrong-target comparisons still reject substitutions. Refreshed root/testversion v1.3.39 for publication to the existing test URL.
 - Remaining evidence limit: reconstructed paths are approximate; no original pointer-event recordings. Further handwriting examples should extend the fixture set, not trigger blind threshold changes.
+
+
+## 2026-09-14 — joined consecutive parts and R diagonal (v1.3.40)
+
+- User supplied a clear R with its bowl and leg drawn as one pink stroke. User explicitly changed the policy to allow joined consecutive parts even with strict mode on.
+- Added transactional partitioning: a pen movement may satisfy consecutive connected teaching parts, each separately checked with existing MSE/direction/connection/shape rules. Commit all matched parts together; no partial credit on failure. Dots stay separate, and character boundaries cannot be crossed.
+- Found a second R failure: the extraction hint incorrectly started the diagonal inside the bowl at x=.45. Corrected it to the stem at x=.08, matching the writing guide. Regenerated only R's routes and geometry, preserving crop metadata and every other symbol.
+- Added an approximate R screenshot fixture, joined/separate cases, generic three-part joining, reversal rejection, failed-join rollback, and browser coverage for joined Undo and resize.
+- Verification: all 156 tests and 34 Chromium/WebKit browser scenarios passed, including the R screenshot reconstruction plus additional wobble, joined-stroke Undo/resize, and existing A fixtures. Inspected the R replay screenshot.

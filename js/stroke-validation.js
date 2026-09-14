@@ -269,6 +269,61 @@ export class StrokeProgress {
       && errors[Math.floor(errors.length * 0.95)] <= 1.8;
   }
 
+  matchJoined(user, groupIndex, available) {
+    const group = this.groups[groupIndex];
+    const original = this.accepted;
+    const sampled = sampleStroke(user, 129);
+    // Try only consecutive, connected teaching parts. Dots remain separate
+    // marks. Every part must pass before any part of this pen movement counts.
+    let budget = 96;
+    const search = (index, offset, parts) => {
+      if (budget <= 0 || this.routes[index].length === 1) return null;
+      const accept = (points) => {
+        budget -= 1;
+        const part = this.match(points, index, groupIndex);
+        return part?.fits && this.relationsFit(part, groupIndex) && this.shapeFits(part, groupIndex)
+          ? { ...part, user: points, groupIndex, status: 'accepted' } : null;
+      };
+      if (parts.length) {
+        const last = accept(sampled.slice(offset));
+        if (last) return [...parts, last];
+      }
+      const position = group.indexes.indexOf(index);
+      const next = group.indexes[position + 1];
+      if (!available.includes(next) || this.routes[next].length === 1) return null;
+      const end = this.routes[index].at(-1), start = this.routes[next][0];
+      if (distance(end, start) > group.size * this.profile.join * 2) return null;
+      const candidates = [];
+      for (let cut = offset + 4; cut < sampled.length - 4; cut += 1) {
+        candidates.push({ cut, gap: distance(sampled[cut], end) + distance(sampled[cut], start) });
+      }
+      const cuts = [];
+      for (const candidate of candidates.sort((a, b) => a.gap - b.gap)) {
+        if (cuts.every((cut) => Math.abs(cut - candidate.cut) >= 3)) cuts.push(candidate.cut);
+        if (cuts.length === 5) break;
+      }
+      for (const cut of cuts) {
+        const part = accept(sampled.slice(offset, cut + 1));
+        if (!part) continue;
+        this.accepted.set(index, part);
+        const result = search(next, cut, [...parts, part]);
+        this.accepted.delete(index);
+        if (result) return result;
+      }
+      return null;
+    };
+    this.accepted = new Map(original);
+    try {
+      for (const index of this.strict ? available.slice(0, 1) : available) {
+        const parts = search(index, 0, []);
+        if (parts) return parts;
+      }
+      return null;
+    } finally {
+      this.accepted = original;
+    }
+  }
+
   submit(stroke, { cancelled = false } = {}) {
     const groupIndex = this.currentGroup();
     const user = stroke.map((p) => ({ x: p.x * this.width, y: p.y * this.height }));
@@ -295,6 +350,14 @@ export class StrokeProgress {
         this.accepted.set(candidate.index, result);
         this.groupChecks.set(groupIndex, true);
         break;
+      }
+      if (result.status !== 'accepted' && available.length > 1) {
+        const parts = this.matchJoined(user, groupIndex, available);
+        if (parts) {
+          for (const part of parts) this.accepted.set(part.index, part);
+          this.groupChecks.set(groupIndex, true);
+          result = { ...parts.at(-1), user, indices: parts.map((part) => part.index), parts, reason: 'joined' };
+        }
       }
     }
     this.attempts.push(result);

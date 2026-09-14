@@ -2,6 +2,29 @@
 
 Original audit: **v1.3.36**, **14 September 2026**.
 
+## Correction in v1.3.40: joined parts and R guide
+
+The user explicitly changed the pen-lift policy after supplying an R whose
+bowl and diagonal were one continuous stroke. Consecutive connected teaching
+parts may now be joined even with strict mode on. The evaluator partitions
+that pen movement, applies the existing rules to every part, and commits the
+whole match together. Failed combined attempts leave the ledger unchanged.
+Undo removes the physical stroke and all steps it completed. Dots still need
+separate marks, and a joined movement cannot advance into a different character.
+
+A separate R guide defect was also reproduced: its diagonal's extraction hint
+began inside the bowl, contrary to the written guide's stem-midpoint start.
+The generator hint and only R's generated routes were corrected. The first
+point of the diagonal now equals the bowl's final point.
+
+**Verification:** 156 tests and 34 browser scenarios passed, including joined
+Undo/resize and the earlier A examples. The R browser screenshot was inspected.
+
+`tests/fixtures/handwritten-r.json` reconstructs the supplied screenshot and
+covers both joined and separate input. The screenshot does not provide original
+pointer events. This section supersedes earlier statements requiring a pen lift
+between every teaching part; partial strokes still cannot accumulate over lifts.
+
 ## Correction in v1.3.39: handwritten examples, closest-line MSE
 
 The user's two A examples exposed a real false rejection in v1.3.38.
