@@ -588,3 +588,14 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
 - Release verification: 59 curriculum/release tests passed; browser review visited all 105 tasks in order on hard, verified previous/next navigation and no page errors. Screenshot inspected. Earlier correction passed all 149 tests and 20 drawing-browser scenarios.
 
 - User clarified review means letters and numbers only: v1.3.38 restores the 69-symbol sequence, retains selected difficulty, and removes shapes from the review API and UI. Refreshed tester snapshot.
+
+
+## 2026-09-14 — restore beginner-appropriate MSE evaluation (v1.3.39)
+
+- User supplied two clearly recognizable A drawings that failed on easy and confirmed the first stroke followed the required direction without lifting.
+- Reconstructed both screenshots into documented vector fixtures. Reproduced the first failure: main stroke passed MSE but was rejected against an imaginary future join; the normal horizontal crossbar was 62% of the generated hooked route and failed the old 72% minimum.
+- Restored symmetric closest-line MSE as primary geometry score, removed future joins and point-index coupling, broadened short-stroke/length tolerance, kept actual endpoint joins and loose monotone traversal for completeness/direction. No moving template.
+- Updated simple closed-shape structure checks to preserve circle/polygon/heart and circle/oval distinctions with the wider distance tolerance.
+- Added both A fixtures and rougher variants, multi-scale checks, positive wobbly examples across all 69 letters/numbers, and real browser pen replay. Replaced obsolete tests that required rejecting harmless future-join deviations.
+- All 152 tests passed; 28 browser scenarios passed on Chromium and WebKit. Inspected screenshots of both the original-like and deliberately rougher A. All 7,950 exact wrong-target comparisons still reject substitutions. Refreshed root/testversion v1.3.39 for publication to the existing test URL.
+- Remaining evidence limit: reconstructed paths are approximate; no original pointer-event recordings. Further handwriting examples should extend the fixture set, not trigger blind threshold changes.

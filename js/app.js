@@ -6,8 +6,8 @@ import {
   DIFFICULTIES,
   normalizeName,
   reflowTaskWithInk,
-} from './curriculum.js?v=1.3.38';
-import { DrawingBoard } from './drawing.js?v=1.3.38';
+} from './curriculum.js?v=1.3.39';
+import { DrawingBoard } from './drawing.js?v=1.3.39';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { sampleStroke } from '../js/stroke-validation.js';
 import { chromium, webkit } from 'playwright';
 
 const output = new URL('../test-artifacts/stroke-acceptance/', import.meta.url);
@@ -37,13 +38,14 @@ for (const [engineName, engine] of engines) {
     else await page.mouse.move(point.x, point.y);
   }
 
-  async function draw(stroke, { inspectWhileDown = false } = {}) {
+  async function draw(stroke, { inspectWhileDown = false, screenshotWhileDown } = {}) {
     const rect = await page.locator('#drawing-canvas').boundingBox();
     const points = stroke.map((p) => ({ x: rect.x + p.x * rect.width, y: rect.y + p.y * rect.height }));
     const before = await read();
     await pointer('mousePressed', points[0], 1);
     for (const point of points.slice(1)) await pointer('mouseMoved', point, 1);
     if (inspectWhileDown) assert.equal((await read()).acceptedCount, before.acceptedCount, 'cannot advance before pen-up');
+    if (screenshotWhileDown) await page.screenshot({ path: new URL(screenshotWhileDown, output).pathname });
     await pointer('mouseReleased', points.at(-1), 0);
     return read();
   }
@@ -119,6 +121,34 @@ for (const [engineName, engine] of engines) {
     assert.equal(await page.locator('#success-overlay').isVisible(), true);
     check('slightly displaced ink leaves the template and next guide fixed');
 
+    for (const name of ['handwritten-a', 'handwritten-a-rough']) for (const wobble of [0, 0.05]) {
+      await start('A', 'easy', true);
+      const fixture = JSON.parse(readFileSync(new URL(`fixtures/${name}.json`, import.meta.url)));
+      const pixelPoints = fixture.task.strokes.flat().map((p) => ({ x: p.x * fixture.width, y: p.y * fixture.height }));
+      const size = Math.max(Math.max(...pixelPoints.map((p) => p.x)) - Math.min(...pixelPoints.map((p) => p.x)),
+        Math.max(...pixelPoints.map((p) => p.y)) - Math.min(...pixelPoints.map((p) => p.y)));
+      const rough = fixture.strokes.map((stroke) => sampleStroke(stroke.map((p) => ({ x: p.x * fixture.width, y: p.y * fixture.height })), 129)
+        .map((p) => ({ x: (p.x + size * wobble * Math.sin(p.y / size * Math.PI * 3)) / fixture.width,
+          y: (p.y + size * wobble * Math.sin(p.x / size * Math.PI * 3)) / fixture.height })));
+      const placed = await page.evaluate(({ fixture, rough }) => {
+        const board = window.__fuchsschrift.board;
+        const { width, height } = board.getViewport();
+        const scale = Math.min(width * 0.8 / fixture.width, height * 0.85 / fixture.height);
+        const dx = (width - fixture.width * scale) / 2, dy = (height - fixture.height * scale) / 2;
+        const place = (stroke) => stroke.map((p) => ({ x: (dx + p.x * fixture.width * scale) / width,
+          y: (dy + p.y * fixture.height * scale) / height }));
+        board.setTask({ ...board.task, ...fixture.task, strokes: fixture.task.strokes.map(place) }, 'easy');
+        return rough.map(place);
+      }, { fixture, rough });
+      assert.equal((await draw(placed[0], { inspectWhileDown: true })).acceptedCount, 1, `${name} outline must pass first`);
+      assert.equal(await page.locator('#success-overlay').isVisible(), false);
+      const result = await draw(placed[1], { inspectWhileDown: true,
+        screenshotWhileDown: `${engineName}-${name}-${wobble}.png` });
+      assert.equal(result.acceptedCount, 2, `${name} crossbar must pass`);
+      assert.equal(await page.locator('#success-overlay').isVisible(), true);
+      check(`${name}: easy accepts screenshot reconstruction with ${wobble} additional wobble`);
+    }
+
     const dotted = await start('ä');
     await draw(dotted.strokes[0]);
     await draw([{ x: dotted.strokes[1][0].x, y: dotted.strokes[1][0].y - 0.015 }]);
@@ -132,7 +162,7 @@ for (const [engineName, engine] of engines) {
 
     await start('A');
     await page.evaluate(async () => {
-      const { EXERCISE_BANKS, adaptTaskToViewport } = await import('../js/curriculum.js?v=1.3.38');
+      const { EXERCISE_BANKS, adaptTaskToViewport } = await import('../js/curriculum.js?v=1.3.39');
       const board = window.__fuchsschrift.board;
       board.setTask(adaptTaskToViewport(EXERCISE_BANKS.shapes.find((t) => t.id === 'shape-square'), board.getViewport()), 'hard');
     });
@@ -146,7 +176,7 @@ for (const [engineName, engine] of engines) {
 
     await start('A');
     const polygon = await page.evaluate(async () => {
-      const { EXERCISE_BANKS, adaptTaskToViewport } = await import('../js/curriculum.js?v=1.3.38');
+      const { EXERCISE_BANKS, adaptTaskToViewport } = await import('../js/curriculum.js?v=1.3.39');
       const board = window.__fuchsschrift.board;
       board.setTask(adaptTaskToViewport(EXERCISE_BANKS.shapes.find((t) => t.id === 'shape-circle'), board.getViewport()), 'easy');
       return adaptTaskToViewport(EXERCISE_BANKS.shapes.find((t) => t.id === 'shape-pentagon'), board.getViewport()).strokes[0];
@@ -181,7 +211,7 @@ for (const [engineName, engine] of engines) {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
-    assert.equal(await page.evaluate(async () => Boolean(await caches.match('./js/stroke-validation.js?v=1.3.38'))), true);
+    assert.equal(await page.evaluate(async () => Boolean(await caches.match('./js/stroke-validation.js?v=1.3.39'))), true);
     // WebKit's automation runtime aborts offline navigations with an internal
     // error, even with a controlling worker. Check its cache explicitly;
     // Chromium also exercises a complete offline reload and module startup.

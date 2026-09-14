@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { adaptTaskToViewport, buildReviewSession, EXERCISE_BANKS } from '../js/curriculum.js';
 import { sampleStroke, StrokeProgress } from '../js/stroke-validation.js';
 
@@ -133,7 +134,7 @@ test('a disconnected stroke is rejected before it can spoil accepted parts', () 
   ], completionGroups: [[0, 1]] };
   const progress = new StrokeProgress(task, { width: 600, height: 600 });
   progress.submit(task.strokes[0]);
-  const broken = [{ x: 0.355, y: 0.8 }, { x: 0.7, y: 0.8 }];
+  const broken = [{ x: 0.39, y: 0.8 }, { x: 0.7, y: 0.8 }];
   const fit = progress.match(broken.map((p) => ({ x: p.x * 600, y: p.y * 600 })), 1, 0);
   assert.equal(fit.fits, true, 'this case must isolate the joint check');
   const rejection = progress.submit(broken);
@@ -143,7 +144,7 @@ test('a disconnected stroke is rejected before it can spoil accepted parts', () 
   assert.equal(progress.submit(task.strokes[1]).status, 'accepted');
 });
 
-test('a first stroke must leave usable attachment points for later strokes', () => {
+test('a reasonable first stroke is not rejected against an imaginary future join', () => {
   const task = { category: 'letters', strokes: [
     [{ x: 0.3, y: 0.2 }, { x: 0.3, y: 0.8 }],
     [{ x: 0.3, y: 0.8 }, { x: 0.7, y: 0.8 }],
@@ -151,9 +152,8 @@ test('a first stroke must leave usable attachment points for later strokes', () 
   const progress = new StrokeProgress(task, { width: 600, height: 600 });
   const crooked = [{ x: 0.3, y: 0.2 }, { x: 0.3, y: 0.7 }, { x: 0.245, y: 0.8 }];
   assert.equal(progress.match(crooked.map((p) => ({ x: p.x * 600, y: p.y * 600 })), 0, 0).fits, true);
-  assert.equal(progress.submit(crooked).status, 'rejected');
-  assert.equal(progress.snapshot().acceptedCount, 0);
-  progress.submit(task.strokes[0]);
+  assert.equal(progress.submit(crooked).status, 'accepted');
+  assert.equal(progress.snapshot().acceptedCount, 1);
   assert.equal(progress.submit(progress.guideStroke(1)).status, 'accepted');
 });
 
@@ -182,7 +182,7 @@ test('the same wobble is judged consistently at different sizes and more strictl
   const reference = at('S');
   const size = new StrokeProgress(reference).groups[0].size;
   const base = sampleStroke(reference.strokes[0].map((p) => ({ x: p.x * 900, y: p.y * 620 })), 129);
-  for (const amplitude of [0.01, 0.05, 0.09]) {
+  for (const amplitude of [0.01, 0.05, 0.09, 0.18]) {
     let previous = null;
     for (const scale of [0.4, 1, 1.7]) {
       const options = { width: 900 * scale, height: 620 * scale };
@@ -191,7 +191,7 @@ test('the same wobble is judged consistently at different sizes and more strictl
       if (previous) assert.deepEqual(results, previous, 'screen size changed tolerance');
       assert.ok(Number(results[0]) >= Number(results[1]) && Number(results[1]) >= Number(results[2]));
       if (amplitude === 0.01) assert.deepEqual(results, [true, true, true]);
-      if (amplitude === 0.09) assert.deepEqual(results, [true, true, false]);
+      if (amplitude === 0.18) assert.equal(results[2], false);
       previous = results;
     }
   }
@@ -236,5 +236,43 @@ test('small junction gaps and uneven stroke lengths pass without moving the targ
     assert.equal(progress.submit(shortened).status, 'accepted', assist);
     assert.equal(progress.snapshot().recognizable, true);
     assert.deepEqual(progress.guideStroke(1), task.strokes[1]);
+  }
+});
+
+
+const handwritingExamples = ['handwritten-a', 'handwritten-a-rough'].map((name) =>
+  JSON.parse(readFileSync(new URL(`fixtures/${name}.json`, import.meta.url))));
+
+test('both user-provided A examples and rougher variants succeed on easy', () => {
+  for (const fixture of handwritingExamples) for (const scale of [0.4, 1, 1.7]) {
+    for (const wobble of [0, 0.025, 0.05]) {
+      const { task, width, height } = fixture;
+      const options = { width: width * scale, height: height * scale, assist: 'easy', strict: true };
+      const size = new StrokeProgress(task, { width, height }).groups[0].size;
+      // A shared nonlinear bend keeps the joined parts together while adding
+      // visible unevenness. The template stays fixed throughout.
+      const strokes = fixture.strokes.map((stroke) => sampleStroke(stroke.map((p) => ({ x: p.x * width, y: p.y * height })), 129)
+        .map((p) => ({ x: (p.x + size * wobble * Math.sin(p.y / size * Math.PI * 3)) / width,
+          y: (p.y + size * wobble * Math.sin(p.x / size * Math.PI * 3)) / height })));
+      const progress = new StrokeProgress(task, options);
+      strokes.forEach((stroke, i) => {
+        const result = progress.submit(stroke);
+        assert.equal(result.status, 'accepted', `${task.id}/${scale}/${wobble}/${i}: ${result.reason}`);
+        assert.deepEqual(progress.guideStroke(i), task.strokes[i]);
+        assert.equal(progress.snapshot().allRequired, i === 1);
+      });
+      assert.equal(progress.snapshot().recognizable, true);
+    }
+  }
+});
+
+test('easy accepts uneven curves across the full letter and number library', () => {
+  for (const original of buildReviewSession()) {
+    const task = adaptTaskToViewport(original, { width: 900, height: 620 });
+    const size = new StrokeProgress(task).groups[0].size;
+    const drawing = task.strokes.map((stroke) => sampleStroke(stroke.map((p) => ({ x: p.x * 900, y: p.y * 620 })), 97)
+      .map((p) => ({ x: (p.x + size * 0.03 * Math.sin(p.y / size * Math.PI * 4)) / 900,
+        y: (p.y + size * 0.03 * Math.sin(p.x / size * Math.PI * 4)) / 620 })));
+    assert.equal(submit(task, { assist: 'easy' }, drawing).snapshot().recognizable, true, task.id);
   }
 });

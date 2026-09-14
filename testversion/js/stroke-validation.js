@@ -7,9 +7,9 @@ const mean = (points) => ({
   y: points.reduce((sum, p) => sum + p.y, 0) / points.length,
 });
 const PROFILES = Object.freeze({
-  easy: { band: 0.085, dot: 0.12, join: 0.075, minLength: 0.72, maxLength: 1.8 },
-  medium: { band: 0.06, dot: 0.10, join: 0.05, minLength: 0.78, maxLength: 1.6 },
-  hard: { band: 0.04, dot: 0.08, join: 0.035, minLength: 0.84, maxLength: 1.45 },
+  easy: { band: 0.13, dot: 0.14, join: 0.12, minLength: 0.50, maxLength: 2.4 },
+  medium: { band: 0.09, dot: 0.11, join: 0.08, minLength: 0.60, maxLength: 2.0 },
+  hard: { band: 0.055, dot: 0.085, join: 0.045, minLength: 0.70, maxLength: 1.65 },
 });
 
 function bounds(points) {
@@ -31,7 +31,7 @@ function routeDistance(p, route) {
   return route.slice(1).reduce((best, end, i) => Math.min(best, segmentDistance(p, route[i], end)), Infinity);
 }
 
-function closedCornerCount(points, size) {
+function closedStructure(points, size) {
   // Remove small hand wobble before counting structural turns. This operates
   // on the original geometry, so resampling cannot round away a polygon tip.
   const tolerance = size * 0.025;
@@ -46,14 +46,24 @@ function closedCornerCount(points, size) {
     return [...simplify(route.slice(0, farthest + 1)).slice(0, -1), ...simplify(route.slice(farthest))];
   };
   const ring = simplify([...points, points[0]]).slice(0, -1);
-  return ring.reduce((count, p, i) => {
+  const winding = Math.sign(ring.reduce((sum, p, i) => {
+    const next = ring[(i + 1) % ring.length];
+    return sum + p.x * next.y - next.x * p.y;
+  }, 0));
+  let corners = 0, notches = 0;
+  ring.forEach((p, i) => {
     const previous = ring[(i + ring.length - 1) % ring.length], next = ring[(i + 1) % ring.length];
     const ax = p.x - previous.x, ay = p.y - previous.y;
     const bx = next.x - p.x, by = next.y - p.y;
     const denominator = Math.hypot(ax, ay) * Math.hypot(bx, by);
     const angle = denominator > 1e-9 ? Math.acos(clamp((ax * bx + ay * by) / denominator, -1, 1)) : 0;
-    return count + Number(angle >= 50 * Math.PI / 180);
-  }, 0);
+    if (angle >= 50 * Math.PI / 180) {
+      corners += 1;
+      if (Math.sign(ax * by - ay * bx) !== winding
+        && Math.min(Math.hypot(ax, ay), Math.hypot(bx, by)) >= size * 0.08) notches += 1;
+    }
+  });
+  return { corners, notches };
 }
 
 // Arc-length sampling makes speed and the browser's event frequency irrelevant.
@@ -73,14 +83,44 @@ export function sampleStroke(points, count = 65) {
   });
 }
 
-function variants(samples, closed, strict) {
-  if (strict) return [samples];
-  if (!closed) return [samples, [...samples].reverse()];
-  const ring = samples.slice(0, -1);
-  return [ring, [...ring].reverse()].flatMap((direction) => direction.map((_, offset) => {
-    const shifted = [...direction.slice(offset), ...direction.slice(0, offset)];
-    return [...shifted, shifted[0]];
-  }));
+function closestLineErrors(expected, actual) {
+  return [
+    ...sampleStroke(expected).map((p) => routeDistance(p, actual)),
+    ...sampleStroke(actual).map((p) => routeDistance(p, expected)),
+  ];
+}
+
+// Direction is a separate teaching rule. Monotone alignment permits a bend
+// earlier/later along the line instead of requiring equal arc-length positions.
+function traversalCost(expected, actual) {
+  let previous = Array(actual.length + 1).fill(Infinity);
+  previous[0] = 0;
+  for (const point of expected) {
+    const row = [Infinity];
+    for (let j = 0; j < actual.length; j += 1) {
+      row.push(distance(point, actual[j]) ** 2 + Math.min(previous[j], previous[j + 1], row[j]));
+    }
+    previous = row;
+  }
+  return previous.at(-1);
+}
+
+function alignedTraversal(expected, actual, closed, strict) {
+  const forward = traversalCost(expected, actual);
+  const backward = traversalCost(expected, [...actual].reverse());
+  if (strict) return { cost: forward, directionFits: forward <= backward + 1e-6 };
+  if (!closed) return { cost: Math.min(forward, backward), directionFits: true };
+  const ring = actual.slice(0, -1);
+  // Closed shapes may begin anywhere. Try nearby start samples in both
+  // directions; this changes only the comparison, never the guide or ink.
+  const starts = ring.map((point, index) => ({ index, gap: distance(point, expected[0]) }))
+    .sort((a, b) => a.gap - b.gap).slice(0, 3);
+  let cost = Math.min(forward, backward);
+  for (const { index } of starts) {
+    const shifted = [...ring.slice(index), ...ring.slice(0, index), ring[index]];
+    cost = Math.min(cost, traversalCost(expected, shifted), traversalCost(expected, [...shifted].reverse()));
+  }
+  return { cost, directionFits: true };
 }
 
 export class StrokeProgress {
@@ -133,55 +173,36 @@ export class StrokeProgress {
     const expectedLength = length(route);
     const rawRatio = length(user) / expectedLength;
     if (rawRatio < this.profile.minLength - 1e-9 || rawRatio > this.profile.maxLength + 1e-9) {
-      return { fits: false, index, error: Infinity, reason: 'stroke' };
+      return { fits: false, index, error: Infinity, ratio: rawRatio, reason: 'length' };
     }
-    const tolerance = Math.min(group.size * this.profile.band, Math.max(group.size * 0.012, expectedLength * 0.20));
+    const tolerance = Math.min(group.size * this.profile.band, Math.max(group.size * 0.025, expectedLength * 0.30));
     const closed = distance(route[0], route.at(-1)) <= group.size * 0.018;
-    const expected = sampleStroke(route, closed ? 129 : 65);
-    const sampled = sampleStroke(user, expected.length);
-    let best = null;
-    for (const oriented of variants(sampled, closed, this.strict)) {
-      const normalized = oriented;
-      const distances = expected.map((p, i) => distance(p, normalized[i]));
-      const mse = distances.reduce((sum, d) => sum + d * d, 0) / distances.length;
-      const error = Math.sqrt(mse) / tolerance;
-      if (best && best.error <= error) continue;
-      const ratio = rawRatio;
-      const sorted = [...distances].sort((a, b) => a - b);
-      const endpoints = Math.max(distances[0], distances.at(-1));
-      const closure = !closed || distance(normalized[0], normalized.at(-1)) <= group.size * this.profile.join;
-      const fits = error <= 1 && sorted[Math.floor(sorted.length * 0.95)] <= tolerance * 1.8
-        && sorted.at(-1) <= tolerance * 2.5 && endpoints <= tolerance * 1.5
-        && ratio >= this.profile.minLength && ratio <= this.profile.maxLength && closure;
-      best = { fits, index, normalized: closed ? normalized.filter((_, i) => i % 2 === 0) : normalized,
-        geometry: user,
-        error, ratio, reason: 'stroke' };
-    }
-    return best;
+    const expected = sampleStroke(route);
+    const sampled = sampleStroke(user);
+    const errors = closestLineErrors(route, user);
+    const mse = errors.reduce((sum, d) => sum + d * d, 0) / errors.length;
+    const error = Math.sqrt(mse) / tolerance;
+    const sorted = [...errors].sort((a, b) => a - b);
+    const forwardEnds = Math.max(distance(route[0], user[0]), distance(route.at(-1), user.at(-1)));
+    const reverseEnds = Math.max(distance(route[0], user.at(-1)), distance(route.at(-1), user[0]));
+    const endpoints = !this.strict && closed ? 0 : this.strict ? forwardEnds : Math.min(forwardEnds, reverseEnds);
+    const closure = !closed || distance(user[0], user.at(-1)) <= group.size * this.profile.join;
+    const shapeFits = error <= 1 && sorted[Math.floor(sorted.length * 0.95)] <= tolerance * 1.8;
+    const complete = endpoints <= tolerance * 1.5 && closure;
+    const alignment = shapeFits && complete ? alignedTraversal(expected, sampled, closed, this.strict) : null;
+    // Closest-line MSE is the geometry score. A loose monotone traversal
+    // bound also requires visiting the major parts (e.g. both humps of m).
+    const traversalError = alignment ? Math.sqrt(alignment.cost / expected.length) / tolerance : Infinity;
+    const traversalFits = traversalError <= 1.2;
+    const directionFits = alignment?.directionFits ?? true;
+    return { fits: shapeFits && complete && directionFits && traversalFits, index, normalized: sampled,
+      geometry: user, error, mse: mse / tolerance ** 2, ratio: rawRatio, traversalError,
+      reason: !directionFits ? 'direction' : !complete ? 'incomplete' : !traversalFits ? 'traversal' : 'stroke' };
   }
 
   relationsFit(candidate, groupIndex) {
     const group = this.groups[groupIndex];
     const entries = [...this.accepted.values()].filter((entry) => group.indexes.includes(entry.index));
-    // Protect future junctions too: accepting a malformed attachment point
-    // must not make a later correctly traced stroke impossible to accept.
-    if (this.routes[candidate.index].length > 1) {
-      const expected = sampleStroke(this.routes[candidate.index]);
-      const contact = group.size * 0.009;
-      const allowedGap = group.size * this.profile.join;
-      for (const index of group.indexes) {
-        if (index === candidate.index || this.accepted.has(index) || this.routes[index].length === 1) continue;
-        const future = this.routes[index];
-        for (let i = 0; i < expected.length; i += 1) {
-          const gap = routeDistance(expected[i], future);
-          if (gap <= contact && routeDistance(candidate.normalized[i], future) > gap + allowedGap) return false;
-        }
-        for (const point of sampleStroke(future)) {
-          const gap = routeDistance(point, this.routes[candidate.index]);
-          if (gap <= contact && routeDistance(point, candidate.geometry) > gap + allowedGap) return false;
-        }
-      }
-    }
     for (const previous of entries) {
       // All accepted marks share the fixed template coordinates.
       const oldPoints = previous.user;
@@ -196,14 +217,15 @@ export class StrokeProgress {
       }
       const contact = group.size * 0.009;
       const allowedGap = group.size * this.profile.join;
-      // Check the actual junction, not just whether two strokes touch somewhere.
+      // Only actual strokes can form a join. Check endpoint attachments near
+      // the child's lines, not same-index samples or imaginary future strokes.
       for (const [expected, actual, otherExpected, otherActual] of [
-        [sampleStroke(expectedNew), candidate.normalized, expectedOld, oldPoints],
-        [sampleStroke(expectedOld), previous.normalized, expectedNew, candidate.geometry],
+        [expectedNew, candidate.geometry, expectedOld, oldPoints],
+        [expectedOld, oldPoints, expectedNew, candidate.geometry],
       ]) {
-        for (let i = 0; i < expected.length; i += 1) {
-          const targetGap = routeDistance(expected[i], otherExpected);
-          if (targetGap <= contact && routeDistance(actual[i], otherActual) > targetGap + allowedGap) return false;
+        for (const [target, point] of [[expected[0], actual[0]], [expected.at(-1), actual.at(-1)]]) {
+          const targetGap = routeDistance(target, otherExpected);
+          if (targetGap <= contact && routeDistance(point, otherActual) > targetGap + allowedGap) return false;
         }
       }
     }
@@ -220,11 +242,20 @@ export class StrokeProgress {
     if (!lines.length) return true;
     const expected = lines.map((entry) => this.routes[entry.index]);
     const actual = lines.map((entry) => entry.geometry);
-    if (this.task.category === 'shapes' && this.routes.length === 1
-      && distance(expected[0][0], expected[0].at(-1)) <= group.size * 0.018) {
-      const targetCorners = closedCornerCount(expected[0], group.size);
-      const drawnCorners = closedCornerCount(actual[0], group.size);
-      if (targetCorners === 0 ? drawnCorners > 2 : drawnCorners !== targetCorners) return false;
+    if (this.task.category === 'shapes') {
+      for (let i = 0; i < expected.length; i += 1) {
+        if (distance(expected[i][0], expected[i].at(-1)) > group.size * 0.018) continue;
+        const target = closedStructure(expected[i], group.size);
+        const drawn = closedStructure(actual[i], group.size);
+        if (target.corners === 0 ? drawn.corners > 2 || drawn.notches > 0 : drawn.corners !== target.corners) return false;
+        const aspect = (route) => {
+          const xs = route.map((p) => p.x), ys = route.map((p) => p.y);
+          return (Math.max(...xs) - Math.min(...xs)) / Math.max(1e-6, Math.max(...ys) - Math.min(...ys));
+        };
+        // A circle/oval or square/rectangle still needs its defining proportion.
+        const proportion = aspect(actual[i]) / aspect(expected[i]);
+        if (proportion < 0.75 || proportion > 1 / 0.75) return false;
+      }
     }
     const tolerance = group.size * this.profile.band;
     const errors = [];
@@ -234,8 +265,8 @@ export class StrokeProgress {
       }
     }
     errors.sort((a, b) => a - b);
-    return errors.reduce((sum, error) => sum + error * error, 0) / errors.length <= 0.85
-      && errors[Math.floor(errors.length * 0.95)] <= 1.5;
+    return errors.reduce((sum, error) => sum + error * error, 0) / errors.length <= 1
+      && errors[Math.floor(errors.length * 0.95)] <= 1.8;
   }
 
   submit(stroke, { cancelled = false } = {}) {
@@ -246,6 +277,10 @@ export class StrokeProgress {
       const available = this.groups[groupIndex].indexes.filter((index) => !this.accepted.has(index));
       const candidates = (this.strict ? available.slice(0, 1) : available)
         .map((index) => this.match(user, index, groupIndex)).filter(Boolean).sort((a, b) => a.error - b.error);
+      if (candidates[0]) {
+        const { reason, mse, ratio, traversalError } = candidates[0];
+        result = { ...result, reason, mse, ratio, traversalError };
+      }
       for (const candidate of candidates) {
         if (!candidate.fits) continue;
         if (!this.relationsFit(candidate, groupIndex)) {
@@ -276,6 +311,9 @@ export class StrokeProgress {
       acceptedCount: this.accepted.size, rejectedCount: this.attempts.filter((a) => a.status === 'rejected').length,
       nextStroke: this.nextIndex(), lastStatus: this.attempts.at(-1)?.status ?? null,
       lastReason: this.attempts.at(-1)?.reason ?? null,
+      lastMse: this.attempts.at(-1)?.mse ?? null,
+      lastLengthRatio: this.attempts.at(-1)?.ratio ?? null,
+      lastTraversalError: this.attempts.at(-1)?.traversalError ?? null,
     };
   }
 }

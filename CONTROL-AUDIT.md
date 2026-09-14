@@ -2,6 +2,47 @@
 
 Original audit: **v1.3.36**, **14 September 2026**.
 
+## Correction in v1.3.39: handwritten examples, closest-line MSE
+
+The user's two A examples exposed a real false rejection in v1.3.38.
+An approximate centerline reconstruction of the first screenshot passed the
+stroke distance score but failed the check against future junctions. Its
+horizontal crossbar was only 62% of the template route length, which includes
+small diagonal extensions at the ends; the 72% easy minimum rejected it.
+Neither failure was an appropriate easy-level requirement.
+
+- Restored **symmetric closest-line MSE** as the primary per-stroke geometry
+  score. The v1.3.36–38 implementation instead paired points at equal fractions
+  of path length, which penalized harmless changes in where bends occurred.
+- Removed all checks against imaginary future strokes. Existing endpoint joins
+  are checked against the child's actual lines with level-dependent room.
+- The template and guide stay fixed. No first-stroke fitting or target movement.
+- Easy/medium/hard distance bands are 13%/9%/5.5% of symbol size. Short strokes
+  have a separate cap; dots retain their own larger placement allowance.
+- Length limits are broad guardrails (easy 50–240%, medium 60–200%, hard
+  70–165%). Endpoint reach, coverage in both directions, and a loose monotone
+  path comparison still reject halves and missing major parts. That comparison
+  can move bends along the route; it does not require equal path positions.
+- Strict order and direction remain optional and independent of MSE. Simple
+  closed shapes retain corner, notch, and proportion checks.
+- Diagnostic snapshots now include the last normalized MSE, length ratio,
+  traversal error, and rejection reason.
+
+**Verification:** all 152 tests and 28 Chromium/WebKit browser scenarios passed.
+Both screenshot reconstructions succeed on easy, including additional nonlinear
+wobble of 5% of symbol size. Tests cover three render scales and uneven curves
+for all 69 letters/numbers. All 7,950 exact wrong-target comparisons still reject
+complete substitutions. Screenshots of the browser replay were visually checked.
+
+Fixtures in `tests/fixtures/handwritten-a*.json` are approximate reconstructions
+from the supplied screenshots, not recordings of the original pointer events.
+The user's first-stroke direction and continuity were explicitly confirmed.
+The developer review remains 69 letters/numbers only; the runtime snapshot is
+refreshed in `testversion/`.
+
+The earlier correction and original audit below are historical; their evaluator
+rules and tolerance values are superseded by this section.
+
 ## Correction in v1.3.37
 
 The first-stroke fit was a mistaken interpretation of placement tolerance.
