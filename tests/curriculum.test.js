@@ -782,12 +782,12 @@ test('multiple custom symbols keep an even size and baseline', () => {
 });
 
 
-test('full developer review includes every shape and keeps the selected difficulty', () => {
+test('developer review includes only letters and numbers and keeps the selected difficulty', () => {
   for (const assist of ['easy', 'medium', 'hard']) {
-    const tasks = buildReviewSession({ assist, includeShapes: true });
-    assert.equal(tasks.length, 105);
-    assert.equal(new Set(tasks.map((task) => task.id)).size, 105);
+    const tasks = buildReviewSession({ assist });
+    assert.equal(tasks.length, 69);
+    assert.equal(new Set(tasks.map((task) => task.id)).size, 69);
     assert.ok(tasks.every((task) => task.assist === assist));
-    assert.deepEqual(tasks.slice(69).map((task) => task.id), EXERCISE_BANKS.shapes.map((task) => task.id));
+    assert.ok(tasks.every((task) => ['letters', 'numbers'].includes(task.category)));
   }
 });

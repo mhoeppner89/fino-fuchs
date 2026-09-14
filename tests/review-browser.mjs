@@ -13,24 +13,24 @@ try {
   await page.locator('#start-button').click();
   await page.waitForFunction(() => window.__fuchsschrift?.getState().screen === 'practice' && window.__fuchsschrift.board.task);
   const expected = await page.evaluate(async () => {
-    const { buildReviewSession } = await import('./js/curriculum.js?v=1.3.37');
-    return buildReviewSession({ includeShapes: true }).map((task) => task.id);
+    const { buildReviewSession } = await import('./js/curriculum.js?v=1.3.38');
+    return buildReviewSession().map((task) => task.id);
   });
-  assert.equal(expected.length, 105);
+  assert.equal(expected.length, 69);
   for (let i = 0; i < expected.length; i++) {
     const state = await page.evaluate(() => window.__fuchsschrift.getState());
     assert.equal(state.task, expected[i]);
     assert.equal(state.assist, 'hard');
-    assert.equal(await page.locator('#progress-text').textContent(), `${i + 1} von 105`);
+    assert.equal(await page.locator('#progress-text').textContent(), `${i + 1} von 69`);
     if (i < expected.length - 1) await page.locator('#next-task-button').click();
   }
   assert.equal(await page.locator('#next-task-button').isDisabled(), true);
   await page.locator('#previous-task-button').click();
-  assert.equal((await page.evaluate(() => window.__fuchsschrift.getState())).index, 103);
+  assert.equal((await page.evaluate(() => window.__fuchsschrift.getState())).index, 67);
   mkdirSync('test-artifacts/review', { recursive: true });
   await page.screenshot({ path: 'test-artifacts/review/sequence.png' });
   assert.deepEqual(errors, []);
-  console.log('PASS: all 105 symbols in order, selected hard difficulty, next/previous navigation, no page errors');
+  console.log('PASS: all 69 symbols in order, selected hard difficulty, next/previous navigation, no page errors');
 } finally {
   await browser.close();
 }

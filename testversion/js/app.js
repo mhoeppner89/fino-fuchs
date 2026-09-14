@@ -6,8 +6,8 @@ import {
   DIFFICULTIES,
   normalizeName,
   reflowTaskWithInk,
-} from './curriculum.js?v=1.3.37';
-import { DrawingBoard } from './drawing.js?v=1.3.37';
+} from './curriculum.js?v=1.3.38';
+import { DrawingBoard } from './drawing.js?v=1.3.38';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -450,7 +450,7 @@ async function renderTask() {
 }
 
 function buildCurrentSession(viewport) {
-  if (state.category === 'review') return buildReviewSession({ assist: selectedDifficulty(), includeShapes: true });
+  if (state.category === 'review') return buildReviewSession({ assist: selectedDifficulty() });
   const cleanName = normalizeName(elements.childName.value);
   state.name = cleanName;
   state.difficulty = selectedDifficulty();
@@ -874,7 +874,7 @@ window.advanceTime = (milliseconds) => board.advanceTime(milliseconds);
 
 if (new URLSearchParams(location.search).has('test')) {
   // Testmodus: eine „Alle Symbole"-Karte, die die feste Review-Reihenfolge
-  // startet (Buchstaben, Zahlen und Formen). Nur mit ?test sichtbar.
+  // startet (Buchstaben und Zahlen). Nur mit ?test sichtbar.
   const reviewGrid = $('#activity-grid');
   if (reviewGrid && !reviewGrid.querySelector('[data-category="review"]')) {
     const reviewCard = document.createElement('button');

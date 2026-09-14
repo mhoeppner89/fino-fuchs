@@ -586,3 +586,5 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
 
 - Publication requested: refreshed testversion to v1.3.37, expanded its ?test review to all 105 symbols including shapes, preserved selected difficulty, and isolated service-worker caches by app scope.
 - Release verification: 59 curriculum/release tests passed; browser review visited all 105 tasks in order on hard, verified previous/next navigation and no page errors. Screenshot inspected. Earlier correction passed all 149 tests and 20 drawing-browser scenarios.
+
+- User clarified review means letters and numbers only: v1.3.38 restores the 69-symbol sequence, retains selected difficulty, and removes shapes from the review API and UI. Refreshed tester snapshot.

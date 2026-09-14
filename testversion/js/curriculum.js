@@ -6,14 +6,14 @@
 import {
   CHARACTER_STROKES,
   CHARACTER_STROKE_GEOMETRY,
-} from './handwriting-stroke-data.js?v=1.3.37';
+} from './handwriting-stroke-data.js?v=1.3.38';
 import {
   connectSolutionStrokes,
   createConnectSpec,
   createMazeSpec,
   layoutConnect,
   layoutMaze,
-} from './mini-games.js?v=1.3.37';
+} from './mini-games.js?v=1.3.38';
 
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));
@@ -1710,9 +1710,9 @@ export function buildSession({ category, difficulty = 'easy', option = '', name 
  * Test/review session: every letter (upper and lower case) and every digit
  * exactly once, in a fixed order, as a single-symbol task. Lets a reviewer
  * sweep the whole sprite library symbol by symbol instead of typing custom
- * sets by hand. Optionally include shapes and use the selected difficulty.
+ * sets by hand. Uses the selected difficulty.
  */
-export function buildReviewSession({ assist = 'easy', includeShapes = false } = {}) {
+export function buildReviewSession({ assist = 'easy' } = {}) {
   const sequence = [
     ...'ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜß',
     ...'abcdefghijklmnopqrstuvwxyzäöü',
@@ -1726,7 +1726,6 @@ export function buildReviewSession({ assist = 'easy', includeShapes = false } = 
     if (!task) throw new Error(`Review mode: no single-symbol task for ${symbol}`);
     return task;
   });
-  if (includeShapes) tasks.push(...EXERCISE_BANKS.shapes);
   return tasks.map((task, index) => ({
     ...task, uid: `${task.id}-review-${index}`, assist, slot: index,
   }));

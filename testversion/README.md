@@ -1,13 +1,12 @@
-# Testversion v1.3.37
+# Testversion v1.3.38
 
 Aktueller statischer Schnappschuss der Laufzeitdateien.
 
 [Online-Test mit Symbolübersicht](https://mhoeppner89.github.io/fino-fuchs/testversion/?test)
 
 Im Menü **Alle Symbole** auswählen, die Schwierigkeit und Schulschrift-Option
-festlegen und **Los geht’s!** drücken. Die feste Reihenfolge enthält 105 Aufgaben:
-Großbuchstaben mit Umlauten und ß, Kleinbuchstaben mit Umlauten, Ziffern 0–9,
-danach alle 36 Formen. Mit den Pfeilen oben vor- und zurückblättern; Zeichnen
+festlegen und **Los geht’s!** drücken. Die feste Reihenfolge enthält 69 Aufgaben:
+Großbuchstaben mit Umlauten und ß, Kleinbuchstaben mit Umlauten, Ziffern 0–9. Mit den Pfeilen oben vor- und zurückblättern; Zeichnen
 ist dafür nicht erforderlich. Die gewählte Schwierigkeit gilt für alle Aufgaben.
 
 Der Parameter `?test` blendet die Symbolübersicht und Diagnosefunktionen ein.
