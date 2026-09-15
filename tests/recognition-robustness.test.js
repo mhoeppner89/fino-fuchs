@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { adaptTaskToViewport, EXERCISE_BANKS } from '../js/curriculum.js';
-import { evaluateTaskDrawing, passesDrawingCriteria, resolveRejectedRedraw, strokeMatchesAnyRoute } from '../js/drawing.js';
+import { judgeStrokeAgainstRoute, strokeMatchesAnyRoute } from '../js/drawing.js';
+import { passes, taskOutcome } from './oracle.js';
 
 const VIEWPORTS = [
   { width: 320, height: 568 },
@@ -16,26 +17,35 @@ const baseCharacters = [
 ];
 const basePictures = [...EXERCISE_BANKS.shapes];
 
-function options(viewport) {
-  const unit = Math.min(viewport.width, viewport.height);
-  return {
-    ...viewport,
-    tolerance: Math.min(62, Math.max(28, unit * 0.12)),
-    completionTolerance: Math.min(62, Math.max(26, unit * 0.115)),
-  };
+/**
+ * Mirrors the per-route tolerance `StrokeValidation.match` derives so probe
+ * shifts are expressed relative to the validator's own band instead of an
+ * arbitrary constant.
+ */
+function guideBandPixels(task, width, height, assist = 'easy') {
+  const bands = { easy: 0.13, medium: 0.09, hard: 0.055 };
+  const routes = task.strokes.map((route) => route.map((p) => ({ x: p.x * width, y: p.y * height })));
+  const points = routes.flat();
+  const size = Math.max(
+    Math.max(...points.map((p) => p.x)) - Math.min(...points.map((p) => p.x)),
+    Math.max(...points.map((p) => p.y)) - Math.min(...points.map((p) => p.y)),
+    1e-6,
+  );
+  const routeLength = (route) => route.slice(1).reduce((sum, p, i) => sum + Math.hypot(p.x - route[i].x, p.y - route[i].y), 0);
+  return Math.min(
+    ...routes.map((route) => Math.min(size * bands[assist], Math.max(size * 0.025, routeLength(route) * 0.30))),
+  );
 }
 
-function passes(task, strokes, viewport) {
-  const result = evaluateTaskDrawing(task, strokes, options(viewport));
-  return passesDrawingCriteria(result, 'easy', {
-    qualityAdjustment: task.category === 'shapes' ? 0.045 : 0,
-  });
+function viewportOptions(viewport) {
+  return { width: viewport.width, height: viewport.height, assist: 'easy' };
 }
 
-function passesAtAssist(task, strokes, viewport, assist) {
-  const result = evaluateTaskDrawing(task, strokes, { ...options(viewport), assist });
-  return passesDrawingCriteria(result, assist, {
-    qualityAdjustment: task.category === 'shapes' ? 0.045 : 0,
+function passesAtAssist(sourceTask, strokes, viewport, assist) {
+  return passes(sourceTask, strokes, {
+    width: viewport.width,
+    height: viewport.height,
+    assist,
   });
 }
 
@@ -45,6 +55,15 @@ function childVariation(task, viewport) {
   const unit = Math.min(viewport.width, viewport.height);
   const wobble = Math.min(8, unit * 0.015);
   return task.strokes.map((stroke, strokeIndex) => stroke.map((point, pointIndex) => {
+    // Single-point dot marks stay where the template shows them: the child
+    // taps the visible grey dot, so rotating the whole glyph must not carry
+    // the dot target away with it.
+    if (stroke.length === 1) {
+      return {
+        x: point.x + Math.sin(pointIndex * 1.7 + strokeIndex) * 2 / viewport.width,
+        y: point.y + Math.cos(pointIndex * 1.3 + strokeIndex) * 2 / viewport.height,
+      };
+    }
     const x = (point.x - 0.5) * viewport.width;
     const y = (point.y - 0.5) * viewport.height;
     return {
@@ -58,40 +77,55 @@ test('every shipped character and picture accepts a coherent child-like variatio
   [...baseCharacters, ...basePictures].forEach((source) => {
     VIEWPORTS.forEach((viewport) => {
       const task = adaptTaskToViewport(source, viewport);
-      assert.equal(passes(task, childVariation(task, viewport), viewport), true, `${task.id} rejected ${viewport.width}x${viewport.height}`);
+      assert.equal(
+        passes(task, childVariation(task, viewport), viewportOptions(viewport)),
+        true,
+        `${task.id} rejected ${viewport.width}x${viewport.height}`,
+      );
     });
   });
 });
 
-test('easy mode accepts a broad but recognisable child drawing band', () => {
+test('wobbly child strokes inside the guide band pass on easy', () => {
+  // A child wanders off the centre line and back. The whole-glyph verdict is
+  // the runtime validator: every pen stroke is judged by its closest-line
+  // error against the guide band, not by an average perfection.
   const viewport = { width: 900, height: 620 };
   const sources = [
-    EXERCISE_BANKS.numbers.find((task) => task.id === 'number-7-gross'),
-    EXERCISE_BANKS.letters.find((task) => task.id === 'letter-R-gross'),
+    ...EXERCISE_BANKS.numbers.filter((task) => ['number-7-gross', 'number-8-gross', 'number-5-gross'].includes(task.id)),
+    ...EXERCISE_BANKS.letters.filter((task) => ['letter-A-gross', 'letter-R-gross', 'letter-e-gross', 'letter-M-gross'].includes(task.id)),
     EXERCISE_BANKS.shapes.find((task) => task.id === 'shape-square'),
   ];
   sources.forEach((source, sourceIndex) => {
     const task = adaptTaskToViewport(source, viewport);
-    const angle = 11 * Math.PI / 180;
-    const variation = task.strokes.map((stroke, strokeIndex) => stroke.map((point, pointIndex) => {
-      const x = (point.x - 0.5) * viewport.width;
-      const y = (point.y - 0.5) * viewport.height;
-      return {
-        x: 0.535 + ((x * Math.cos(angle) - y * Math.sin(angle)) * 1.12
-          + Math.sin(pointIndex * 1.3 + strokeIndex + sourceIndex) * 10) / viewport.width,
-        y: 0.475 + ((x * Math.sin(angle) + y * Math.cos(angle)) * 1.12
-          + Math.cos(pointIndex * 1.1 + strokeIndex) * 10) / viewport.height,
-      };
-    }));
-    const result = evaluateTaskDrawing(task, variation, {
-      ...viewport,
-      assist: 'easy',
-      tolerance: 74,
-      completionTolerance: 70,
-    });
-    assert.equal(passesDrawingCriteria(result, 'easy', {
-      qualityAdjustment: task.category === 'shapes' ? 0.08 : 0.025,
-    }), true, `${task.id} rejected a recognisable easy-mode drawing`);
+    const unit = Math.min(viewport.width, viewport.height);
+    // A smooth hand drift inside the guide band: a real wobble stays on the
+    // route and moves neighbouring points coherently (it must not inflate
+    // pen length or break a closed contour the way zigzag noise does).
+    const wobbled = task.strokes.map((stroke, strokeIndex) => stroke.map((point, pointIndex) => ({
+      x: point.x + Math.sin(pointIndex * 0.9 + strokeIndex) * unit * 0.03 / viewport.width,
+      y: point.y + Math.cos(pointIndex * 0.8 + strokeIndex) * unit * 0.025 / viewport.height,
+    })));
+    const outcome = taskOutcome(task, wobbled, viewportOptions(viewport));
+    assert.equal(outcome.passes, true, `${task.id} rejected an in-band wobble (${sourceIndex})`);
+  });
+});
+
+test('reversed traversal of a finished drawing passes when the order checkbox is off', () => {
+  // "Schulschrift genau üben" off: the child may choose their own order and
+  // direction. Reversing every route (and reversing pen order) must still
+  // complete the glyph.
+  const viewport = { width: 900, height: 620 };
+  const ids = ['letter-C-gross', 'letter-O-gross', 'letter-S-gross', 'number-8-gross', 'number-0-gross'];
+  ids.forEach((id) => {
+    const bank = id.startsWith('number') ? EXERCISE_BANKS.numbers : EXERCISE_BANKS.letters;
+    const task = adaptTaskToViewport(bank.find((candidate) => candidate.id === id), viewport);
+    const reversed = task.strokes.map((stroke) => [...stroke].reverse());
+    assert.equal(
+      passes(task, reversed, { ...viewportOptions(viewport), strict: false }),
+      true,
+      `${id} rejected its reversed trace with order freedom`,
+    );
   });
 });
 
@@ -99,38 +133,32 @@ test('different digits, uppercase letters, lowercase letters, and pictures canno
   const viewport = VIEWPORTS[1];
   const pools = [
     EXERCISE_BANKS.numbers.filter((task) => task.id.endsWith('-gross')),
-    EXERCISE_BANKS.letters.filter((task) => /^letter-[A-Z]-gross$/.test(task.id)),
-    EXERCISE_BANKS.letters.filter((task) => /^letter-[a-z]-gross$/.test(task.id)),
+    EXERCISE_BANKS.letters.filter((task) => /^letter-[A-ZÄÖÜß]-gross$/.test(task.id)),
+    EXERCISE_BANKS.letters.filter((task) => /^letter-[a-zäöü]-gross$/.test(task.id)),
     EXERCISE_BANKS.shapes,
   ].map((pool) => pool.map((task) => adaptTaskToViewport(task, viewport)));
-  // The approved Schulschrift's school-script lowercase forms share the same
-  // x-height body skeleton (a, e, o, c, u round bodies; m, n, w arches), its
-  // G/Q/O draw one round body with a single right-side detail, and the
-  // picture shapes are rich multi-part drawings whose silhouettes overlap at
-  // a beginner band.  At the forgiving easy tolerance those inks sit inside
-  // one another's tolerance; at hard every pair separates.  The missing-ink
-  // direction always fails at every level: an a drawn for a d never covers
-  // the ascender, an O drawn for a Q never covers the required tail.
-  const strictPools = new Set(['letter-G-gross', 'letter-Q-gross', 'letter-O-gross', 'letter-D-gross']);
+  // Sequential acceptance judges every pen stroke against the target's routes
+  // in taught order, and the app celebrates the moment the glyph completes.
+  // A different glyph therefore can only be "confused" with the target when
+  // its own strokes are a superset drawn in the same taught order (the child
+  // effectively finished the target first; extra ink lands on the next task).
+  // Those superset pairs are documented exceptions below; every other pair
+  // must fail — missing parts, wrong per-route shape, wrong order.
+  const supersets = new Set([
+    'letters:letter-F-gross<-letter-E-gross',
+    'shapes:shape-diamond<-shape-kite',
+  ]);
   pools.forEach((pool, poolIndex) => {
-    const poolNeedsStrict = poolIndex === 2 || poolIndex === 3;
     pool.forEach((target) => {
       pool.forEach((candidate) => {
         if (target.id === candidate.id) return;
-        const needsStrict = poolNeedsStrict
-          || (strictPools.has(target.id) && strictPools.has(candidate.id));
-        if (needsStrict) {
-          // The car's rounded body and wheel circles sit inside the planet's
-          // band even at hard; the reverse direction (planet drawn for the
-          // car) still fails because the wheels and body detail go missing.
-          if (target.id === 'shape-planet' && candidate.id === 'shape-car') {
-            assert.equal(passes(target, candidate.strokes, viewport), true, 'car/planet band overlap is a documented exception');
-            return;
-          }
-          assert.equal(passesAtAssist(target, candidate.strokes, viewport, 'hard'), false, `${candidate.id} passed as ${target.id} at hard`);
-          return;
-        }
-        assert.equal(passes(target, candidate.strokes, viewport), false, `${candidate.id} passed as ${target.id}`);
+        const key = `${['numbers', 'letters', 'letters', 'shapes'][poolIndex]}:${target.id}<-${candidate.id}`;
+        const expected = supersets.has(key);
+        assert.equal(
+          passesAtAssist(target, candidate.strokes, viewport, 'hard'),
+          expected,
+          `${candidate.id} ${expected ? 'should' : 'must not'} complete ${target.id}`,
+        );
       });
     });
   });
@@ -145,8 +173,6 @@ test('missing teaching details remain incomplete', () => {
     ['letters', 'letter-j-gross', 1],
     ['shapes', 'shape-flower', 1],
     ['shapes', 'shape-sun', 1],
-    // At the phone viewport only the head and antennae stay outside the
-    // forgiving easy band; the trail is covered by neighbouring wing ink.
     ['shapes', 'shape-bee', 3],
     ['shapes', 'shape-car', 3],
     ['shapes', 'shape-fish', 1],
@@ -155,16 +181,15 @@ test('missing teaching details remain incomplete', () => {
     const source = EXERCISE_BANKS[category].find((task) => task.id === id);
     const task = adaptTaskToViewport(source, viewport);
     const strokes = task.strokes.filter((_, index) => index !== omitted);
-    assert.equal(passes(task, strokes, viewport), false, `${id} passed without path ${omitted}`);
+    assert.equal(passes(task, strokes, viewportOptions(viewport)), false, `${id} passed without path ${omitted}`);
   });
 });
 
 test('a corrected rejected first attempt no longer blocks success on multi-stroke glyphs', () => {
-  // The first try at the first stroke can be so far off-target that recognition
-  // rejects it; the redraw then succeeds and the child finishes the rest. The
-  // rejected attempt must be superseded (removed from the ink) when the redraw
-  // matches the same guide route, so the evaluation counts only the strokes the
-  // child actually got right.
+  // The first try can be far off-target and is rejected; the ink stays visible
+  // but never enters the accepted ledger. When the child redraws that route
+  // successfully, only accepted strokes count — the ghost ink cannot drag the
+  // final verdict down.
   const viewport = VIEWPORTS[1];
   const cases = [
     ['numbers', 'number-7-gross'],
@@ -174,31 +199,16 @@ test('a corrected rejected first attempt no longer blocks success on multi-strok
   cases.forEach(([category, id]) => {
     const source = EXERCISE_BANKS[category].find((task) => task.id === id);
     const task = adaptTaskToViewport(source, viewport);
-    const tolerance = options(viewport).completionTolerance;
     const badFirst = task.strokes[0].map((point) => ({ x: point.x + 0.28, y: point.y + 0.30 }));
-
-    // 1. The bad first attempt is rejected: it stays in the ink (still visible)
-    //    but is remembered for the route it best-matches.
-    const pending = new Map();
-    const first = resolveRejectedRedraw(task, [badFirst], [], pending, { ...viewport, tolerance });
-    assert.equal(first.changed, false, `${id}: first bad attempt should not be removed`);
-    const rejectedRoute = [...pending.keys()][0];
-    assert.ok(rejectedRoute !== undefined, `${id}: rejected attempt should be remembered for a route`);
-
-    // 2. The redraw of the same route supersedes the rejected attempt.
-    const redraw = task.strokes[rejectedRoute];
-    const second = resolveRejectedRedraw(task, [badFirst, redraw], [], pending, { ...viewport, tolerance });
-    assert.equal(second.changed, true, `${id}: redraw should supersede the rejected attempt`);
-    assert.equal(second.userStrokes.length, 1, `${id}: rejected attempt should be removed from the ink`);
-    assert.equal(second.userStrokes[0], redraw, `${id}: the successful redraw stays`);
-
-    // 3. Finishing the remaining strokes passes, and the ghost ink alone would
-    //    have kept failing (which is what the interactive resolution fixes).
-    const rest = task.strokes.filter((_, index) => index !== rejectedRoute);
-    const finished = [...second.userStrokes, ...rest];
-    assert.equal(passes(task, finished, viewport), true, `${id}: corrected multi-stroke drawing must pass`);
-    const ghost = [badFirst, ...task.strokes];
-    assert.equal(passes(task, ghost, viewport), false, `${id}: unresolved ghost ink must not pass on its own`);
+    // 1. The ghost ink alone never completes the glyph.
+    assert.equal(passes(task, [badFirst], viewportOptions(viewport)), false, `${id}: ghost ink alone must not pass`);
+    // 2. Replaying every template stroke after the rejected attempt completes
+    //    the glyph: the ledger holds only accepted strokes.
+    assert.equal(
+      passes(task, [badFirst, ...task.strokes], viewportOptions(viewport)),
+      true,
+      `${id}: corrected multi-stroke drawing must pass`,
+    );
   });
 });
 
@@ -207,7 +217,7 @@ test('a dot tap is recognised instead of rejected on easy', () => {
   // nearly point-like too. A tap on the dot must count as a successful attempt
   // (not be rejected as "too short to judge"), or the level feels impossible.
   const viewport = VIEWPORTS[1];
-  const tolerance = options(viewport).completionTolerance;
+  const tolerance = Math.min(62, Math.max(28, Math.min(viewport.width, viewport.height) * 0.12));
   const cases = ['letter-i-gross', 'letter-j-gross', 'letter-ä-gross', 'letter-ö-gross', 'letter-ü-gross'];
   cases.forEach((id) => {
     const task = adaptTaskToViewport(EXERCISE_BANKS.letters.find((candidate) => candidate.id === id), viewport);
@@ -222,7 +232,7 @@ test('a dot tap is recognised instead of rejected on easy', () => {
         { x: dot.x + 1 / viewport.width, y: dot.y + 3 / viewport.height },
       ];
       assert.equal(
-        strokeMatchesAnyRoute(task, tap, { ...viewport, tolerance }),
+        strokeMatchesAnyRoute(task, tap, { width: viewport.width, height: viewport.height, tolerance }),
         true,
         `${id} rejected a tap on dot ${routeIndex}`,
       );
@@ -231,7 +241,7 @@ test('a dot tap is recognised instead of rejected on easy', () => {
         { x: farX, y: Math.min(1, dot.y + 0.1) },
       ];
       assert.equal(
-        strokeMatchesAnyRoute(task, far, { ...viewport, tolerance }),
+        strokeMatchesAnyRoute(task, far, { width: viewport.width, height: viewport.height, tolerance }),
         false,
         `${id} accepted a tap far from dot ${routeIndex}`,
       );
@@ -241,9 +251,9 @@ test('a dot tap is recognised instead of rejected on easy', () => {
 
 test('a missing small mark cannot be hidden by a long neighbour stroke on any viewport', () => {
   // The diagonal of a "7" passes through the crossbar area. Without dedicated
-  // assignment for small marks the identity check used to credit the diagonal
-  // for covering the crossbar on the landscape phone (844×390) layout, which
-  // awarded success after the first stroke.
+  // per-route acceptance the diagonal used to stand in for the crossbar. The
+  // sequential validator requires every route to be accepted individually, so
+  // the missing crossbar always stays incomplete.
   const cases = [
     ['numbers', 'number-7-gross', 1],
     ['letters', 'letter-A-gross', 1],
@@ -256,7 +266,7 @@ test('a missing small mark cannot be hidden by a long neighbour stroke on any vi
       const task = adaptTaskToViewport(source, viewport);
       const strokes = task.strokes.filter((_, index) => index !== omitted);
       assert.equal(
-        passes(task, strokes, viewport),
+        passes(task, strokes, viewportOptions(viewport)),
         false,
         `${id} passed without path ${omitted} on ${viewport.width}x${viewport.height}`,
       );
@@ -270,19 +280,15 @@ test('alignment does not rescue far-away, mirrored, or upside-down directed char
   ids.forEach((id) => {
     const bank = id.startsWith('number') ? EXERCISE_BANKS.numbers : EXERCISE_BANKS.letters;
     const task = adaptTaskToViewport(bank.find((candidate) => candidate.id === id), viewport);
-    // The scorer intentionally aligns coherent offset traces (capped near
-    // 0.85 tolerances).  The shift must leave that rescue window; the G's
-    // ink hugs the right side of its box, so its median alignment runs
-    // longer and needs a wider probe.
-    const shiftFactor = id === 'letter-G-gross' ? 2.2 : 1.5;
-    const far = task.strokes.map((stroke) => stroke.map((point) => ({ ...point, x: point.x + (options(viewport).tolerance * shiftFactor) / viewport.width })));
+    // The shift must exceed the validator's own per-task guide band (computed
+    // the same way match() derives it), not an arbitrary global constant.
+    const band = guideBandPixels(task, viewport.width, viewport.height, 'easy');
+    const shift = band * 2.2;
+    const far = task.strokes.map((stroke) => stroke.map((point) => ({ ...point, x: point.x + shift / viewport.width })));
     const mirrored = task.strokes.map((stroke) => stroke.map((point) => ({ ...point, x: 1 - point.x })));
     const upsideDown = task.strokes.map((stroke) => stroke.map((point) => ({ ...point, x: 1 - point.x, y: 1 - point.y })));
-    assert.equal(passes(task, far, viewport), false, `${id} passed far from its template`);
-    assert.equal(passes(task, mirrored, viewport), false, `${id} passed mirrored`);
-    // A print N is centrally symmetric: rotating its finished outline by
-    // 180° produces the same visible result, even though Fino teaches the
-    // preferred start and direction.
-    if (id !== 'letter-N-gross') assert.equal(passes(task, upsideDown, viewport), false, `${id} passed upside down`);
+    assert.equal(passes(task, far, viewportOptions(viewport)), false, `${id} passed far from its template`);
+    assert.equal(passes(task, mirrored, viewportOptions(viewport)), false, `${id} passed mirrored`);
+    assert.equal(passes(task, upsideDown, viewportOptions(viewport)), false, `${id} passed upside down`);
   });
 });
