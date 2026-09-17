@@ -190,6 +190,6 @@ fuchsschrift/
 └── package.json
 ```
 
-Entwicklertest: [Alle 69 Symbole nacheinander prüfen](https://mhoeppner89.github.io/fino-fuchs/testversion/?test). Im Menü **Alle Symbole** und die Schwierigkeit auswählen, dann mit den Pfeilen durchblättern.
+Entwicklertest: [Alle 69 Symbole nacheinander prüfen](https://mhoeppner89.github.io/fino-fuchs/testversion/?test). Im Menü **Alle Symbole** und die Schwierigkeit auswählen, dann mit den Pfeilen durchblättern. Für eine gelabelte Datensammlung gibt es den [Evaluator-Kalibrierer](https://mhoeppner89.github.io/fino-fuchs/testversion/calibration.html): fünf isolierte Versuche pro Strich und optional fünf Gesamtzeichen pro Ziel, jeweils mit Rohspur und Ja/Nein-Label. Der Kalibrierer speichert nur lokal im Browser und exportiert JSON.
 
 Passende aufeinanderfolgende Striche dürfen auch bei eingeschalteter Schulschrift-Option in einem Zug verbunden werden. Jeder Teil wird geprüft; ein fehlgeschlagener kombinierter Versuch erhält keine Teilgutschrift. Zurück entfernt den ganzen gezeichneten Strich samt aller zugehörigen Schritte.

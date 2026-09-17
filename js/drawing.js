@@ -1,12 +1,12 @@
 /** Canvas input, rendering, and forgiving local handwriting scoring. */
 
-import { StrokeProgress } from './stroke-validation.js?v=1.3.40';
+import { StrokeProgress } from './stroke-validation.js?v=1.3.41';
 
 import {
   CHARACTER_TEMPLATE_SHEETS,
   characterTemplateCrop,
-} from './handwriting-template-data.js?v=1.3.40';
-import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.40';
+} from './handwriting-template-data.js?v=1.3.41';
+import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.41';
 import {
   connectInkWidthForBoard,
   connectTrailCollision,
@@ -14,7 +14,7 @@ import {
   mazeWallCollision,
   nextMazeSolutionPoint,
   pointDistanceInPixels,
-} from './mini-games.js?v=1.3.40';
+} from './mini-games.js?v=1.3.41';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);

@@ -608,3 +608,22 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
 - Found a second R failure: the extraction hint incorrectly started the diagonal inside the bowl at x=.45. Corrected it to the stem at x=.08, matching the writing guide. Regenerated only R's routes and geometry, preserving crop metadata and every other symbol.
 - Added an approximate R screenshot fixture, joined/separate cases, generic three-part joining, reversal rejection, failed-join rollback, and browser coverage for joined Undo and resize.
 - Verification: all 156 tests and 34 Chromium/WebKit browser scenarios passed, including the R screenshot reconstruction plus additional wobble, joined-stroke Undo/resize, and existing A fixtures. Inspected the R replay screenshot.
+
+## 2026-09-17 — labeled evaluator calibration recorder (v1.3.41)
+
+- Added `calibration.html` for evidence-based evaluator tuning. The recorder
+  offers the 69 letters/numbers, an optional 105-target set including all 36
+  forms, and resumes its local dataset automatically.
+- Isolated mode records five raw pen attempts for each required stroke. Whole
+  character mode records five complete examples with any number of pen lifts,
+  so joined parts and recognizability can be labeled separately. Each label
+  stores normalized points, pressure/timing, pointer type, viewport, guide
+  visibility, target metadata, and reference-independent geometry features.
+- Ja/Nein labels are manual; the live evaluator is deliberately not run in
+  the recorder. Data can be exported or copied as JSON and the target list
+  shows per-stroke/per-target coverage.
+- Added the calibration page and assets to both service-worker shells and the
+  developer snapshot. The child-facing app still does not use local storage.
+- Verification: JavaScript syntax checks pass; full runtime tests and the
+  focused browser interaction check remain to be run after the snapshot is
+  refreshed.

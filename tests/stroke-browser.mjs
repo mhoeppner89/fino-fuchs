@@ -181,7 +181,7 @@ for (const [engineName, engine] of engines) {
 
     await start('A');
     await page.evaluate(async () => {
-      const { EXERCISE_BANKS, adaptTaskToViewport } = await import('../js/curriculum.js?v=1.3.40');
+      const { EXERCISE_BANKS, adaptTaskToViewport } = await import('../js/curriculum.js?v=1.3.41');
       const board = window.__fuchsschrift.board;
       board.setTask(adaptTaskToViewport(EXERCISE_BANKS.shapes.find((t) => t.id === 'shape-square'), board.getViewport()), 'hard');
     });
@@ -195,7 +195,7 @@ for (const [engineName, engine] of engines) {
 
     await start('A');
     const polygon = await page.evaluate(async () => {
-      const { EXERCISE_BANKS, adaptTaskToViewport } = await import('../js/curriculum.js?v=1.3.40');
+      const { EXERCISE_BANKS, adaptTaskToViewport } = await import('../js/curriculum.js?v=1.3.41');
       const board = window.__fuchsschrift.board;
       board.setTask(adaptTaskToViewport(EXERCISE_BANKS.shapes.find((t) => t.id === 'shape-circle'), board.getViewport()), 'easy');
       return adaptTaskToViewport(EXERCISE_BANKS.shapes.find((t) => t.id === 'shape-pentagon'), board.getViewport()).strokes[0];
@@ -230,7 +230,7 @@ for (const [engineName, engine] of engines) {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
-    assert.equal(await page.evaluate(async () => Boolean(await caches.match('./js/stroke-validation.js?v=1.3.40'))), true);
+    assert.equal(await page.evaluate(async () => Boolean(await caches.match('./js/stroke-validation.js?v=1.3.41'))), true);
     // WebKit's automation runtime aborts offline navigations with an internal
     // error, even with a controlling worker. Check its cache explicitly;
     // Chromium also exercises a complete offline reload and module startup.

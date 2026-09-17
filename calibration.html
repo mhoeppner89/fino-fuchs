@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>Fino – Evaluator-Kalibrierung</title>
+  <link rel="stylesheet" href="./calibration.css?v=1.3.41">
+</head>
+<body>
+  <div class="calibration-app">
+    <header class="calibration-header">
+      <div>
+        <p class="eyebrow">Entwicklerwerkzeug</p>
+        <h1>Evaluator kalibrieren</h1>
+        <p class="intro">Rohdaten sammeln, statt Toleranzen zu erraten. Zeichne mit dem Stift und entscheide selbst, ob jeder Versuch korrekt ist.</p>
+      </div>
+      <a class="back-link" href="./index.html?test">Zur Symbolübersicht</a>
+    </header>
+
+    <main class="calibration-layout">
+      <section class="calibration-card controls-card" aria-labelledby="controls-title">
+        <div class="card-heading">
+          <div>
+            <p class="eyebrow">1 · Datensatz festlegen</p>
+            <h2 id="controls-title">Aufnahme</h2>
+          </div>
+          <span class="save-indicator" id="save-indicator">lokal gespeichert</span>
+        </div>
+
+        <div class="control-grid">
+          <label class="field">
+            <span>Umfang</span>
+            <select id="scope-select">
+              <option value="glyphs">Buchstaben + Zahlen (69)</option>
+              <option value="all">Buchstaben, Zahlen + Formen (105)</option>
+              <option value="shapes">Nur Formen (36)</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Aufnahmeart</span>
+            <select id="mode-select">
+              <option value="stroke">Einzelstriche · 5 je Strich</option>
+              <option value="whole">Gesamtzeichen · 5 je Zeichen</option>
+            </select>
+          </label>
+          <label class="check-field">
+            <input id="guide-toggle" type="checkbox" checked>
+            <span>
+              <strong>Anleitung anzeigen</strong>
+              <small>Der Zielstrich bleibt beim Zeichnen sichtbar und wird mit exportiert.</small>
+            </span>
+          </label>
+        </div>
+
+        <p class="method-note"><strong>Bewertung:</strong> Entscheide nach deiner fachlichen Einschätzung. Die vorhandene automatische Prüfung läuft hier absichtlich nicht mit und beeinflusst keine Antwort.</p>
+        <div class="data-actions">
+          <button class="button button-primary" id="export-button" type="button">JSON exportieren</button>
+          <button class="button" id="copy-button" type="button">JSON kopieren</button>
+          <button class="button button-danger" id="reset-button" type="button">Daten löschen</button>
+        </div>
+        <p class="data-note" id="data-note">Die Aufnahme bleibt in diesem Browser. Exportiere regelmäßig eine JSON-Datei als Sicherung.</p>
+      </section>
+
+      <section class="calibration-card target-card" aria-labelledby="target-title">
+        <div class="target-toolbar">
+          <div>
+            <p class="eyebrow" id="target-category">Buchstabe</p>
+            <h2 id="target-title"><span id="target-label">A</span> <span class="target-name" id="target-name">A wie Affe</span></h2>
+          </div>
+          <div class="target-nav" aria-label="Ziel wechseln">
+            <button class="nav-button" id="previous-button" type="button" aria-label="Vorheriges Ziel">←</button>
+            <span id="target-counter">1 / 69</span>
+            <button class="nav-button" id="next-button" type="button" aria-label="Nächstes Ziel">→</button>
+          </div>
+        </div>
+
+        <div class="stroke-strip" id="stroke-strip" aria-live="polite"></div>
+        <div class="canvas-frame">
+          <canvas id="calibration-canvas" aria-label="Zeichenfläche"></canvas>
+          <div class="canvas-badge" id="canvas-badge">Stift bereit</div>
+        </div>
+        <p class="canvas-help" id="canvas-help">Zeichne den markierten Strich in einem Zug. Hebe den Stift danach ab.</p>
+
+        <div class="attempt-toolbar">
+          <div>
+            <p class="attempt-count" id="attempt-count">Versuch 1 / 5</p>
+            <p class="attempt-status" id="attempt-status">Noch kein Versuch gespeichert.</p>
+          </div>
+          <div class="attempt-actions">
+            <button class="button" id="discard-button" type="button" disabled>Neu zeichnen</button>
+            <button class="button button-secondary" id="finish-whole-button" type="button" hidden>Beispiel abschließen</button>
+          </div>
+        </div>
+
+        <div class="label-panel" id="label-panel" hidden>
+          <div>
+            <p class="label-title">Wie würdest du diesen Versuch bewerten?</p>
+            <p class="label-subtitle">Die Antwort wird unverändert im Datensatz gespeichert.</p>
+          </div>
+          <div class="label-actions">
+            <button class="button button-yes" id="yes-button" type="button">Ja · korrekt</button>
+            <button class="button button-no" id="no-button" type="button">Nein · nicht korrekt</button>
+            <label class="reason-field" id="reason-field" hidden>
+              <span>Grund (optional)</span>
+              <select id="reason-select">
+                <option value="">nicht angegeben</option>
+                <option value="incomplete">unvollständig</option>
+                <option value="shape">Form nicht erkennbar</option>
+                <option value="placement">Lage/Größe</option>
+                <option value="length">zu kurz oder zu lang</option>
+                <option value="direction">Start/Richtung</option>
+                <option value="connection">Verbindung/Strichlift</option>
+                <option value="other">anderer Grund</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <aside class="calibration-card progress-card" aria-labelledby="progress-title">
+        <div class="card-heading">
+          <div>
+            <p class="eyebrow">2 · Fortschritt</p>
+            <h2 id="progress-title">Datensatz</h2>
+          </div>
+          <span class="progress-total" id="progress-total">0 / 565</span>
+        </div>
+        <div class="progress-meter" aria-hidden="true"><span id="progress-meter-fill"></span></div>
+        <div class="progress-stats" id="progress-stats"></div>
+        <div class="target-list" id="target-list" aria-label="Ziele"></div>
+        <p class="legend"><span class="legend-dot yes"></span> Ja <span class="legend-dot no"></span> Nein <span class="legend-dot open"></span> offen</p>
+      </aside>
+    </main>
+
+    <footer class="calibration-footer">
+      <span>Fino schreibt · Kalibrierungsdaten v1</span>
+      <span>Nur für die Entwicklung, nicht für Kinder.</span>
+    </footer>
+  </div>
+
+  <script type="module" src="./js/calibration.js?v=1.3.41"></script>
+</body>
+</html>

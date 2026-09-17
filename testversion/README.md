@@ -1,8 +1,10 @@
-# Testversion v1.3.40
+# Testversion v1.3.41
 
 Aktueller statischer Schnappschuss der Laufzeitdateien.
 
 [Online-Test mit Symbolübersicht](https://mhoeppner89.github.io/fino-fuchs/testversion/?test)
+
+[Evaluator-Kalibrierer](https://mhoeppner89.github.io/fino-fuchs/testversion/calibration.html)
 
 Im Menü **Alle Symbole** auswählen, die Schwierigkeit und Schulschrift-Option
 festlegen und **Los geht’s!** drücken. Die feste Reihenfolge enthält 69 Aufgaben:
@@ -11,6 +13,11 @@ ist dafür nicht erforderlich. Die gewählte Schwierigkeit gilt für alle Aufgab
 
 Der Parameter `?test` blendet die Symbolübersicht und Diagnosefunktionen ein.
 Ohne diesen Parameter erscheint das normale Menü.
+
+Der Kalibrierer nimmt fünf isolierte Versuche je Strich und optional fünf
+Gesamtzeichen je Ziel auf. Jede Rohspur erhält ein Ja/Nein-Label, einfache
+Geometriemerkmale und den Zielkatalog. Die Daten bleiben lokal im Browser und
+können als JSON exportiert werden.
 
 Zum Aktualisieren die Laufzeitdateien `index.html`, `styles.css`,
 `manifest.webmanifest`, `sw.js`, `js/` und `assets/` aus der Projektwurzel
