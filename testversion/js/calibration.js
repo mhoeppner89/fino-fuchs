@@ -514,7 +514,7 @@ function updateLabels() {
   if (!target) return;
   const attempts = state.mode === 'whole' ? currentTargetAttempts(target, 'whole') : currentStrokeAttempts(target, state.strokeIndex);
   const count = attempts.length;
-  elements.attemptCount.textContent = `Versuch ${Math.min(ATTEMPTS_PER_TARGET, count + (state.pending ? 1 : 0))} / ${ATTEMPTS_PER_TARGET}`;
+  elements.attemptCount.textContent = `Versuch ${Math.min(ATTEMPTS_PER_TARGET, count + 1)} / ${ATTEMPTS_PER_TARGET}`;
   elements.attemptStatus.textContent = state.pending
     ? 'Versuch wartet auf deine Bewertung.'
     : count >= ATTEMPTS_PER_TARGET
