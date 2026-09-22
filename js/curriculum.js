@@ -6,14 +6,14 @@
 import {
   CHARACTER_STROKES,
   CHARACTER_STROKE_GEOMETRY,
-} from './handwriting-stroke-data.js?v=1.3.45';
+} from './handwriting-stroke-data.js?v=1.3.46';
 import {
   connectSolutionStrokes,
   createConnectSpec,
   createMazeSpec,
   layoutConnect,
   layoutMaze,
-} from './mini-games.js?v=1.3.45';
+} from './mini-games.js?v=1.3.46';
 
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));
@@ -529,28 +529,22 @@ const shapeTemplates = [
         bezier(p(0.78, 0.48), p(0.88, 0.48), p(0.88, 0.65), p(0.82, 0.65)),
         poly([0.82, 0.65], [0.16, 0.65]),
       ),
-      arc(0.31, 0.76, 0.11, 0.11, -90, 270, 32),
-      arc(0.69, 0.74, 0.09, 0.09, -90, 270, 32),
+      arc(0.31, 0.75, 0.1, 0.1, -90, 270, 36),
+      arc(0.69, 0.75, 0.1, 0.1, -90, 270, 36),
       poly([0.64, 0.48], [0.61, 0.31], [0.76, 0.31], [0.73, 0.48]),
       poly([0.24, 0.37], [0.38, 0.37], [0.38, 0.53], [0.24, 0.53], [0.24, 0.37]),
     ], complexity: 3, angularStrokes: [0, 3, 4], strokeColors: [PICTURE_INK.red, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.orange, PICTURE_INK.blue],
   }),
   makeTask({
     id: 'shape-planet', category: 'shapes', title: 'Planet', speech: 'Male einen Planeten mit Ring.', label: 'Planet',
-    // Rotate the whole construction together; the back of the ring disappears
-    // behind the planet instead of being drawn across its face.
     strokes: [
-      arc(0.5, 0.5, 0.235, 0.235, -10, -170, 40),
-      arc(0.5, 0.5, 0.235, 0.235, 21.885, 158.115, 32),
-      join(
-        bezier(p(0.26857, 0.45919), p(0.04, 0.47), p(0.03, 0.6), p(0.5, 0.6)),
-        bezier(p(0.5, 0.6), p(0.97, 0.6), p(0.96, 0.47), p(0.73143, 0.45919)),
-      ),
-    ].map((stroke) => stroke.map(({ x, y }) => {
-      const angle = -0.3;
-      return p(0.5 + (x - 0.5) * Math.cos(angle) - (y - 0.5) * Math.sin(angle),
-        0.5 + (x - 0.5) * Math.sin(angle) + (y - 0.5) * Math.cos(angle));
-    })), complexity: 3, strokeColors: [PICTURE_INK.blue, PICTURE_INK.blue, PICTURE_INK.purple],
+      arc(0.5, 0.5, 0.235, 0.235, -90, 270, 56),
+      arc(0.5, 0.5, 0.39, 0.09, 180, 540, 64).map(({ x, y }) => {
+        const angle = -0.3;
+        return p(0.5 + (x - 0.5) * Math.cos(angle) - (y - 0.5) * Math.sin(angle),
+          0.5 + (x - 0.5) * Math.sin(angle) + (y - 0.5) * Math.cos(angle));
+      }),
+    ], complexity: 3, strokeColors: [PICTURE_INK.blue, PICTURE_INK.purple],
   }),
   makeTask({
     id: 'shape-apple', category: 'shapes', title: 'Apfel', speech: 'Male einen Apfel mit Blatt.', label: 'Apfel',
@@ -581,6 +575,273 @@ const shapeTemplates = [
       bezier(p(0.56, 0.146), p(0.59, 0.08), p(0.65, 0.06), p(0.67, 0.12)),
       poly([0.5, 0.83], [0.5, 0.91]),
     ], complexity: 3, angularStrokes: [2, 3, 8], strokeColors: [PICTURE_INK.yellow, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.blue, PICTURE_INK.blue, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal],
+  }),
+  makeTask({
+    id: 'shape-leaf', category: 'shapes', title: 'Blatt', speech: 'Male ein Blatt mit Blattadern.', label: 'Blatt',
+    strokes: [
+      join(bezier(p(0.25, 0.78), p(0.12, 0.4), p(0.47, 0.16), p(0.77, 0.18)), bezier(p(0.77, 0.18), p(0.82, 0.51), p(0.61, 0.84), p(0.25, 0.78))),
+      bezier(p(0.19, 0.87), p(0.36, 0.68), p(0.59, 0.42), p(0.77, 0.18)),
+      poly([0.39, 0.64], [0.33, 0.43]), poly([0.54, 0.46], [0.7, 0.47]),
+    ], complexity: 2, angularStrokes: [2, 3], strokeColors: [PICTURE_INK.green, PICTURE_INK.brown, PICTURE_INK.green, PICTURE_INK.green],
+  }),
+  makeTask({
+    id: 'shape-moon', category: 'shapes', title: 'Mond', speech: 'Male einen sichelförmigen Mond.', label: 'Mond',
+    strokes: [join(
+      bezier(p(0.67, 0.17), p(0.4, 0.06), p(0.2, 0.25), p(0.2, 0.5)),
+      bezier(p(0.2, 0.5), p(0.2, 0.75), p(0.4, 0.94), p(0.67, 0.83)),
+      bezier(p(0.67, 0.83), p(0.35, 0.76), p(0.35, 0.24), p(0.67, 0.17)),
+    )], complexity: 2, strokeColors: [PICTURE_INK.yellow],
+  }),
+  makeTask({
+    id: 'shape-cloud', category: 'shapes', title: 'Wolke', speech: 'Male eine weiche Wolke.', label: 'Wolke',
+    strokes: [join(
+      bezier(p(0.24, 0.7), p(0.02, 0.7), p(0.04, 0.43), p(0.25, 0.47)),
+      bezier(p(0.25, 0.47), p(0.2, 0.17), p(0.58, 0.12), p(0.62, 0.39)),
+      bezier(p(0.62, 0.39), p(0.75, 0.27), p(0.9, 0.42), p(0.82, 0.52)),
+      bezier(p(0.82, 0.52), p(1, 0.58), p(0.86, 0.72), p(0.75, 0.7)),
+      poly([0.75, 0.7], [0.24, 0.7]),
+    )], complexity: 2, angularStrokes: [0], strokeColors: [PICTURE_INK.blue],
+  }),
+  makeTask({
+    id: 'shape-mountains', category: 'shapes', title: 'Berge', speech: 'Male zwei Berge mit Schneespitzen.', label: 'Berge',
+    strokes: [
+      poly([0.12, 0.79], [0.35, 0.23], [0.51, 0.59], [0.66, 0.32], [0.9, 0.79], [0.12, 0.79]),
+      poly([0.28, 0.4], [0.32, 0.44], [0.36, 0.39], [0.428, 0.405]),
+      poly([0.61, 0.41], [0.65, 0.45], [0.706, 0.41]),
+    ], complexity: 2, angularStrokes: [0, 1, 2], strokeColors: [PICTURE_INK.purple, PICTURE_INK.blue, PICTURE_INK.blue],
+  }),
+  makeTask({
+    id: 'shape-cactus', category: 'shapes', title: 'Kaktus', speech: 'Male einen Kaktus im Topf.', label: 'Kaktus',
+    strokes: [
+      join(
+        poly([0.44, 0.78], [0.44, 0.59], [0.29, 0.59]),
+        bezier(p(0.29, 0.59), p(0.22, 0.59), p(0.2, 0.54), p(0.2, 0.47)),
+        poly([0.2, 0.47], [0.2, 0.35]), bezier(p(0.2, 0.35), p(0.2, 0.27), p(0.31, 0.27), p(0.31, 0.35)),
+        poly([0.31, 0.35], [0.31, 0.46], [0.44, 0.46], [0.44, 0.24]),
+        bezier(p(0.44, 0.24), p(0.44, 0.13), p(0.56, 0.13), p(0.56, 0.24)),
+        poly([0.56, 0.24], [0.56, 0.53], [0.69, 0.53], [0.69, 0.41]),
+        bezier(p(0.69, 0.41), p(0.69, 0.33), p(0.8, 0.33), p(0.8, 0.41)),
+        poly([0.8, 0.41], [0.8, 0.57]), bezier(p(0.8, 0.57), p(0.8, 0.65), p(0.74, 0.66), p(0.67, 0.66)),
+        poly([0.67, 0.66], [0.56, 0.66], [0.56, 0.78]),
+      ),
+      poly([0.34, 0.78], [0.66, 0.78], [0.62, 0.91], [0.38, 0.91], [0.34, 0.78]),
+    ], complexity: 3, angularStrokes: [0, 1], strokeColors: [PICTURE_INK.green, PICTURE_INK.brown],
+  }),
+  makeTask({
+    id: 'shape-tulip', category: 'shapes', title: 'Tulpe', speech: 'Male eine Tulpe mit Blatt.', label: 'Tulpe',
+    strokes: [
+      join(poly([0.27, 0.31], [0.39, 0.37], [0.5, 0.18], [0.61, 0.37], [0.73, 0.31]), bezier(p(0.73, 0.31), p(0.73, 0.74), p(0.27, 0.74), p(0.27, 0.31))),
+      poly([0.5, 0.6325], [0.5, 0.91]),
+      join(bezier(p(0.5, 0.85), p(0.34, 0.87), p(0.24, 0.76), p(0.23, 0.67)), bezier(p(0.23, 0.67), p(0.37, 0.66), p(0.48, 0.75), p(0.5, 0.85))),
+    ], complexity: 2, angularStrokes: [0], strokeColors: [PICTURE_INK.pink, PICTURE_INK.green, PICTURE_INK.green],
+  }),
+  makeTask({
+    id: 'shape-pear', category: 'shapes', title: 'Birne', speech: 'Male eine Birne mit Stiel.', label: 'Birne',
+    strokes: [join(
+      bezier(p(0.5, 0.23), p(0.38, 0.23), p(0.43, 0.39), p(0.3, 0.53)),
+      bezier(p(0.3, 0.53), p(0.13, 0.72), p(0.27, 0.86), p(0.5, 0.86)),
+      bezier(p(0.5, 0.86), p(0.73, 0.86), p(0.87, 0.72), p(0.7, 0.53)),
+      bezier(p(0.7, 0.53), p(0.57, 0.39), p(0.62, 0.23), p(0.5, 0.23)),
+    ), bezier(p(0.5, 0.23), p(0.52, 0.17), p(0.53, 0.13), p(0.6, 0.11))],
+    complexity: 2, strokeColors: [PICTURE_INK.green, PICTURE_INK.brown],
+  }),
+  makeTask({
+    id: 'shape-cherries', category: 'shapes', title: 'Kirschen', speech: 'Male zwei Kirschen mit Stielen.', label: 'Kirschen',
+    strokes: [
+      arc(0.33, 0.68, 0.145, 0.145, -90, 270, 36), arc(0.68, 0.7, 0.145, 0.145, -90, 270, 36),
+      join(bezier(p(0.33, 0.535), p(0.43, 0.44), p(0.5, 0.3), p(0.53, 0.2)), bezier(p(0.53, 0.2), p(0.63, 0.29), p(0.69, 0.44), p(0.68, 0.555))),
+      join(bezier(p(0.53, 0.2), p(0.59, 0.07), p(0.76, 0.12), p(0.79, 0.22)), bezier(p(0.79, 0.22), p(0.68, 0.3), p(0.58, 0.29), p(0.53, 0.2))),
+    ], complexity: 3, strokeColors: [PICTURE_INK.red, PICTURE_INK.red, PICTURE_INK.brown, PICTURE_INK.green],
+  }),
+  makeTask({
+    id: 'shape-carrot', category: 'shapes', title: 'Karotte', speech: 'Male eine Karotte mit Grün.', label: 'Karotte',
+    strokes: [
+      join(bezier(p(0.5, 0.31), p(0.6, 0.31), p(0.73, 0.31), p(0.68, 0.45)), bezier(p(0.68, 0.45), p(0.64, 0.59), p(0.54, 0.8), p(0.5, 0.9)), bezier(p(0.5, 0.9), p(0.46, 0.8), p(0.36, 0.59), p(0.32, 0.45)), bezier(p(0.32, 0.45), p(0.27, 0.31), p(0.4, 0.31), p(0.5, 0.31))),
+      poly([0.5, 0.31], [0.32, 0.16], [0.44, 0.24], [0.5, 0.08], [0.56, 0.24], [0.68, 0.16], [0.5, 0.31]),
+      poly([0.339, 0.505], [0.49, 0.52]), poly([0.57, 0.705], [0.48, 0.72]),
+    ], complexity: 3, angularStrokes: [1, 2, 3], strokeColors: [PICTURE_INK.orange, PICTURE_INK.green, PICTURE_INK.orange, PICTURE_INK.orange],
+  }),
+  makeTask({
+    id: 'shape-cupcake', category: 'shapes', title: 'Muffin', speech: 'Male einen bunten Muffin.', label: 'Muffin',
+    strokes: [
+      join(bezier(p(0.22, 0.47), p(0.2, 0.36), p(0.28, 0.29), p(0.37, 0.32)), bezier(p(0.37, 0.32), p(0.35, 0.08), p(0.65, 0.08), p(0.63, 0.32)), bezier(p(0.63, 0.32), p(0.72, 0.29), p(0.8, 0.36), p(0.78, 0.47)), bezier(p(0.78, 0.47), p(0.72, 0.56), p(0.62, 0.56), p(0.59, 0.5)), bezier(p(0.59, 0.5), p(0.54, 0.57), p(0.46, 0.57), p(0.41, 0.5)), bezier(p(0.41, 0.5), p(0.38, 0.56), p(0.28, 0.56), p(0.22, 0.47))),
+      poly([0.27, 0.521], [0.35, 0.82], [0.65, 0.82], [0.73, 0.521]),
+      poly([0.42, 0.62], [0.44, 0.75]), poly([0.58, 0.62], [0.56, 0.75]),
+    ], complexity: 3, angularStrokes: [1, 2, 3], strokeColors: [PICTURE_INK.pink, PICTURE_INK.purple, PICTURE_INK.purple, PICTURE_INK.purple],
+  }),
+  makeTask({
+    id: 'shape-watermelon', category: 'shapes', title: 'Melone', speech: 'Male ein Stück Wassermelone.', label: 'Melone',
+    strokes: [
+      join(arc(0.5, 0.38, 0.36, 0.36, 0, 180, 48), poly([0.14, 0.38], [0.86, 0.38])),
+      arc(0.5, 0.44, 0.28, 0.23, 0, 180, 40),
+      poly([0.37, 0.48], [0.4, 0.53]), poly([0.5, 0.52], [0.5, 0.58]), poly([0.63, 0.48], [0.6, 0.53]),
+    ], complexity: 3, angularStrokes: [0, 2, 3, 4], strokeColors: [PICTURE_INK.green, PICTURE_INK.red, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal],
+  }),
+  makeTask({
+    id: 'shape-cat', category: 'shapes', title: 'Katze', speech: 'Male ein Katzengesicht mit Schnurrhaaren.', label: 'Katze',
+    strokes: [
+      join(poly([0.25, 0.38], [0.24, 0.16], [0.42, 0.28]), bezier(p(0.42, 0.28), p(0.46, 0.26), p(0.54, 0.26), p(0.58, 0.28)), poly([0.58, 0.28], [0.76, 0.16], [0.75, 0.38]), bezier(p(0.75, 0.38), p(0.91, 0.88), p(0.09, 0.88), p(0.25, 0.38))),
+      arc(0.38, 0.43, 0.035, 0.045, -90, 270, 24), arc(0.62, 0.43, 0.035, 0.045, -90, 270, 24),
+      join(bezier(p(0.38, 0.56), p(0.42, 0.66), p(0.47, 0.66), p(0.5, 0.58)), bezier(p(0.5, 0.58), p(0.53, 0.66), p(0.58, 0.66), p(0.62, 0.56))),
+      poly([0.14, 0.55], [0.31, 0.57]), poly([0.69, 0.57], [0.86, 0.55]),
+    ], complexity: 3, angularStrokes: [0, 4, 5], strokeColors: [PICTURE_INK.orange, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.pink, PICTURE_INK.brown, PICTURE_INK.brown],
+  }),
+  makeTask({
+    id: 'shape-rabbit', category: 'shapes', title: 'Hase', speech: 'Male ein Hasengesicht mit langen Ohren.', label: 'Hase',
+    strokes: [
+      join(bezier(p(0.32, 0.38), p(0.13, 0.02), p(0.34, -0.02), p(0.43, 0.31)), bezier(p(0.43, 0.31), p(0.47, 0.29), p(0.53, 0.29), p(0.57, 0.31)), bezier(p(0.57, 0.31), p(0.66, -0.02), p(0.87, 0.02), p(0.68, 0.38)), bezier(p(0.68, 0.38), p(0.92, 0.91), p(0.08, 0.91), p(0.32, 0.38))),
+      arc(0.4, 0.49, 0.025, 0.035, -90, 270, 20), arc(0.6, 0.49, 0.025, 0.035, -90, 270, 20),
+      poly([0.44, 0.59], [0.5, 0.64], [0.56, 0.59]), poly([0.5, 0.64], [0.5, 0.71]),
+    ], complexity: 3, angularStrokes: [3, 4], strokeColors: [PICTURE_INK.brown, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.pink, PICTURE_INK.brown],
+  }),
+  makeTask({
+    id: 'shape-whale', category: 'shapes', title: 'Wal', speech: 'Male einen Wal mit Wasserfontäne.', label: 'Wal',
+    strokes: [
+      join(poly([0.7, 0.5], [0.8, 0.41], [0.79, 0.3], [0.89, 0.37], [0.95, 0.32], [0.94, 0.47], [0.74, 0.62]), bezier(p(0.74, 0.62), p(0.62, 0.86), p(0.12, 0.83), p(0.14, 0.51)), bezier(p(0.14, 0.51), p(0.15, 0.2), p(0.59, 0.22), p(0.7, 0.5))),
+      arc(0.26, 0.48, 0.025, 0.025, -90, 270, 20),
+      join(bezier(p(0.39, 0.58), p(0.44, 0.72), p(0.55, 0.72), p(0.6, 0.59)), bezier(p(0.6, 0.59), p(0.53, 0.62), p(0.46, 0.61), p(0.39, 0.58))),
+      bezier(p(0.37, 0.27), p(0.38, 0.16), p(0.28, 0.11), p(0.24, 0.16)),
+      bezier(p(0.37, 0.27), p(0.38, 0.14), p(0.49, 0.13), p(0.51, 0.19)),
+    ], complexity: 3, angularStrokes: [0], strokeColors: [PICTURE_INK.blue, PICTURE_INK.charcoal, PICTURE_INK.blue, PICTURE_INK.purple, PICTURE_INK.purple],
+  }),
+  makeTask({
+    id: 'shape-turtle', category: 'shapes', title: 'Schildkröte', speech: 'Male eine Schildkröte mit Panzer.', label: 'Schildkröte',
+    strokes: [
+      join(bezier(p(0.25, 0.61), p(0.2, 0.16), p(0.8, 0.16), p(0.75, 0.61)), poly([0.75, 0.61], [0.25, 0.61])),
+      arc(0.835, 0.53, 0.085, 0.075, 180, 540, 28),
+      bezier(p(0.32, 0.61), p(0.29, 0.8), p(0.49, 0.8), p(0.46, 0.61)),
+      bezier(p(0.55, 0.61), p(0.52, 0.8), p(0.72, 0.8), p(0.69, 0.61)),
+      poly([0.292, 0.413], [0.5, 0.47], [0.708, 0.413]), poly([0.5, 0.47], [0.5, 0.61]),
+    ], complexity: 3, angularStrokes: [0, 4, 5], strokeColors: [PICTURE_INK.green, PICTURE_INK.green, PICTURE_INK.green, PICTURE_INK.green, PICTURE_INK.brown, PICTURE_INK.brown],
+  }),
+  makeTask({
+    id: 'shape-owl', category: 'shapes', title: 'Eule', speech: 'Male eine Eule mit großen Augen.', label: 'Eule',
+    strokes: [
+      join(poly([0.25, 0.22], [0.4, 0.28]), bezier(p(0.4, 0.28), p(0.47, 0.25), p(0.53, 0.25), p(0.6, 0.28)), poly([0.6, 0.28], [0.75, 0.22], [0.73, 0.48]), bezier(p(0.73, 0.48), p(0.86, 0.96), p(0.14, 0.96), p(0.27, 0.48)), poly([0.27, 0.48], [0.25, 0.22])),
+      arc(0.395, 0.43, 0.085, 0.09, -90, 270, 28), arc(0.605, 0.43, 0.085, 0.09, -90, 270, 28),
+      poly([0.46, 0.54], [0.5, 0.61], [0.54, 0.54]),
+      bezier(p(0.27, 0.48), p(0.44, 0.55), p(0.37, 0.71), p(0.33, 0.757)),
+      bezier(p(0.73, 0.48), p(0.56, 0.55), p(0.63, 0.71), p(0.67, 0.757)),
+    ], complexity: 3, angularStrokes: [0, 3], strokeColors: [PICTURE_INK.brown, PICTURE_INK.orange, PICTURE_INK.orange, PICTURE_INK.yellow, PICTURE_INK.brown, PICTURE_INK.brown],
+  }),
+  makeTask({
+    id: 'shape-penguin', category: 'shapes', title: 'Pinguin', speech: 'Male einen Pinguin mit hellem Bauch.', label: 'Pinguin',
+    strokes: [
+      join(bezier(p(0.5, 0.17), p(0.33, 0.17), p(0.34, 0.35), p(0.3, 0.52)), bezier(p(0.3, 0.52), p(0.16, 0.89), p(0.84, 0.89), p(0.7, 0.52)), bezier(p(0.7, 0.52), p(0.66, 0.35), p(0.67, 0.17), p(0.5, 0.17))),
+      arc(0.5, 0.61, 0.135, 0.17, -90, 270, 36),
+      [p(0.435, 0.31)], [p(0.565, 0.31)],
+      poly([0.46, 0.37], [0.5, 0.415], [0.54, 0.37]),
+      poly([0.42, 0.786], [0.3, 0.86], [0.44, 0.86]), poly([0.58, 0.786], [0.7, 0.86], [0.56, 0.86]),
+    ], complexity: 3, angularStrokes: [4, 5, 6], strokeColors: [PICTURE_INK.charcoal, PICTURE_INK.blue, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.orange, PICTURE_INK.orange, PICTURE_INK.orange],
+  }),
+  makeTask({
+    id: 'shape-jellyfish', category: 'shapes', title: 'Qualle', speech: 'Male eine Qualle mit wehenden Armen.', label: 'Qualle',
+    strokes: [
+      join(arc(0.5, 0.44, 0.3, 0.27, 180, 360, 40), bezier(p(0.8, 0.44), p(0.77, 0.52), p(0.66, 0.52), p(0.65, 0.46)), bezier(p(0.65, 0.46), p(0.62, 0.54), p(0.52, 0.54), p(0.5, 0.46)), bezier(p(0.5, 0.46), p(0.48, 0.54), p(0.38, 0.54), p(0.35, 0.46)), bezier(p(0.35, 0.46), p(0.34, 0.52), p(0.23, 0.52), p(0.2, 0.44))),
+      join(bezier(p(0.3, 0.495), p(0.19, 0.64), p(0.4, 0.67), p(0.29, 0.85))),
+      bezier(p(0.5, 0.46), p(0.62, 0.64), p(0.38, 0.74), p(0.5, 0.89)),
+      bezier(p(0.7, 0.495), p(0.81, 0.64), p(0.6, 0.67), p(0.71, 0.85)),
+    ], complexity: 3, strokeColors: [PICTURE_INK.purple, PICTURE_INK.pink, PICTURE_INK.pink, PICTURE_INK.pink],
+  }),
+  makeTask({
+    id: 'shape-ladybug', category: 'shapes', title: 'Marienkäfer', speech: 'Male einen Marienkäfer mit Punkten.', label: 'Marienkäfer',
+    strokes: [
+      arc(0.5, 0.59, 0.22, 0.26, -90, 270, 44), arc(0.5, 0.23, 0.1, 0.1, 90, 450, 32),
+      poly([0.5, 0.33], [0.5, 0.85]), arc(0.4, 0.54, 0.045, 0.045, -90, 270, 24), arc(0.6, 0.66, 0.045, 0.045, -90, 270, 24),
+      bezier(p(0.44, 0.15), p(0.41, 0.08), p(0.36, 0.07), p(0.34, 0.12)),
+      bezier(p(0.56, 0.15), p(0.59, 0.08), p(0.64, 0.07), p(0.66, 0.12)),
+    ], complexity: 3, angularStrokes: [2], strokeColors: [PICTURE_INK.red, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal],
+  }),
+  makeTask({
+    id: 'shape-crab', category: 'shapes', title: 'Krabbe', speech: 'Male eine Krabbe mit Scheren.', label: 'Krabbe',
+    strokes: [
+      arc(0.5, 0.59, 0.25, 0.16, -90, 270, 40),
+      join(bezier(p(0.3, 0.495), p(0.13, 0.52), p(0.08, 0.32), p(0.19, 0.25)), poly([0.19, 0.25], [0.22, 0.35], [0.31, 0.29]), bezier(p(0.31, 0.29), p(0.38, 0.38), p(0.33, 0.46), p(0.3, 0.495))),
+      join(bezier(p(0.7, 0.495), p(0.87, 0.52), p(0.92, 0.32), p(0.81, 0.25)), poly([0.81, 0.25], [0.78, 0.35], [0.69, 0.29]), bezier(p(0.69, 0.29), p(0.62, 0.38), p(0.67, 0.46), p(0.7, 0.495))),
+      [p(0.41, 0.54)], [p(0.59, 0.54)],
+      poly([0.3, 0.686], [0.2, 0.73], [0.15, 0.83]), poly([0.7, 0.686], [0.8, 0.73], [0.85, 0.83]),
+    ], complexity: 3, angularStrokes: [1, 2, 5, 6], strokeColors: [PICTURE_INK.red, PICTURE_INK.red, PICTURE_INK.red, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.orange, PICTURE_INK.orange],
+  }),
+  makeTask({
+    id: 'shape-cup', category: 'shapes', title: 'Tasse', speech: 'Male eine Tasse mit warmem Kakao.', label: 'Tasse',
+    strokes: [
+      join(poly([0.24, 0.4], [0.7, 0.4], [0.7, 0.65]), bezier(p(0.7, 0.65), p(0.7, 0.85), p(0.24, 0.85), p(0.24, 0.65)), poly([0.24, 0.65], [0.24, 0.4])),
+      bezier(p(0.7, 0.45), p(0.95, 0.37), p(0.97, 0.71), p(0.7, 0.66)),
+      bezier(p(0.37, 0.32), p(0.25, 0.25), p(0.48, 0.18), p(0.37, 0.11)),
+      bezier(p(0.56, 0.32), p(0.44, 0.25), p(0.67, 0.18), p(0.56, 0.11)),
+    ], complexity: 2, angularStrokes: [0], strokeColors: [PICTURE_INK.blue, PICTURE_INK.blue, PICTURE_INK.brown, PICTURE_INK.brown],
+  }),
+  makeTask({
+    id: 'shape-tent', category: 'shapes', title: 'Zelt', speech: 'Male ein Zelt mit Eingang.', label: 'Zelt',
+    strokes: [
+      poly([0.14, 0.8], [0.5, 0.21], [0.86, 0.8], [0.14, 0.8]),
+      poly([0.5, 0.21], [0.43, 0.8], [0.65, 0.8], [0.5, 0.21]),
+    ], complexity: 2, angularStrokes: [0, 1], strokeColors: [PICTURE_INK.orange, PICTURE_INK.blue],
+  }),
+  makeTask({
+    id: 'shape-pencil', category: 'shapes', title: 'Buntstift', speech: 'Male einen großen Buntstift.', label: 'Buntstift',
+    strokes: [
+      poly([0.23, 0.73], [0.63, 0.17], [0.79, 0.29], [0.39, 0.85], [0.16, 0.93], [0.23, 0.73]),
+      poly([0.23, 0.73], [0.39, 0.85]), poly([0.58, 0.24], [0.74, 0.36]),
+    ], complexity: 2, angularStrokes: [0, 1, 2], strokeColors: [PICTURE_INK.yellow, PICTURE_INK.brown, PICTURE_INK.pink],
+  }),
+  makeTask({
+    id: 'shape-envelope', category: 'shapes', title: 'Brief', speech: 'Male einen Briefumschlag.', label: 'Brief',
+    strokes: [
+      poly([0.15, 0.28], [0.85, 0.28], [0.85, 0.72], [0.15, 0.72], [0.15, 0.28]),
+      poly([0.15, 0.28], [0.5, 0.54], [0.85, 0.28]),
+      poly([0.15, 0.72], [0.4, 0.466]), poly([0.85, 0.72], [0.6, 0.466]),
+    ], complexity: 2, angularStrokes: [0, 1, 2, 3], strokeColors: [PICTURE_INK.blue, PICTURE_INK.blue, PICTURE_INK.blue, PICTURE_INK.blue],
+  }),
+  makeTask({
+    id: 'shape-key', category: 'shapes', title: 'Schlüssel', speech: 'Male einen Schlüssel mit zwei Zähnen.', label: 'Schlüssel',
+    strokes: [
+      arc(0.3, 0.3, 0.16, 0.16, 45, 405, 36),
+      poly([0.41314, 0.41314], [0.79, 0.79], [0.87, 0.71]), poly([0.66, 0.66], [0.73, 0.59]),
+    ], complexity: 2, angularStrokes: [1, 2], strokeColors: [PICTURE_INK.yellow, PICTURE_INK.yellow, PICTURE_INK.yellow],
+  }),
+  makeTask({
+    id: 'shape-truck', category: 'shapes', title: 'Lastwagen', speech: 'Male einen Lastwagen mit Ladefläche.', label: 'Lastwagen',
+    strokes: [
+      poly([0.12, 0.64], [0.12, 0.23], [0.63, 0.23], [0.63, 0.64], [0.12, 0.64]),
+      poly([0.63, 0.38], [0.78, 0.38], [0.9, 0.58], [0.9, 0.73], [0.12, 0.73], [0.12, 0.64]),
+      arc(0.29, 0.82, 0.09, 0.09, -90, 270, 32), arc(0.77, 0.82, 0.09, 0.09, -90, 270, 32),
+      poly([0.68, 0.44], [0.75, 0.44], [0.82, 0.56], [0.68, 0.56], [0.68, 0.44]),
+    ], complexity: 3, angularStrokes: [0, 1, 4], strokeColors: [PICTURE_INK.blue, PICTURE_INK.orange, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.blue],
+  }),
+  makeTask({
+    id: 'shape-helicopter', category: 'shapes', title: 'Hubschrauber', speech: 'Male einen Hubschrauber mit Rotor.', label: 'Hubschrauber',
+    strokes: [
+      join(bezier(p(0.43, 0.35), p(0.65, 0.25), p(0.86, 0.33), p(0.86, 0.5)), bezier(p(0.86, 0.5), p(0.86, 0.68), p(0.57, 0.69), p(0.4, 0.59)), poly([0.4, 0.59], [0.22, 0.48], [0.1, 0.48], [0.1, 0.3], [0.23, 0.4], [0.43, 0.35])),
+      poly([0.5, 0.325], [0.5, 0.18]), poly([0.23, 0.18], [0.8, 0.18]),
+      join(poly([0.45, 0.615], [0.45, 0.77], [0.8, 0.77]), bezier(p(0.8, 0.77), p(0.84, 0.77), p(0.86, 0.74), p(0.86, 0.7))),
+      join(bezier(p(0.65, 0.37), p(0.8, 0.37), p(0.84, 0.48), p(0.79, 0.53)), poly([0.79, 0.53], [0.65, 0.53], [0.65, 0.37])),
+    ], complexity: 3, angularStrokes: [0, 1, 2, 3, 4], strokeColors: [PICTURE_INK.red, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.blue],
+  }),
+  makeTask({
+    id: 'shape-hot-air-balloon', category: 'shapes', title: 'Heißluftballon', speech: 'Male einen Heißluftballon mit Korb.', label: 'Heißluftballon',
+    strokes: [
+      join(bezier(p(0.5, 0.13), p(0.11, 0.13), p(0.17, 0.43), p(0.38, 0.61)), poly([0.38, 0.61], [0.62, 0.61]), bezier(p(0.62, 0.61), p(0.83, 0.43), p(0.89, 0.13), p(0.5, 0.13))),
+      bezier(p(0.5, 0.13), p(0.32, 0.3), p(0.39, 0.49), p(0.43, 0.61)),
+      bezier(p(0.5, 0.13), p(0.68, 0.3), p(0.61, 0.49), p(0.57, 0.61)),
+      poly([0.34, 0.71], [0.66, 0.71], [0.62, 0.87], [0.38, 0.87], [0.34, 0.71]),
+      poly([0.38, 0.61], [0.4, 0.71]), poly([0.62, 0.61], [0.6, 0.71]),
+    ], complexity: 3, angularStrokes: [0, 3, 4, 5], strokeColors: [PICTURE_INK.red, PICTURE_INK.yellow, PICTURE_INK.yellow, PICTURE_INK.brown, PICTURE_INK.brown, PICTURE_INK.brown],
+  }),
+  makeTask({
+    id: 'shape-ufo', category: 'shapes', title: 'Ufo', speech: 'Male ein Ufo mit Lichtstrahlen.', label: 'Ufo',
+    strokes: [
+      arc(0.5, 0.438, 0.21, 0.23, 180, 360, 40), arc(0.5, 0.52, 0.37, 0.1, 180, 540, 48),
+      poly([0.37, 0.614], [0.26, 0.86]), poly([0.63, 0.614], [0.74, 0.86]),
+    ], complexity: 3, angularStrokes: [2, 3], strokeColors: [PICTURE_INK.blue, PICTURE_INK.purple, PICTURE_INK.yellow, PICTURE_INK.yellow],
+  }),
+  makeTask({
+    id: 'shape-snowman', category: 'shapes', title: 'Schneemann', speech: 'Male einen Schneemann mit Karottennase.', label: 'Schneemann',
+    strokes: [
+      arc(0.5, 0.64, 0.23, 0.23, -90, 270, 44), arc(0.5, 0.28, 0.13, 0.13, 90, 450, 32),
+      poly([0.303, 0.521], [0.15, 0.43]), poly([0.697, 0.521], [0.85, 0.43]),
+      [p(0.45, 0.25)], [p(0.55, 0.25)], poly([0.5, 0.29], [0.62, 0.32], [0.5, 0.35]),
+    ], complexity: 3, angularStrokes: [2, 3, 6], strokeColors: [PICTURE_INK.blue, PICTURE_INK.blue, PICTURE_INK.brown, PICTURE_INK.brown, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.orange],
   }),
 ];
 

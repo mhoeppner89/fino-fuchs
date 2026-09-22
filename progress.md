@@ -743,3 +743,30 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
   radio control. Root/testversion runtime copies match.
 - No remaining implementation TODOs. Human-labeled examples remain the right
   source for future evaluator tuning.
+
+## 2026-09-22 — equal train wheels, circular planet and 30 new pictures (v1.3.46)
+
+- User clarified the two faults: different train wheel sizes and an incomplete
+  blue planet outline. Both wheels now have radius 0.1 and the same centre
+  height/baseline. Planet uses a full circle and tilted ellipse, two strokes.
+  Added a geometry regression for equal wheels and the closed circular outline.
+- Added 30 distinct pictures: leaf, moon, cloud, mountains, cactus, tulip, pear,
+  cherries, carrot, cupcake, watermelon, cat, rabbit, whale, turtle, owl,
+  penguin, jellyfish, ladybug, crab, cup, tent, pencil, envelope, key, truck,
+  helicopter, hot-air balloon, UFO and snowman. The catalogue now has 66 tasks
+  (12 basic shapes + 54 pictures). New pictures have 1–7 strokes; 24 use 2–6.
+  Kept generous details, simple silhouettes, planned colours, and existing IDs.
+- Calibration scope counts now follow the catalogue (66 shapes, 135 combined).
+  Letter/digit review still contains 69 targets. Root/testversion copies and
+  offline version identifiers are synchronized. Evaluator logic is unchanged.
+- Verification: the full existing suite passed 146 tests, including all-picture
+  child variations on four viewports and all wrong-target pairs. The new wheel
+  and circle regression passed separately; release/version checks passed after
+  the version bump. No recognition exceptions or tolerance changes were needed.
+- Chromium and WebKit each rendered/accepted exact traces for all 66 targets,
+  checked calibration scope counts and train/planet/penguin previews, and used
+  actual pointer input (including eye taps) to finish the new penguin on hard.
+  Both advanced correctly with zero console/page errors. Visually inspected
+  browser contact sheets for all 32 affected pictures and both browser engines.
+  Artifacts: test-artifacts/pictures-v146/ (including browser/report.json).
+- No remaining implementation TODOs.

@@ -1,9 +1,9 @@
-import { buildReviewSession, EXERCISE_BANKS } from './curriculum.js?v=1.3.45';
+import { buildReviewSession, EXERCISE_BANKS } from './curriculum.js?v=1.3.46';
 
 const STORAGE_KEY = 'fino-calibration-dataset-v1';
 const ATTEMPTS_PER_TARGET = 5;
 const CANVAS_BACKGROUND = [255, 252, 247];
-const VERSION = '1.3.45';
+const VERSION = '1.3.46';
 const $ = (selector) => document.querySelector(selector);
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -61,6 +61,9 @@ const targetSets = {
   shapes: EXERCISE_BANKS.shapes.map((task) => ({ ...task, calibrationCategory: task.category })),
 };
 targetSets.all = [...targetSets.glyphs, ...targetSets.shapes];
+for (const option of elements.scope.options) {
+  option.textContent = option.textContent.replace(/\(\d+\)$/, `(${targetSets[option.value].length})`);
+}
 
 const dataset = loadDataset();
 

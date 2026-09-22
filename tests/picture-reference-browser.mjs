@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { chromium, webkit } from 'playwright';
 
-const output = 'test-artifacts/pictures/browser';
+const output = 'test-artifacts/pictures-v146/browser';
 mkdirSync(output, { recursive: true });
 const report = [];
 for (const [engine, launcher] of Object.entries({ chromium, webkit })) {
@@ -13,25 +13,42 @@ for (const [engine, launcher] of Object.entries({ chromium, webkit })) {
     page.on('pageerror', (error) => errors.push(error.message));
     page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
     await page.goto('http://127.0.0.1:4173/testversion/calibration.html');
+    await page.locator('#scope-select').selectOption('shapes');
     await page.locator('#mode-select').selectOption('whole');
-    for (const ch of ['b', '3', '6']) {
+    assert.equal(await page.locator('#scope-select option[value="shapes"]').textContent(), 'Nur Formen (66)');
+    assert.equal(await page.locator('#scope-select option[value="all"]').textContent(), 'Buchstaben, Zahlen + Formen (135)');
+    for (const ch of ['Planet', 'Zug', 'Pinguin']) {
       await page.locator('.target-row').filter({ has: page.locator('strong', { hasText: new RegExp(`^${ch}$`) }) }).click();
-      assert.equal(JSON.parse(await page.evaluate(() => window.render_game_to_text())).target.label, ch);
+      const state = JSON.parse(await page.evaluate(() => window.render_game_to_text()));
+      assert.equal(state.target.label, ch);
+      assert.equal(state.target.total, 66);
       await page.locator('#calibration-canvas').screenshot({ path: `${output}/${engine}-${ch}.png` });
     }
     await page.goto('http://127.0.0.1:4173/testversion/?test');
     await page.locator('[data-category="shapes"]').click();
     await page.locator('label:has(input[name="difficulty"][value="hard"])').click();
+    // Select a real session beginning with a new picture that includes taps.
+    await page.evaluate(async () => {
+      const { buildSession, seededRandom } = await import('./js/curriculum.js?v=1.3.46');
+      for (let seed = 1; seed < 1000; seed++) {
+        if (buildSession({ category: 'shapes', difficulty: 'hard', rng: seededRandom(seed) })[0].id === 'shape-penguin') {
+          Math.random = seededRandom(seed);
+          return;
+        }
+      }
+      throw new Error('No penguin session seed found');
+    });
     await page.locator('#start-button').click();
     await page.waitForFunction(() => window.__fuchsschrift?.board.task);
     // Use the live board renderer for every finished picture, then restore the
     // real session task before testing demonstration and pointer completion.
     const original = await page.evaluate(() => window.__fuchsschrift.board.task);
-    const tasks = await page.evaluate(async () => (await import('./js/curriculum.js?v=1.3.45')).EXERCISE_BANKS.shapes.map(t => ({ id: t.id, title: t.title })));
+    assert.equal(original.id, 'shape-penguin');
+    const tasks = await page.evaluate(async () => (await import('./js/curriculum.js?v=1.3.46')).EXERCISE_BANKS.shapes.map(t => ({ id: t.id, title: t.title })));
     for (const task of tasks) {
       const pass = await page.evaluate(async (id) => {
-        const { EXERCISE_BANKS, adaptTaskToViewport } = await import('./js/curriculum.js?v=1.3.45');
-        const { passesDrawingCriteria } = await import('./js/drawing.js?v=1.3.45');
+        const { EXERCISE_BANKS, adaptTaskToViewport } = await import('./js/curriculum.js?v=1.3.46');
+        const { passesDrawingCriteria } = await import('./js/drawing.js?v=1.3.46');
         const board = window.__fuchsschrift.board;
         const target = adaptTaskToViewport(EXERCISE_BANKS.shapes.find(t => t.id === id), { width: board.width, height: board.height });
         board.setTask(target, 'easy');
@@ -65,7 +82,7 @@ for (const [engine, launcher] of Object.entries({ chromium, webkit })) {
     }
     await page.waitForFunction((index) => window.__fuchsschrift.getState().index > index, initial);
     assert.deepEqual(errors, []);
-    report.push({ engine, rendered: tasks.length, calibration: ['b', '3', '6'], demonstratedAndDrawn: original.id, advanced: true, errors });
+    report.push({ engine, rendered: tasks.length, calibration: ['Planet', 'Zug', 'Pinguin'], demonstratedAndDrawn: original.id, advanced: true, errors });
   } finally { await browser.close(); }
 }
 writeFileSync(`${output}/report.json`, JSON.stringify(report, null, 2));

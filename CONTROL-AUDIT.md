@@ -1,6 +1,6 @@
 # Stroke acceptance audit
 
-## Current runtime status (v1.3.45)
+## Current runtime status (v1.3.46)
 
 The live child-facing evaluator is back on the earlier symmetric closest-line
 MSE implementation in `js/drawing.js`. The later sequential `StrokeProgress`
@@ -73,6 +73,17 @@ polygon strokes retain the existing vertex perturbation. The far-away trace
 probe now uses 2.2 tolerance bands for every glyph: its previous 1.5-band probe
 was borderline for 3 after removing the waist spur. Runtime tolerances and
 acceptance logic have not been changed.
+
+### Picture expansion (v1.3.46)
+
+The train now has equal circular wheels on one baseline. The planet now uses
+one complete circular blue outline and one complete tilted ring. Thirty new
+pictures expand Formen to 66 targets (12 basic shapes, 54 pictures). New
+pictures use one to seven strokes, with 24 of the 30 using two to six. They
+cover nature, food, animals, everyday objects and vehicles. Existing task IDs
+and their order are preserved; additions are appended. Calibration includes
+135 targets when letters, digits and shapes are combined, and its displayed
+counts now come from the actual catalogue. MSE rules are unchanged.
 
 The sections below document the superseded sequential experiment for history;
 their acceptance rules are not active in the current app.

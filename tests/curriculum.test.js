@@ -33,13 +33,13 @@ const geometryKey = (task) => JSON.stringify(task.strokes.map((stroke) => stroke
 
 test('every activity has distinct exercises, without repeated shape variants', () => {
   const banks = { ...EXERCISE_BANKS, name: createNameExerciseBank('Käthe') };
-  const expectedSizes = { lines: 100, shapes: 36, numbers: 100, letters: 101, maze: 100, connect: 100, mixed: 100, name: 100 };
+  const expectedSizes = { lines: 100, shapes: 66, numbers: 100, letters: 101, maze: 100, connect: 100, mixed: 100, name: 100 };
   Object.entries(banks).forEach(([category, bank]) => {
     assert.equal(bank.length, expectedSizes[category], `${category} bank size`);
     assert.equal(new Set(bank.map((task) => task.id)).size, expectedSizes[category], `${category} IDs`);
     assert.equal(new Set(bank.map(geometryKey)).size, expectedSizes[category], `${category} paths`);
   });
-  assert.equal(TASKS.length, 637);
+  assert.equal(TASKS.length, 667);
   assert.deepEqual(EXERCISE_BANKS.shapes.map((task) => task.id), [
     'shape-circle', 'shape-oval', 'shape-square', 'shape-triangle', 'shape-cross',
     'shape-diamond', 'shape-heart', 'shape-star', 'shape-rectangle', 'shape-pentagon',
@@ -48,6 +48,12 @@ test('every activity has distinct exercises, without repeated shape variants', (
     'shape-tree', 'shape-ice-cream', 'shape-rainbow', 'shape-car', 'shape-butterfly',
     'shape-snail', 'shape-umbrella', 'shape-mushroom', 'shape-bird', 'shape-present',
     'shape-crown', 'shape-castle', 'shape-train', 'shape-planet', 'shape-apple', 'shape-bee',
+    'shape-leaf', 'shape-moon', 'shape-cloud', 'shape-mountains', 'shape-cactus',
+    'shape-tulip', 'shape-pear', 'shape-cherries', 'shape-carrot', 'shape-cupcake',
+    'shape-watermelon', 'shape-cat', 'shape-rabbit', 'shape-whale', 'shape-turtle',
+    'shape-owl', 'shape-penguin', 'shape-jellyfish', 'shape-ladybug', 'shape-crab',
+    'shape-cup', 'shape-tent', 'shape-pencil', 'shape-envelope', 'shape-key',
+    'shape-truck', 'shape-helicopter', 'shape-hot-air-balloon', 'shape-ufo', 'shape-snowman',
   ]);
 });
 
@@ -60,7 +66,7 @@ test('new picture shapes are staged and use planned, fitting stroke colours', ()
   pictureIds.forEach((id) => {
     const task = EXERCISE_BANKS.shapes.find((candidate) => candidate.id === id);
     assert.ok(task, `missing ${id}`);
-    assert.ok(task.strokes.length >= 3, `${id} should have several drawing stages`);
+    assert.ok(task.strokes.length >= 2, `${id} should have several drawing stages`);
     assert.equal(task.strokeColors.length, task.strokes.length, `${id} needs a colour for every stroke`);
     assert.ok(task.strokeColors.every((color) => /^#[0-9A-F]{6}$/i.test(color)), `${id} has an invalid colour`);
   });
@@ -631,6 +637,22 @@ test('the refined picture catalogue keeps clear child-readable silhouettes', () 
   assert.ok(tree.strokes[1].length > 60, 'tree crown should be a smooth leafy silhouette');
   assert.ok(Math.max(...butterfly.strokes[0].map((point) => point.x)) <= 0.5);
   assert.ok(Math.min(...butterfly.strokes[1].map((point) => point.x)) >= 0.5);
+});
+
+test('the train wheels share a size and baseline and the planet has a complete circular outline', () => {
+  const train = EXERCISE_BANKS.shapes.find((task) => task.id === 'shape-train');
+  const sizes = train.strokes.slice(1, 3).map((stroke) => ({
+    width: (Math.max(...stroke.map(p => p.x)) - Math.min(...stroke.map(p => p.x))) * 900,
+    height: (Math.max(...stroke.map(p => p.y)) - Math.min(...stroke.map(p => p.y))) * 620,
+    bottom: Math.max(...stroke.map(p => p.y)),
+  }));
+  assert.ok(Math.abs(sizes[0].width - sizes[1].width) < 1e-8);
+  assert.ok(Math.abs(sizes[0].height - sizes[1].height) < 1e-8);
+  assert.equal(sizes[0].bottom, sizes[1].bottom);
+  const outline = EXERCISE_BANKS.shapes.find((task) => task.id === 'shape-planet').strokes[0];
+  assert.ok(Math.hypot(outline[0].x - outline.at(-1).x, outline[0].y - outline.at(-1).y) < 1e-8);
+  const radii = outline.map(p => Math.hypot((p.x - 0.5) * 900, (p.y - 0.5) * 620));
+  assert.ok(Math.max(...radii) - Math.min(...radii) < 1e-8, 'every outline point lies on the same circle');
 });
 
 test('measured board space chooses fewer targets in portrait and a row in landscape', () => {

@@ -1,4 +1,4 @@
-# Testversion v1.3.45
+# Testversion v1.3.46
 
 Aktueller statischer Schnappschuss der Laufzeitdateien.
 
@@ -18,7 +18,7 @@ Der Kalibrierer nimmt fünf isolierte Versuche je Strich und optional fünf
 Gesamtzeichen je Ziel auf. Jede Rohspur erhält ein Ja/Nein-Label, einfache
 Geometriemerkmale und den Zielkatalog. Die Daten bleiben lokal im Browser und
 können als JSON exportiert werden.
-Zum Durchsehen der 36 Formen und Bilder im Kalibrierer **Nur Formen** und
+Zum Durchsehen der 66 Formen und Bilder im Kalibrierer **Nur Formen** und
 **Gesamtzeichen** auswählen.
 
 Zum Aktualisieren die Laufzeitdateien `index.html`, `styles.css`,
