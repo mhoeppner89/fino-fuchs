@@ -3,8 +3,8 @@
 import {
   CHARACTER_TEMPLATE_SHEETS,
   characterTemplateCrop,
-} from './handwriting-template-data.js?v=1.3.49';
-import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.49';
+} from './handwriting-template-data.js?v=1.3.50';
+import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.50';
 import {
   connectInkWidthForBoard,
   connectTrailCollision,
@@ -12,7 +12,9 @@ import {
   mazeWallCollision,
   nextMazeSolutionPoint,
   pointDistanceInPixels,
-} from './mini-games.js?v=1.3.49';
+  planConnectContinuation,
+  connectHintRoute,
+} from './mini-games.js?v=1.3.50';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -1435,8 +1437,10 @@ export class DrawingBoard {
     this.assist = 'easy';
     this.userStrokes = [];
     this.strokeColors = [];
+    this.inkColor = null;
     this.activeStroke = null;
     this.activePointerId = null;
+    this.gameDragOffset = null;
     this.lastPenAt = 0;
     this.demoProgress = null;
     this.demoStrokeIndexes = [];
@@ -1571,6 +1575,15 @@ export class DrawingBoard {
       cancelAnimationFrame(this.jumpFrame);
     }
     this.render();
+  }
+
+  setInkColor(color) {
+    this.inkColor = typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color) ? color : null;
+    this.requestRender();
+  }
+
+  colorForStroke(index) {
+    return this.inkColor ?? this.task?.strokeColors?.[index] ?? inkColorAt(index);
   }
 
   /**
@@ -1936,8 +1949,8 @@ export class DrawingBoard {
     if (!this.task?.game || !this.gameState || this.demoResolve) return Promise.resolve();
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (this.task.gameMode === 'connect') {
-      const route = this.task.game.solutionStrokes?.[this.gameState.reachedIndex]
-        ?? [this.task.game.points[this.gameState.reachedIndex], this.task.game.points[this.gameState.reachedIndex + 1]];
+      const route = connectHintRoute(this.task.game, this.userStrokes, this.gameState.reachedIndex, this.width, this.height);
+      if (!route?.length) return Promise.resolve();
       const routeLength = polylineLength(route, this.width, this.height);
       const duration = reducedMotion ? 1 : clamp((routeLength / 250) * 1000, 450, 1900);
       this.gameState.hintUntil = performance.now() + duration;
@@ -2068,6 +2081,9 @@ export class DrawingBoard {
   }
 
   demoFoxPosition() {
+    if (this.gameHint?.type === 'connect-route') {
+      return pointAlongGuidePath(this.gameHint.route, this.gameHint.progress, this.width, this.height, false)?.point ?? null;
+    }
     if (this.gameHint) {
       return {
         x: (this.gameHint.from.x + (this.gameHint.to.x - this.gameHint.from.x) * this.gameHint.progress) * this.width,
@@ -2092,12 +2108,15 @@ export class DrawingBoard {
     };
   }
 
-  pointFromEvent(event) {
+  pointFromEvent(event, { unbounded = false } = {}) {
     const rect = this.canvas.getBoundingClientRect();
-    const normalized = toNormalized({
+    const position = {
       x: event.clientX - rect.left,
       y: event.clientY - rect.top,
-    }, this.width, this.height);
+    };
+    const normalized = unbounded
+      ? { x: position.x / this.width, y: position.y / this.height }
+      : toNormalized(position, this.width, this.height);
     return {
       ...normalized,
       pressure: event.pressure > 0 ? event.pressure : event.pointerType === 'mouse' ? 0.5 : 0.45,
@@ -2127,7 +2146,7 @@ export class DrawingBoard {
     this.activePointerId = event.pointerId;
     this.activeStroke = [point];
     this.userStrokes.push(this.activeStroke);
-    this.strokeColors.push(this.task.strokeColors?.[guideStrokeIndex] ?? inkColorAt(this.userStrokes.length - 1));
+    this.strokeColors.push(this.inkColor ?? this.task.strokeColors?.[guideStrokeIndex] ?? inkColorAt(this.userStrokes.length - 1));
     if (penFollowingFino && this.finoEnabled) {
       const target = toPixels(point, this.width, this.height);
       const bounds = drawingBounds(this.width, this.height);
@@ -2208,6 +2227,10 @@ export class DrawingBoard {
   }
 
   onGamePointerUp(event) {
+    if (this.activeStroke && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+      this.onGamePointerMove(event);
+      if (this.activePointerId !== event.pointerId) return;
+    }
     this.activePointerId = null;
     if (this.task.gameMode === 'connect') {
       if (this.userStrokes.at(-1) === this.activeStroke) {
@@ -2264,6 +2287,7 @@ export class DrawingBoard {
   }
 
   onGamePointerDown(event, point) {
+    if (this.gameState?.status === 'complete') return;
     const game = this.task.game;
     const current = this.task.gameMode === 'maze'
       ? this.gameState.endpoint ?? game.start
@@ -2279,26 +2303,10 @@ export class DrawingBoard {
     }
 
     const anchoredStart = { ...current, pressure: point.pressure, time: point.time };
-    if (pointDistanceInPixels(point, current, this.width, this.height) > 1.5) {
-      const clearance = this.task.gameMode === 'maze'
-        ? game.wallWidth / 2 + inkWidthForBoard(this.width, this.height, this.task) / 2 + 2
-        : game.clearance ?? inkWidthForBoard(this.width, this.height, this.task) + (game.complexity >= 4 ? 7 : game.complexity >= 3 ? 5 : 3);
-      const blocked = this.task.gameMode === 'maze'
-        ? mazeWallCollision(anchoredStart, point, game, this.width, this.height, clearance)
-        : connectTrailCollision(anchoredStart, point, {
-          lockedStrokes: this.userStrokes,
-          activeStroke: [anchoredStart],
-          anchor: current,
-          width: this.width,
-          height: this.height,
-          clearance,
-          junctionRadius: game.hitRadius + 6,
-          // The child may begin anywhere inside the generous number target.
-          // Keep that whole first movement clear of the line ending there.
-          sharedEndpointRadius: game.hitRadius + clearance + 6,
-        });
-      if (blocked) {
-        this.showGameError(this.task.gameMode === 'maze' ? 'wall' : 'crossing', [anchoredStart, point]);
+    if (this.task.gameMode === 'maze' && pointDistanceInPixels(point, current, this.width, this.height) > 1.5) {
+      const clearance = game.wallWidth / 2 + inkWidthForBoard(this.width, this.height, this.task) / 2 + 2;
+      if (mazeWallCollision(anchoredStart, point, game, this.width, this.height, clearance)) {
+        this.showGameError('wall', [anchoredStart, point]);
         return;
       }
     }
@@ -2306,10 +2314,14 @@ export class DrawingBoard {
     this.stopDemo({ render: false });
     this.activePointerId = event.pointerId;
     this.activeStroke = [anchoredStart];
-    if (pointDistanceInPixels(point, current, this.width, this.height) > 1.5) this.activeStroke.push(point);
+    // Grabbing a fox by its tail must not fling it from the number towards
+    // the finger. Preserve the pickup offset and follow only the drag motion.
+    this.gameDragOffset = this.task.gameMode === 'connect'
+      ? { x: point.x - current.x, y: point.y - current.y } : null;
+    if (this.task.gameMode === 'maze' && pointDistanceInPixels(point, current, this.width, this.height) > 1.5) this.activeStroke.push(point);
     this.userStrokes.push(this.activeStroke);
     const colorIndex = this.task.gameMode === 'connect' ? this.gameState.reachedIndex : this.userStrokes.length - 1;
-    this.strokeColors.push(this.task.strokeColors?.[colorIndex] ?? inkColorAt(colorIndex));
+    this.strokeColors.push(this.colorForStroke(colorIndex));
     this.gameState.status = 'drawing';
     this.canvas.setPointerCapture?.(event.pointerId);
     this.hooks.onStrokeStart?.();
@@ -2321,7 +2333,12 @@ export class DrawingBoard {
     const events = pointerSamples(event, this.isWebKit);
     for (const item of events) {
       if (!this.activeStroke) return;
-      const point = this.pointFromEvent(item);
+      // Pointer capture permits the finger to leave the canvas while Fino
+      // remains inside it. Apply the pickup offset before clamping his position.
+      const rawPoint = this.pointFromEvent(item, { unbounded: this.task.gameMode === 'connect' });
+      const point = this.task.gameMode === 'connect' && this.gameDragOffset
+        ? { ...rawPoint, x: clamp(rawPoint.x - this.gameDragOffset.x, 0, 1), y: clamp(rawPoint.y - this.gameDragOffset.y, 0, 1) }
+        : rawPoint;
       const last = this.activeStroke.at(-1);
       const minimumSampleDistance = this.task.gameMode === 'connect'
         ? Math.max(2.2, Math.min(this.width, this.height) / 280)
@@ -2351,11 +2368,10 @@ export class DrawingBoard {
         }
       } else {
         const target = this.task.game.points[this.gameState.reachedIndex + 1];
-        const targetHit = firstCircleHit(last, point, target, this.task.game.hitRadius, this.width, this.height);
-        const testedPoint = targetHit ?? point;
+        let targetHit = firstCircleHit(last, point, target, this.task.game.hitRadius, this.width, this.height);
         const lockedStrokes = this.userStrokes.slice(0, -1);
         const anchor = this.task.game.points[this.gameState.reachedIndex];
-        if (connectTrailCollision(last, testedPoint, {
+        const collisionOptions = {
           lockedStrokes,
           activeStroke: this.activeStroke,
           anchor,
@@ -2366,7 +2382,12 @@ export class DrawingBoard {
           junctionRadius: this.task.game.hitRadius + 6,
           sharedEndpointRadius: this.task.game.hitRadius
             + (this.task.game.clearance ?? inkWidthForBoard(this.width, this.height, this.task)) + 6,
-        })) {
+        };
+        // Entering the generous target circle must not snap through an old
+        // line to its centre. Keep dragging until the arrival is clear.
+        if (targetHit && connectTrailCollision(targetHit, target, collisionOptions)) targetHit = null;
+        const testedPoint = targetHit ?? point;
+        if (connectTrailCollision(last, testedPoint, collisionOptions)) {
           this.activeStroke.push(testedPoint);
           this.rejectGameStroke(event, 'crossing');
           return;
@@ -2415,6 +2436,16 @@ export class DrawingBoard {
   }
 
   finishGameStroke(event, { complete = false } = {}) {
+    if (this.task.gameMode === 'connect' && !complete) {
+      const nextRoute = planConnectContinuation(this.task.game, this.userStrokes, this.gameState.reachedIndex + 1, this.width, this.height);
+      if (!nextRoute) {
+        // Keep the already completed links, but roll back this last link if
+        // it would seal off any later number. The current puzzle stays playable.
+        this.rejectGameStroke(event, 'blocked');
+        this.startGameHint();
+        return;
+      }
+    }
     this.activeStroke = simplifyStroke(this.activeStroke, this.width, this.height);
     this.userStrokes[this.userStrokes.length - 1] = this.activeStroke;
     this.activePointerId = null;
@@ -3001,14 +3032,14 @@ export class DrawingBoard {
       : null;
     if (target) {
       this.drawPoint(context, target, game.pointRadius, {
-        color: this.task.strokeColors?.[reached] ?? inkColorAt(reached),
+        color: this.colorForStroke(reached),
         number: reached + 2,
         pulse,
       });
     }
     if (current) {
       const currentPixel = toPixels(current, this.width, this.height);
-      this.drawPoint(context, current, game.pointRadius * 0.78, {
+      this.drawPoint(context, current, game.pointRadius, {
         color: '#F08A45', number: reached + 1,
       });
       if (!this.activeStroke?.length && !routeHint) this.drawGuideFox(context, currentPixel, 0);

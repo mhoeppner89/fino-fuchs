@@ -6,13 +6,13 @@ import {
   DIFFICULTIES,
   normalizeName,
   reflowTaskWithInk,
-} from './curriculum.js?v=1.3.49';
+} from './curriculum.js?v=1.3.50';
 import {
   DrawingBoard,
   evaluateTaskDrawing,
   feedbackForEvaluation,
   passesDrawingCriteria,
-} from './drawing.js?v=1.3.49';
+} from './drawing.js?v=1.3.50';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -52,6 +52,8 @@ const elements = {
   clearButton: $('#clear-button'),
   undoButton: $('#undo-button'),
   showButton: $('#show-button'),
+  inkButton: $('#ink-button'),
+  inkPalette: $('#ink-palette'),
   finishSummary: $('#finish-summary'),
   repeatButton: $('#repeat-button'),
   homeButton: $('#home-button'),
@@ -187,6 +189,7 @@ function toggleSound() {
 }
 
 function showScreen(name) {
+  closeInkPalette();
   const target = name === 'home' ? elements.homeScreen : name === 'practice' ? elements.practiceScreen : elements.finishScreen;
   elements.screens.forEach((screen) => {
     const active = screen === target;
@@ -389,6 +392,7 @@ function updateRoundControls() {
   elements.clearButton.disabled = disabled || !hasInk;
   elements.undoButton.disabled = disabled || !hasInk;
   elements.showButton.disabled = disabled;
+  elements.inkButton.disabled = disabled;
   elements.fullscreenButton.disabled = state.transitioning;
   updateFinoButton();
 }
@@ -721,6 +725,7 @@ board = new DrawingBoard(elements.drawingCanvas, {
     updateRoundControls();
   },
   onStrokeStart() {
+    closeInkPalette();
     clearAutoCheck();
     // The child is starting a fresh pen movement: the previous Fino demo no
     // longer reflects what the child is about to draw, so the next guide
@@ -748,6 +753,7 @@ board = new DrawingBoard(elements.drawingCanvas, {
       start: 'Starte direkt bei Fino.',
       wall: 'Fast! Bleib zwischen den Wänden.',
       crossing: 'Fast! Berühre keine alte Linie.',
+      blocked: 'Hier wäre der nächste Weg zu. Fino zeigt dir einen anderen Weg.',
     };
     const message = messages[reason] ?? 'Probier es noch einmal.';
     elements.practiceStatus.textContent = message;
@@ -760,6 +766,42 @@ board = new DrawingBoard(elements.drawingCanvas, {
   onResize() {
     handleBoardResize();
   },
+});
+
+function closeInkPalette() {
+  elements.inkPalette.hidden = true;
+  elements.inkButton.setAttribute('aria-expanded', 'false');
+}
+
+elements.inkButton.addEventListener('click', () => {
+  if (board.isDrawing()) return;
+  const open = elements.inkPalette.hidden;
+  elements.inkPalette.hidden = !open;
+  elements.inkButton.setAttribute('aria-expanded', String(open));
+});
+elements.inkPalette.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-ink-color]');
+  if (!button || board.isDrawing()) return;
+  board.setInkColor(button.dataset.inkColor || null);
+  $$('[data-ink-color]', elements.inkPalette).forEach((swatch) => {
+    swatch.setAttribute('aria-pressed', String(swatch === button));
+  });
+  const preview = elements.inkButton.querySelector('.ink-preview');
+  preview.classList.toggle('is-auto', !board.inkColor);
+  preview.style.setProperty('--ink-color', board.inkColor ?? '');
+  elements.inkButton.setAttribute('aria-label', `Farbe wählen: ${button.title}`);
+  closeInkPalette();
+  elements.inkButton.focus();
+});
+document.addEventListener('pointerdown', (event) => {
+  if (!event.target.closest('.ink-picker')) closeInkPalette();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !elements.inkPalette.hidden) {
+    closeInkPalette();
+    elements.inkButton.focus();
+    event.stopImmediatePropagation();
+  }
 });
 
 elements.activityCards.forEach((card) => {
@@ -909,6 +951,7 @@ window.render_game_to_text = () => JSON.stringify({
   assist: state.activeTask?.assist ?? null,
   userStrokes: board.getUserStrokes().length,
   inkColors: board.getUserStrokeColors(),
+  selectedInkColor: board.inkColor,
   fino: { enabled: true, mode: 'preview' },
   game: board.gameSnapshot(),
 });

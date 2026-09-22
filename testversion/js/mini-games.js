@@ -420,8 +420,8 @@ export function layoutConnect(spec, viewport = {}) {
   let detourStages = [];
   let previousCross = 0.5;
 
-  const pointRadius = clamp(Math.min(width, height) * 0.043, 16, 28);
-  const hitRadius = clamp(Math.min(width, height) * 0.078, 30, 50);
+  const pointRadius = clamp(Math.min(width, height) * 0.055, 24, 38);
+  const hitRadius = clamp(Math.min(width, height) * 0.082, 38, 54);
   const inkWidth = connectInkWidthForBoard(width, height);
   const clearance = connectCollisionClearanceForBoard(width, height, level);
   // Route generation stays deliberately more conservative than collision
@@ -431,7 +431,7 @@ export function layoutConnect(spec, viewport = {}) {
   if (level >= 2) {
     const requiredDetours = level === 4 ? 4 : level === 3 ? 2 : 1;
     let best = null;
-    for (let attempt = 0; attempt < 16; attempt += 1) {
+    for (let attempt = 0; attempt < 128; attempt += 1) {
       const candidate = buildConnectChallenge(spec, {
         width,
         height,
@@ -444,15 +444,22 @@ export function layoutConnect(spec, viewport = {}) {
       });
       const candidateDetours = candidate.detourStages.filter(Boolean).length;
       const bestDetours = best?.detourStages.filter(Boolean).length ?? -1;
-      if (!best || candidate.points.length > best.points.length
-        || (candidate.points.length === best.points.length && candidateDetours > bestDetours)) best = candidate;
+      const better = !best || candidate.points.length > best.points.length
+        || (candidate.points.length === best.points.length && candidateDetours > bestDetours);
+      if (!better) continue;
+      const candidateGame = { ...candidate, hitRadius, clearance };
+      if (candidate.solutionStrokes.some((_, stage) => !planConnectContinuation(
+        candidateGame, candidate.solutionStrokes.slice(0, stage), stage, width, height,
+      ))) continue;
+      best = candidate;
       if (candidate.points.length === spec.count && candidateDetours >= requiredDetours) break;
     }
-    ({ points, solutionStrokes, detourStages } = best);
-  } else {
+    if (best?.points.length === spec.count) ({ points, solutionStrokes, detourStages } = best);
+  }
+  if (!points.length) {
     for (let index = 0; index < spec.count; index += 1) {
       const t = spec.count === 1 ? 0.5 : index / (spec.count - 1);
-      let cross = 0.5
+      let cross = level >= 2 ? (index % 2 ? 0.82 : 0.18) : 0.5
         + Math.sin(phase + index * frequency) * (0.22 + rng() * 0.1)
         + (rng() - 0.5) * 0.12;
       cross = clamp(cross, 0.1, 0.9);
@@ -677,6 +684,162 @@ export function connectSolutionStrokes(source) {
     Object.freeze({ ...points[index] }),
     Object.freeze({ ...point }),
   ]));
+}
+
+/**
+ * Find a playable next route against the child's actual ink, and check that
+ * every later number is still reachable. A precomputed solution alone cannot
+ * guarantee this once the child has chosen a different path.
+ * Returns null if a completed line would trap a remaining number.
+ */
+export function planConnectContinuation(game, lockedStrokes, reachedIndex, width, height) {
+  const anchor = game.points[reachedIndex];
+  const targets = game.points.slice(reachedIndex + 1);
+  if (!anchor || !targets.length) return [];
+  const clearance = game.clearance;
+  const anchorPixel = pixelPoint(anchor, width, height);
+  const safeRadius = game.hitRadius + clearance + 6;
+  const obstacles = lockedStrokes.flatMap(stroke => segmentsOf(stroke).flatMap(([a, b]) => (
+    segmentPartsOutsideCircle(pixelPoint(a, width, height), pixelPoint(b, width, height), anchorPixel, safeRadius)
+  )));
+  // Bucket the original segments; do not simplify away any real ink. This
+  // keeps route checks responsive even after long, densely sampled gestures.
+  const buckets = new Map();
+  const bucketSize = 32;
+  const bucketRange = (a, b, pad = 0) => [
+    Math.floor((Math.min(a.x, b.x) - pad) / bucketSize),
+    Math.floor((Math.max(a.x, b.x) + pad) / bucketSize),
+    Math.floor((Math.min(a.y, b.y) - pad) / bucketSize),
+    Math.floor((Math.max(a.y, b.y) + pad) / bucketSize),
+  ];
+  obstacles.forEach(([a, b], index) => {
+    const [x0, x1, y0, y1] = bucketRange(a, b, clearance);
+    for (let y = y0; y <= y1; y += 1) for (let x = x0; x <= x1; x += 1) {
+      const key = `${x}:${y}`;
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(index);
+    }
+  });
+  const clear = (a, b) => {
+    const [x0, x1, y0, y1] = bucketRange(a, b);
+    const seen = new Set();
+    for (let y = y0; y <= y1; y += 1) for (let x = x0; x <= x1; x += 1) {
+      for (const index of buckets.get(`${x}:${y}`) ?? []) {
+        if (seen.has(index)) continue;
+        seen.add(index);
+        if (segmentDistance(a, b, ...obstacles[index]) <= clearance) return false;
+      }
+    }
+    return true;
+  };
+  const targetPixels = targets.map(point => pixelPoint(point, width, height));
+  const routes = targets.map((target, index) => clear(anchorPixel, targetPixels[index]) ? [anchor, target] : null);
+  if (routes.every(Boolean)) return routes[0];
+
+  const inset = connectInkWidthForBoard(width, height) / 2 + 2;
+  const spacing = Math.max(7, clearance * 0.8);
+  const cols = Math.ceil((width - inset * 2) / spacing) + 1;
+  const rows = Math.ceil((height - inset * 2) / spacing) + 1;
+  const dx = (width - inset * 2) / (cols - 1);
+  const dy = (height - inset * 2) / (rows - 1);
+  const position = index => ({ x: inset + (index % cols) * dx, y: inset + Math.floor(index / cols) * dy });
+  const neighboursOfPoint = point => {
+    const cx = Math.round((point.x - inset) / dx), cy = Math.round((point.y - inset) / dy);
+    const result = [];
+    for (let y = Math.max(0, cy - 1); y <= Math.min(rows - 1, cy + 1); y += 1) {
+      for (let x = Math.max(0, cx - 1); x <= Math.min(cols - 1, cx + 1); x += 1) {
+        const index = y * cols + x;
+        if (clear(point, position(index))) result.push(index);
+      }
+    }
+    return result;
+  };
+  const goals = new Map();
+  targetPixels.forEach((point, targetIndex) => {
+    if (routes[targetIndex]) return;
+    for (const node of neighboursOfPoint(point)) {
+      if (!goals.has(node)) goals.set(node, []);
+      goals.get(node).push(targetIndex);
+    }
+  });
+  const parent = new Int32Array(cols * rows).fill(-2);
+  const queue = neighboursOfPoint(anchorPixel);
+  queue.forEach(node => { parent[node] = -1; });
+  let missing = routes.filter(route => !route).length;
+  for (let cursor = 0; cursor < queue.length && missing; cursor += 1) {
+    const node = queue[cursor];
+    for (const targetIndex of goals.get(node) ?? []) {
+      if (routes[targetIndex]) continue;
+      const path = [];
+      for (let step = node; step !== -1; step = parent[step]) path.push(position(step));
+      path.reverse();
+      const pixels = [anchorPixel, ...path, targetPixels[targetIndex]];
+      // Pull the grid route taut, always checking the whole shortcut.
+      const smooth = [pixels[0]];
+      for (let i = 0; i < pixels.length - 1;) {
+        let next = pixels.length - 1;
+        while (next > i + 1 && !clear(pixels[i], pixels[next])) next -= 1;
+        smooth.push(pixels[next]);
+        i = next;
+      }
+      routes[targetIndex] = smooth.map(point => normalizedPoint(point, width, height));
+      missing -= 1;
+    }
+    const a = position(node), x = node % cols, y = Math.floor(node / cols);
+    for (const [mx, my] of [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+      const nx = x + mx, ny = y + my;
+      if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+      const next = ny * cols + nx;
+      if (parent[next] !== -2 || !clear(a, position(next))) continue;
+      parent[next] = node;
+      queue.push(next);
+    }
+  }
+  return missing ? null : routes[0];
+}
+
+/** Choose a hint that also leaves the rest of the puzzle playable. */
+export function connectHintRoute(game, lockedStrokes, reachedIndex, width, height) {
+  const target = game.points[reachedIndex + 1];
+  if (!target) return [];
+  const options = {
+    lockedStrokes, anchor: game.points[reachedIndex], width, height,
+    clearance: game.clearance, sharedEndpointRadius: game.hitRadius + game.clearance + 6,
+  };
+  const playable = route => {
+    if (!route?.length) return null;
+    const actual = [route[0]];
+    // Match the game's early arrival at the target circle, including its
+    // final snap. That shortcut can change which later points stay reachable.
+    for (const point of route.slice(1)) {
+      const from = actual.at(-1);
+      const hit = firstCircleHit(from, point, target, game.hitRadius, width, height);
+      const collisionOptions = { ...options, activeStroke: actual };
+      if (hit && !connectTrailCollision(hit, target, collisionOptions)) {
+        if (connectTrailCollision(from, hit, collisionOptions)) return null;
+        actual.push(hit, target);
+        return planConnectContinuation(game, [...lockedStrokes, actual], reachedIndex + 1, width, height)
+          ? actual : null;
+      }
+      if (connectTrailCollision(from, point, collisionOptions)) return null;
+      actual.push(point);
+    }
+    return null;
+  };
+  const original = playable(game.solutionStrokes?.[reachedIndex]);
+  if (original) return original;
+  const route = playable(planConnectContinuation(game, lockedStrokes, reachedIndex, width, height));
+  if (route) return route;
+  // A straight shortcut may run over a later number. Protect those centres
+  // while finding an alternative, then validate against real ink alone.
+  const protectedPoints = game.points.slice(reachedIndex + 2).map(point => (
+    Array.from({ length: 17 }, (_, index) => ({
+      x: point.x + Math.cos(index * Math.PI / 8) * game.clearance * 1.5 / width,
+      y: point.y + Math.sin(index * Math.PI / 8) * game.clearance * 1.5 / height,
+    }))
+  ));
+  const nextOnly = { ...game, points: game.points.slice(0, reachedIndex + 2) };
+  return playable(planConnectContinuation(nextOnly, [...lockedStrokes, ...protectedPoints], reachedIndex, width, height));
 }
 
 export function nextMazeSolutionPoint(game, current, width = 900, height = 620) {

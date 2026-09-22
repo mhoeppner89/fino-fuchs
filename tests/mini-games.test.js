@@ -13,6 +13,7 @@ import {
   mazeWallCollision,
   nextMazeSolutionPoint,
   pointDistanceInPixels,
+  planConnectContinuation,
 } from '../js/mini-games.js';
 
 test('phone Funkelpunkte trails stay slim enough for hard corridors', () => {
@@ -86,8 +87,8 @@ test('all shipped point paths fit every screen and their intended route never cr
       const strokes = connectSolutionStrokes(game);
       assert.equal(game.points.length, spec.count, `point path ${seed} ended early`);
       assert.equal(strokes.length, game.points.length - 1);
-      assert.ok(game.pointRadius >= 16);
-      assert.ok(game.hitRadius >= 30);
+      assert.ok(game.pointRadius >= 24, 'number circles need a finger-sized visible area');
+      assert.ok(game.hitRadius >= 38);
       assert.ok(game.hitRadius > game.pointRadius, 'touch target must extend beyond the visible number circle');
       game.points.forEach((point) => {
         assert.ok(point.x > 0.02 && point.x < 0.98 && point.y > 0.02 && point.y < 0.98);
@@ -97,6 +98,8 @@ test('all shipped point paths fit every screen and their intended route never cr
         const to = game.points[index];
         const lockedStrokes = strokes.slice(0, index - 1);
         const route = strokes[index - 1];
+        assert.ok(planConnectContinuation(game, lockedStrokes, index - 1, viewport.width, viewport.height),
+          `point path ${seed} traps a future number at ${index} on ${viewport.width}x${viewport.height}`);
         const activeStroke = [route[0]];
         for (let routeIndex = 1; routeIndex < route.length; routeIndex += 1) {
           assert.equal(connectTrailCollision(route[routeIndex - 1], route[routeIndex], {

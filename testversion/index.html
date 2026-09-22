@@ -13,7 +13,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./assets/icons/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="./styles.css?v=1.3.49">
+  <link rel="stylesheet" href="./styles.css?v=1.3.50">
   <script>
     // Register before the app module loads. If an older installed version is
     // controlling this page, reload once as soon as the new worker takes over.
@@ -206,7 +206,7 @@
       </main>
       <footer class="privacy-line">
         <span>Ohne Konto · Ohne Werbung · Keine Datenübertragung</span>
-        <small class="app-version" aria-label="App-Version 1.3.49">v1.3.49</small>
+        <small class="app-version" aria-label="App-Version 1.3.50">v1.3.50</small>
       </footer>
     </section>
 
@@ -241,6 +241,23 @@
           <button class="icon-button practice-action-button" id="show-button" type="button" aria-label="Fino zeigt die Spur">
             <img class="fino-tool-icon" src="./assets/fox-face.svg" alt="" width="32" height="32">
           </button>
+          <div class="ink-picker">
+            <button class="icon-button practice-action-button" id="ink-button" type="button" aria-label="Farbe wählen" aria-expanded="false" aria-controls="ink-palette">
+              <span class="ink-preview is-auto" aria-hidden="true"></span>
+            </button>
+            <div class="ink-palette" id="ink-palette" role="group" aria-label="Zeichenfarbe" hidden>
+              <button type="button" class="ink-swatch is-auto" data-ink-color="" aria-label="Bunt: vorgegebene Farben" aria-pressed="true" title="Bunt"></button>
+              <button type="button" class="ink-swatch" data-ink-color="#DE6352" style="--ink-color: #DE6352" aria-label="Rot" aria-pressed="false" title="Rot"></button>
+              <button type="button" class="ink-swatch" data-ink-color="#DD8530" style="--ink-color: #DD8530" aria-label="Orange" aria-pressed="false" title="Orange"></button>
+              <button type="button" class="ink-swatch" data-ink-color="#D9AD32" style="--ink-color: #D9AD32" aria-label="Gelb" aria-pressed="false" title="Gelb"></button>
+              <button type="button" class="ink-swatch" data-ink-color="#58A765" style="--ink-color: #58A765" aria-label="Grün" aria-pressed="false" title="Grün"></button>
+              <button type="button" class="ink-swatch" data-ink-color="#3F8FB5" style="--ink-color: #3F8FB5" aria-label="Blau" aria-pressed="false" title="Blau"></button>
+              <button type="button" class="ink-swatch" data-ink-color="#9A63BA" style="--ink-color: #9A63BA" aria-label="Lila" aria-pressed="false" title="Lila"></button>
+              <button type="button" class="ink-swatch" data-ink-color="#C75C7B" style="--ink-color: #C75C7B" aria-label="Rosa" aria-pressed="false" title="Rosa"></button>
+              <button type="button" class="ink-swatch" data-ink-color="#966445" style="--ink-color: #966445" aria-label="Braun" aria-pressed="false" title="Braun"></button>
+              <button type="button" class="ink-swatch" data-ink-color="#485469" style="--ink-color: #485469" aria-label="Dunkelgrau" aria-pressed="false" title="Dunkelgrau"></button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -307,6 +324,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   </div>
-  <script type="module" src="./js/app.js?v=1.3.49"></script>
+  <script type="module" src="./js/app.js?v=1.3.50"></script>
 </body>
 </html>

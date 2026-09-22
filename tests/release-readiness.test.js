@@ -53,7 +53,6 @@ test('Funkelpunkte reuses a cached backdrop while drawing', () => {
   assert.match(drawing, /buildConnectBackdrop\(\)/);
   assert.match(drawing, /this\.connectBackdrop\?\.key === cacheKey/);
   assert.match(drawing, /context\.drawImage\(this\.buildConnectBackdrop\(\)/);
-  assert.match(drawing, /sharedEndpointRadius:\s*game\.hitRadius \+ clearance \+ 6/);
 });
 
 test('Safari drawing avoids spiky joins and expensive unstable samples', () => {

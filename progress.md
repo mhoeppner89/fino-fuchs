@@ -809,3 +809,36 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
   and completed them with real pointer input, with no browser errors. Inspected
   all six screenshots. Artifacts: test-artifacts/pictures-v149/.
 - Root/testversion runtime files match. No remaining implementation TODOs.
+
+## 2026-09-22 — colour palette and playable Funkelpunkte (v1.3.50)
+
+- Added a child-sized palette to the practice toolbar: nine colours plus Bunt
+  for the existing planned/automatic colours. Selection applies to new strokes
+  across activities and persists through task changes; undo and reflow keep
+  earlier stroke colours. Palette closes on selection, outside click or Escape.
+- Enlarged Funkelpunkte's visible circles (minimum radius 24px) and touch area
+  (minimum 38px); the current circle now uses the full radius too.
+- Fixed the off-centre pickup spur: Fino follows movement relative to where he
+  was grabbed. Apply the pickup offset before clamping, allowing edge routes.
+  Fast pen-up positions count, and target snapping may not cross existing ink.
+- Added spatially indexed route planning against the child's actual lines.
+  Generated challenges are checked for reachable future numbers; invalid
+  candidates are regenerated. A new line that traps a later point is rolled
+  back on its own, preserving prior links, and Fino demonstrates a safe route.
+  Hints validate both their actual early target arrival and future reachability.
+- Meaningful regressions cover pickup from four sides, fast release, canvas-edge
+  dragging, blocked target snaps, rerouted hints, trapped future numbers,
+  rollback preserving prior ink, and colour selection. Four previously trapped
+  generated cases are now regression fixtures (seeds 44, 64, 76, 92).
+- Verification: mini-game tests validate all 100 shipped layouts on seven
+  viewports, retain all difficulty/detour checks, and include future-point
+  reachability. All 100 puzzles also complete through real board input logic
+  and live hints on three viewports (300 full playthroughs). Drawing/pointer
+  regressions, release/version checks and syntax checks passed.
+- Chromium and WebKit both passed palette selection, retaining earlier colours,
+  undo, Bunt reset, and real off-centre Funkelpunkte completion on tablet,
+  portrait phone, landscape phone and compact landscape phone. Fino's hint was
+  exercised on the compact playthroughs. No browser errors. Inspected screenshots;
+  fixed the old six-button layout that clipped the palette on a 320px phone.
+- Artifacts: test-artifacts/palette-connect-v150/. Root/testversion match.
+  No remaining implementation TODOs.
