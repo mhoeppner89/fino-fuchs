@@ -18,11 +18,11 @@ import {
   guideStagesForTask,
   visibleGuideIndexes,
   nextGuideStrokeIndex,
+  passesDrawingCriteria,
   pointAlongGuidePath,
   strokeMatchesAnyRoute,
   usesPenFollowingFino,
 } from '../js/drawing.js';
-import { passes } from './oracle.js';
 
 const expected = [[{ x: 0.2, y: 0.2 }, { x: 0.8, y: 0.8 }]];
 
@@ -46,12 +46,12 @@ test('a slightly imperfect child-like trace remains acceptable', () => {
 });
 
 test('a child may trace inside a generous band without following the exact centre line', () => {
-  const task = { category: 'lines', id: 'band-vertical', strokes: [[{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.82 }]], completionGroups: [[0]] };
+  const vertical = [[{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.82 }]];
   const kindOffset = [[{ x: 0.56, y: 0.18 }, { x: 0.56, y: 0.82 }]];
   const tooFar = [[{ x: 0.65, y: 0.18 }, { x: 0.65, y: 0.82 }]];
-  const viewport = { width: 900, height: 620 };
-  assert.equal(passes(task, kindOffset, viewport), true);
-  assert.equal(passes(task, tooFar, viewport), false);
+  const options = { width: 900, height: 620, tolerance: 620 * 0.11, completionTolerance: 620 * 0.11 };
+  assert.equal(passesDrawingCriteria(evaluateDrawing(vertical, kindOffset, options), 'easy'), true);
+  assert.equal(passesDrawingCriteria(evaluateDrawing(vertical, tooFar, options), 'easy'), false);
 });
 
 test('an unrelated scribble scores substantially lower', () => {
@@ -78,18 +78,19 @@ test('stroke direction is measured independently', () => {
   assert.ok(result.coverage > 0.95);
 });
 
-test('a complete cross is recognised when drawn with two pen strokes', () => {
-  // The sequential validator completes the shape from two pen lifts; the
-  // joined-parts behaviour for truly connected teaching parts (an R bowl+leg)
-  // is covered by the stroke-validation suite.
+test('a complete cross can be recognised even when drawn as one continuous stroke', () => {
   const cross = [
     [{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.82 }],
     [{ x: 0.18, y: 0.5 }, { x: 0.82, y: 0.5 }],
   ];
-  const task = { category: 'shapes', id: 'shape-cross', strokes: cross, completionGroups: [[0, 1]] };
-  assert.equal(passes(task, cross, { width: 900, height: 620 }), true);
-  const result = evaluateDrawing(cross, cross, { width: 900, height: 600, tolerance: 600 * 0.068 });
+  const continuousCross = [[
+    { x: 0.5, y: 0.18 }, { x: 0.5, y: 0.5 }, { x: 0.18, y: 0.5 },
+    { x: 0.82, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.5, y: 0.82 },
+  ]];
+  const result = evaluateDrawing(cross, continuousCross, { width: 900, height: 600, tolerance: 600 * 0.068 });
   assert.ok(result.score > 0.7, `score was ${result.score}`);
+  assert.equal(result.strokeCount < 1, true);
+  assert.equal(passesDrawingCriteria(result, 'easy'), true);
 });
 
 test('a repeated number does not finish while one copy is still missing', () => {
@@ -153,10 +154,16 @@ test('a missing required path cannot be forgiven by a quality retry', () => {
     [{ x: 0.5, y: 0.16 }, { x: 0.75, y: 0.82 }],
     [{ x: 0.34, y: 0.55 }, { x: 0.66, y: 0.55 }],
   ];
-  const task = { category: 'letters', id: 'capital-a', strokes: capitalA, completionGroups: [[0, 1, 2]] };
-  const viewport = { width: 900, height: 620 };
-  // Both legs drawn, crossbar missing: the ledger never completes.
-  assert.equal(passes(task, capitalA.slice(0, 2), viewport), false);
+  const result = evaluateDrawing(capitalA, capitalA.slice(0, 2), {
+    width: 900,
+    height: 620,
+    tolerance: 620 * 0.068,
+    completionGroups: [[0, 1, 2]],
+  });
+  assert.ok(result.pathCoverage[2] < 0.8, `missing crossbar coverage was ${result.pathCoverage[2]}`);
+  assert.ok(result.completion < 0.7, `missing crossbar completion was ${result.completion}`);
+  assert.equal(passesDrawingCriteria(result, 'easy'), false);
+  assert.equal(passesDrawingCriteria(result, 'easy', { slack: 0.04 }), false);
 });
 
 test('Fino scans the guide in writing order instead of jumping to the emptiest later path', () => {

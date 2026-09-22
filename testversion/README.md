@@ -1,4 +1,4 @@
-# Testversion v1.3.41
+# Testversion v1.3.42
 
 Aktueller statischer Schnappschuss der Laufzeitdateien.
 
@@ -6,8 +6,8 @@ Aktueller statischer Schnappschuss der Laufzeitdateien.
 
 [Evaluator-Kalibrierer](https://mhoeppner89.github.io/fino-fuchs/testversion/calibration.html)
 
-Im Menü **Alle Symbole** auswählen, die Schwierigkeit und Schulschrift-Option
-festlegen und **Los geht’s!** drücken. Die feste Reihenfolge enthält 69 Aufgaben:
+Im Menü **Alle Symbole** auswählen, die Schwierigkeit festlegen und
+**Los geht’s!** drücken. Die feste Reihenfolge enthält 69 Aufgaben:
 Großbuchstaben mit Umlauten und ß, Kleinbuchstaben mit Umlauten, Ziffern 0–9. Mit den Pfeilen oben vor- und zurückblättern; Zeichnen
 ist dafür nicht erforderlich. Die gewählte Schwierigkeit gilt für alle Aufgaben.
 

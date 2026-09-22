@@ -627,3 +627,14 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
 - Verification: JavaScript syntax checks pass; full runtime tests and the
   focused browser interaction check remain to be run after the snapshot is
   refreshed.
+
+## 2026-09-22 — restore the earlier MSE evaluator (v1.3.42)
+
+- Removed the sequential `StrokeProgress` runtime gate, coverage/traversal
+  rejection layer, strict Schulschrift menu switch, and their dedicated tests.
+- Restored the earlier symmetric closest-line MSE evaluator and whole-drawing
+  completion path from the last known good MSE baseline. The template remains
+  fixed; no first-stroke fitting was reintroduced.
+- Kept the 69-symbol developer review, selected review difficulty, and the
+  separate calibration recorder unchanged.
+- Verification: `npm test` passes 133 tests with zero failures.

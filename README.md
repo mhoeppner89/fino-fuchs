@@ -7,7 +7,7 @@ Fino schreibt ist eine statische, deutschsprachige Schreiblern-App für kurze Ü
 - acht Bereiche: **Linien**, **Formen**, **Zahlen**, **Buchstaben**, **Mein Name**, **Labyrinth**, **Funkelpunkte** und **Bunte Mischung**
 - drei Hilfestufen: **Leicht**, **Mittel** und **Knifflig**
 - 10 kontrolliert zufällig ausgewählte Aufgaben pro Runde; verfügbare Zahlen, Buchstaben und Vorlagen wechseln sich ab, bevor etwas wiederkommt. Bei **Mein Name** wird zuerst jeder Buchstabe und dann der ganze Name geschrieben.
-- sofortige Prüfung nach jedem abgesetzten Strich: Nur ein vollständig akzeptierter Strich öffnet den nächsten Schritt; Teilstriche müssen in einem Zug neu gezeichnet werden
+- die fertige Zeichnung wird nach jedem abgesetzten Strich mit einer symmetrischen Nächste-Linie-MSE gegen die feste Vorlage geprüft; kindliche Abweichungen bleiben erlaubt
 - 100 unterschiedliche Übungen für Linien, Zahlen, Buchstaben, Namen, Labyrinthe, Funkelpunkte und bunte Mischung; dazu 36 wirklich verschiedene Formen und kleine Bilder ohne Spiegel- oder Größenkopien
 - Labyrinthe sind immer lösbar und passen ihre quadratischen Gänge ohne Verzerrung an Hoch- und Querformat an
 - bei **Funkelpunkte** erscheint immer nur der nächste Punkt; eine neue Linie darf keine frühere Linie berühren
@@ -17,11 +17,9 @@ Fino schreibt ist eine statische, deutschsprachige Schreiblern-App für kurze Ü
 - in der leichten Stufe jeweils genau eine Zahl oder einen Buchstaben üben
 - Kinder sehen den vollständigen Buchstaben oder die Zahl als halbtransparente Vorlage; Fino läuft exakt auf deren Mittellinie und springt bei einem echten Stiftwechsel
 - drei feste Schwierigkeitsstufen für die gesamte Runde, mit zunehmend genauerer Auswertung und schwächerer Vorlage
-- **Schulschrift genau üben** ist im Hauptmenü standardmäßig eingeschaltet: Buchstaben, Zahlen und Namen folgen der vorgegebenen Strichreihenfolge, den Startpunkten und Richtungen. Ausgeschaltet sind Reihenfolge und Richtung innerhalb des aktuellen Zeichens frei; jeder Strich bleibt ein vollständiger Schritt
-- Formen erlauben eine freie Reihenfolge ihrer Teile; geschlossene Umrisse können an jeder Stelle und in beiden Richtungen begonnen werden
-- lokale Prüfung jedes Strichs und der zusammengesetzten Form: Toleranzen richten sich nach Zeichen- und Strichgröße, Punkte erhalten einen eigenen Spielraum und müssen getrennt erkennbar bleiben
-- die Vorlage und Finos Laufweg bleiben fest; kleine Abweichungen und Lücken werden innerhalb der gewählten Toleranz akzeptiert
-- fehlgeschlagene Striche bleiben sichtbar, zählen aber sofort nicht mehr für die Auswertung. „Letzten Strich löschen“ entfernt den letzten sichtbaren Versuch; ein gelöschter akzeptierter Strich muss neu gezeichnet werden
+- lokale, kindgerechte Formauswertung mit symmetrischer Nächste-Linie-MSE, Pfadabdeckung und Rückwärtsprüfung; kurze Teilstücke und zusätzliche Kritzeleien fallen durch, sinnvolle andere Strichaufteilungen bleiben erlaubt
+- die Vorlage und Finos Laufweg bleiben fest; Toleranzen richten sich nach Zeichen- und Strichgröße und werden je Hilfestufe enger
+- Fehlversuche bleiben sichtbar, bis das Kind sie mit „Letzten Strich löschen“ entfernt; eine erfolgreiche neue Zeichnung wird gegen die gesamte sichtbare Form geprüft
 - freundliche, gut unterscheidbare Tintenfarben wechseln nach jedem abgesetzten Strich
 - Fino zeigt den nächsten noch offenen Startpunkt
 - freundliche Wiederholungen ohne sichtbare Fehlerpunkte oder Ranglisten
@@ -106,7 +104,7 @@ Wichtige Bereiche:
 - `buildSession()`: kontrollierte Zufallsauswahl und Reihenfolge
 - `buildSession()`: die gewählte Schwierigkeitsstufe bleibt bei jeder Aufgabe erhalten
 
-Die Strichfreigabe steht in `js/stroke-validation.js`. Canvas-Eingabe, Darstellung und geometrische Diagnosefunktionen stehen in:
+Canvas-Eingabe, Darstellung und geometrische Auswertung stehen in:
 
 ```text
 js/drawing.js
@@ -133,21 +131,10 @@ js/app.js
 npm test
 ```
 
-Diese Tests benötigen keine zusätzlichen Pakete. Sie prüfen die schrittweise
-Freigabe, beide Schulschrift-Einstellungen, Punkte, Wiederholungen, Verbindungen,
-Größenunabhängigkeit und alle Buchstaben, Zahlen und Formen in drei Stufen.
-Die älteren geometrischen Diagnosetests beurteilen nur das fertige Bild;
-die Freigabe in der App erfolgt ausschließlich über die Strichprüfung.
+Diese Tests benötigen keine zusätzlichen Pakete. Sie prüfen die symmetrische
+MSE-Auswertung, vollständige und fehlende Pfade, kindliche Abweichungen,
+Formen, Punkte, Wiederholungen und alle Buchstaben und Zahlen in drei Stufen.
 Zusätzlich werden Minispiele, Version und Offline-Dateien geprüft.
-
-Der Prüfbericht zur Strichsteuerung steht in `CONTROL-AUDIT.md`. Für die
-gezielten Browser-Prüfungen bei laufendem lokalen Server:
-
-```bash
-PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers node tests/stroke-browser.mjs
-```
-
-Die Prüfung nutzt Stiftereignisse in Chromium und Pointer-Eingaben in WebKit.
 
 ### Browser-Smoke-Test
 
@@ -191,5 +178,3 @@ fuchsschrift/
 ```
 
 Entwicklertest: [Alle 69 Symbole nacheinander prüfen](https://mhoeppner89.github.io/fino-fuchs/testversion/?test). Im Menü **Alle Symbole** und die Schwierigkeit auswählen, dann mit den Pfeilen durchblättern. Für eine gelabelte Datensammlung gibt es den [Evaluator-Kalibrierer](https://mhoeppner89.github.io/fino-fuchs/testversion/calibration.html): fünf isolierte Versuche pro Strich und optional fünf Gesamtzeichen pro Ziel, jeweils mit Rohspur und Ja/Nein-Label. Der Kalibrierer speichert nur lokal im Browser und exportiert JSON.
-
-Passende aufeinanderfolgende Striche dürfen auch bei eingeschalteter Schulschrift-Option in einem Zug verbunden werden. Jeder Teil wird geprüft; ein fehlgeschlagener kombinierter Versuch erhält keine Teilgutschrift. Zurück entfernt den ganzen gezeichneten Strich samt aller zugehörigen Schritte.

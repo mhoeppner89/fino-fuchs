@@ -1,5 +1,17 @@
 # Stroke acceptance audit
 
+## Current runtime status (v1.3.42)
+
+The live child-facing evaluator is back on the earlier symmetric closest-line
+MSE implementation in `js/drawing.js`. The later sequential `StrokeProgress`
+experiment and its main-menu strictness switch were removed after they caused
+false rejections on ordinary beginner handwriting. The calibration recorder is
+still available separately at `calibration.html` and does not change the child
+runtime.
+
+The sections below document the superseded sequential experiment for history;
+their acceptance rules are not active in the current app.
+
 Original audit: **v1.3.36**, **14 September 2026**.
 
 ## Correction in v1.3.40: joined parts and R guide
@@ -125,11 +137,10 @@ as accepted or rejected and advances only from accepted strokes.
 | Distance alone can confuse a polygon with a circle | Generous matching accepted some pentagon/hexagon outlines as circles | Structural corner counts distinguish simple closed shapes after removing small hand wobble |
 | The pen-up endpoint was not recorded directly | Short movements ending between move events could be evaluated incompletely | Include the final pointer position and support genuine stationary taps |
 
-The new live validator is in `js/stroke-validation.js`. The board, UI, and
-session changes are in `js/drawing.js`, `js/app.js`, `index.html`, and
-`js/curriculum.js`. The old whole-image geometry functions remain available
-for diagnostics and their existing regression tests; they no longer grant
-live exercise completion.
+The historical validator was in `js/stroke-validation.js`. The sequential
+board and UI experiment touched `js/drawing.js`, `js/app.js`, `index.html`, and
+`js/curriculum.js`. Those rules are retained here only as audit history; the
+old whole-image geometry evaluator now grants live exercise completion again.
 
 ## Tolerance and whole-result checks
 

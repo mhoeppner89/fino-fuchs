@@ -1,8 +1,8 @@
-import { buildReviewSession, EXERCISE_BANKS } from './curriculum.js?v=1.3.41';
+import { buildReviewSession, EXERCISE_BANKS } from './curriculum.js?v=1.3.42';
 
 const STORAGE_KEY = 'fino-calibration-dataset-v1';
 const ATTEMPTS_PER_TARGET = 5;
-const VERSION = '1.3.41';
+const VERSION = '1.3.42';
 const $ = (selector) => document.querySelector(selector);
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 

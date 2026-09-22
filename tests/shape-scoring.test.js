@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { adaptTaskToViewport, EXERCISE_BANKS } from '../js/curriculum.js';
-import { passes } from './oracle.js';
+import { evaluateTaskDrawing, passesDrawingCriteria } from '../js/drawing.js';
 
 const IDS = [
   'shape-circle', 'shape-oval', 'shape-square', 'shape-triangle', 'shape-diamond',
@@ -9,12 +9,16 @@ const IDS = [
 ];
 const VIEWPORT = { width: 390, height: 700 };
 const tasks = IDS.map((id) => adaptTaskToViewport(EXERCISE_BANKS.shapes.find((task) => task.id === id), VIEWPORT));
-const passesShape = (task, strokes) => passes(task, strokes, { width: VIEWPORT.width, height: VIEWPORT.height, assist: 'easy' });
+const passes = (task, strokes) => passesDrawingCriteria(evaluateTaskDrawing(task, strokes, {
+  ...VIEWPORT,
+  tolerance: 50,
+  completionTolerance: 50,
+}), 'easy', { qualityAdjustment: 0.045 });
 
 test('a different basic shape cannot complete the requested contour', () => {
   tasks.forEach((target) => {
     tasks.forEach((candidate) => {
-      assert.equal(passesShape(target, candidate.strokes), target.id === candidate.id, `${candidate.id} passed as ${target.id}`);
+      assert.equal(passes(target, candidate.strokes), target.id === candidate.id, `${candidate.id} passed as ${target.id}`);
     });
   });
 });
@@ -30,7 +34,7 @@ test('basic shapes still accept a shifted, scaled, rotated, child-like trace', (
         y: 0.5 + ((x * Math.sin(angle) + y * Math.cos(angle)) * 1.04) / VIEWPORT.height - 0.008 + Math.cos(pointIndex * 1.3 + strokeIndex) * 0.003,
       };
     }));
-    assert.equal(passesShape(task, transformed), true, `${task.id} rejected a kind variation`);
+    assert.equal(passes(task, transformed), true, `${task.id} rejected a kind variation`);
   });
 });
 
