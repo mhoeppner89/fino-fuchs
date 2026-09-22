@@ -670,3 +670,41 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
   Inspected the rough A and joined R screenshots in `test-artifacts/mse-browser/`.
 - Remaining calibration: the screenshot paths are approximate reconstructions;
   tune future acceptance changes using labeled recorder data, not new hard gates.
+
+
+## 2026-09-22 — source-aligned clean reference strokes (v1.3.44)
+
+- Replaced pixel-skeleton route extraction for all 69 letters/digits with
+  explicit source-crop line and cubic Bézier commands. Canonical editable data
+  lives in `design/print-handwriting-reference/clean-stroke-paths.json`.
+  Approved source sheets, masks, and crop metadata are unchanged. The new
+  shared generated paths feed Fino, the evaluator, and calibration.
+- Reviewed overlays for every character. Preserved stroke counts, shared
+  junctions, genuine corners, and intentional retraces; removed raster stairs
+  and branch detours. Dots use the source components' centres. M has exactly
+  four straight segments; rounded letters have matching smooth tangents.
+- Replaced the old reversal audit (which mistook M's real apex for a defect)
+  with an independent source-image audit and explicit intended-corner metadata.
+  All sampled routes stay inside source ink. Worst mean skeleton distance is
+  0.949 source pixels; largest local miss is 5.061 pixels at D's raster junction
+  wedge. Regeneration is deterministic, and source hashes are recorded.
+- Added frozen v1.3.43 source-coordinate traces. All 69 pass the clean targets
+  on every difficulty; the independently reconstructed handwritten A/R examples
+  also pass easy against current targets. A test generator now expresses wobble
+  by travelled distance instead of turning denser curve samples into scribbles.
+- The old n replay exposed a real identity-fit bug: repeated ink shifted the
+  weighted centre, moving an already correct comparison off the drawing. The
+  fitter now also considers actual placement when 98% of both contours already
+  overlaps within half the identity band. Existing acceptance thresholds are
+  unchanged. Missing details, E/F confusion, and unresolved failed ink still fail.
+- Fino interpolates linear segments directly instead of resampling every one
+  another 32 times. WebKit's translucent dense-line joins produced dark dots in
+  calibration; preblending the guide colour against the opaque board fixes that.
+- Verification: 144 unit/regression tests pass; Chromium and WebKit pass live
+  Fino M preview, M drawing completion, and calibration previews of M/O/n/8/Ä.
+  Pixel checks confirm uniform guide colour, and the final screenshots were
+  inspected. The developer review traverses all 69 symbols and retains the
+  selected hard difficulty. Root and testversion runtime files are identical.
+- No remaining implementation TODOs. Human-labeled calibration remains the
+  next source for future acceptance tuning; do not retune tolerances from these
+  ideal reference traces alone.

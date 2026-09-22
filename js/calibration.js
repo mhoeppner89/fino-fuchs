@@ -1,8 +1,9 @@
-import { buildReviewSession, EXERCISE_BANKS } from './curriculum.js?v=1.3.43';
+import { buildReviewSession, EXERCISE_BANKS } from './curriculum.js?v=1.3.44';
 
 const STORAGE_KEY = 'fino-calibration-dataset-v1';
 const ATTEMPTS_PER_TARGET = 5;
-const VERSION = '1.3.43';
+const CANVAS_BACKGROUND = [255, 252, 247];
+const VERSION = '1.3.44';
 const $ = (selector) => document.querySelector(selector);
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -338,9 +339,13 @@ function drawRoute(context, route, { color, width, alpha = 1, dash = [] } = {}) 
   if (!route?.length) return;
   const points = routePixels(route);
   context.save();
-  context.globalAlpha = alpha;
-  context.strokeStyle = color;
-  context.fillStyle = color;
+  // Preblend against this opaque board. WebKit can compound globalAlpha at
+  // joins of dense polylines, leaving dark dots on an otherwise smooth guide.
+  const channels = color.slice(1).match(/../g).map((hex, i) => Math.round(
+    parseInt(hex, 16) * alpha + CANVAS_BACKGROUND[i] * (1 - alpha),
+  ));
+  context.globalAlpha = 1;
+  context.strokeStyle = context.fillStyle = `rgb(${channels.join(',')})`;
   context.lineWidth = width;
   context.lineCap = 'round';
   context.lineJoin = 'round';
@@ -386,7 +391,7 @@ function renderCanvas() {
   const { width, height, dpr } = state.viewport;
   context.setTransform(dpr, 0, 0, dpr, 0, 0);
   context.clearRect(0, 0, width, height);
-  context.fillStyle = '#fffcf7';
+  context.fillStyle = `rgb(${CANVAS_BACKGROUND.join(',')})`;
   context.fillRect(0, 0, width, height);
   const target = currentTarget();
   if (!target) return;

@@ -1,6 +1,6 @@
 # Stroke acceptance audit
 
-## Current runtime status (v1.3.43)
+## Current runtime status (v1.3.44)
 
 The live child-facing evaluator is back on the earlier symmetric closest-line
 MSE implementation in `js/drawing.js`. The later sequential `StrokeProgress`
@@ -38,6 +38,21 @@ precision and the existing recognition diagnostics. Tolerance diagnostics use
 comparison-board units; reported ink lengths remain in actual board pixels.
 The A/R fixtures are approximate screenshot reconstructions, not original pen
 recordings. These fixes do not replace calibration against labeled handwriting.
+
+### Clean references (v1.3.44)
+
+All 69 letter/digit paths now come from source-aligned line and Bézier
+commands in `design/print-handwriting-reference/clean-stroke-paths.json`.
+Approved source PNGs, masks, and crop metadata are unchanged. Straight parts
+are straight; curves have smooth tangents except at documented teaching
+corners. Fino, scoring, and calibration still share the same generated paths.
+
+An independent replay of the old references exposed an alignment defect:
+extra retracing moved the ink-weighted centre and caused the old n to fail on
+hard despite almost coincident contours. When at least 98% of both contours
+already lies within half the identity band, recognition also considers their
+actual placement. All existing acceptance thresholds remain unchanged, and
+partial overlaps still go through the existing fit and required-detail checks.
 
 The sections below document the superseded sequential experiment for history;
 their acceptance rules are not active in the current app.

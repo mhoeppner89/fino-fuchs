@@ -187,3 +187,5 @@ fuchsschrift/
 ```
 
 Entwicklertest: [Alle 69 Symbole nacheinander prüfen](https://mhoeppner89.github.io/fino-fuchs/testversion/?test). Im Menü **Alle Symbole** und die Schwierigkeit auswählen, dann mit den Pfeilen durchblättern. Für eine gelabelte Datensammlung gibt es den [Evaluator-Kalibrierer](https://mhoeppner89.github.io/fino-fuchs/testversion/calibration.html): fünf isolierte Versuche pro Strich und optional fünf Gesamtzeichen pro Ziel, jeweils mit Rohspur und Ja/Nein-Label. Der Kalibrierer speichert nur lokal im Browser und exportiert JSON.
+
+Die [Referenzpfade](design/print-handwriting-reference/README.md) werden als gerade Linien und Bézierkurven in den Pixelkoordinaten der freigegebenen Bilder gepflegt. Fino, Bewertung und Kalibrierer verwenden dieselben daraus erzeugten Pfade.

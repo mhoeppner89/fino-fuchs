@@ -39,12 +39,32 @@ function passesAtAssist(task, strokes, viewport, assist) {
   });
 }
 
+// Give synthetic hand wobble a physical wavelength. Using reference-point
+// indexes made denser Bezier samples turn the same "child" into a scribble.
+function penSamples(stroke, viewport, category) {
+  if (category === 'shapes') return stroke.map((p, phase) => ({ ...p, phase }));
+  const result = [stroke[0]];
+  for (let i = 1; i < stroke.length; i += 1) {
+    const a = stroke[i - 1];
+    const b = stroke[i];
+    const length = Math.hypot((b.x-a.x)*viewport.width, (b.y-a.y)*viewport.height);
+    const steps = Math.max(1, Math.ceil(length / 8));
+    for (let j = 1; j <= steps; j += 1) result.push({ x: a.x+(b.x-a.x)*j/steps, y: a.y+(b.y-a.y)*j/steps });
+  }
+  let distance = 0;
+  return result.map((p, i) => {
+    if (i) distance += Math.hypot((p.x-result[i-1].x)*viewport.width, (p.y-result[i-1].y)*viewport.height);
+    return { ...p, phase: distance / 12 };
+  });
+}
+
 function childVariation(task, viewport) {
   const angle = 6 * Math.PI / 180;
   const scale = 1.06;
   const unit = Math.min(viewport.width, viewport.height);
   const wobble = Math.min(8, unit * 0.015);
-  return task.strokes.map((stroke, strokeIndex) => stroke.map((point, pointIndex) => {
+  return task.strokes.map((stroke, strokeIndex) => penSamples(stroke, viewport, task.category).map((point) => {
+    const pointIndex = point.phase;
     const x = (point.x - 0.5) * viewport.width;
     const y = (point.y - 0.5) * viewport.height;
     return {
@@ -73,7 +93,8 @@ test('easy mode accepts a broad but recognisable child drawing band', () => {
   sources.forEach((source, sourceIndex) => {
     const task = adaptTaskToViewport(source, viewport);
     const angle = 11 * Math.PI / 180;
-    const variation = task.strokes.map((stroke, strokeIndex) => stroke.map((point, pointIndex) => {
+    const variation = task.strokes.map((stroke, strokeIndex) => penSamples(stroke, viewport, task.category).map((point) => {
+      const pointIndex = point.phase;
       const x = (point.x - 0.5) * viewport.width;
       const y = (point.y - 0.5) * viewport.height;
       return {

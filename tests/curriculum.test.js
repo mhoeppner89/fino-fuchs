@@ -155,52 +155,14 @@ test('approved reference images supply every standard letter and digit template'
   });
   Object.entries(CHARACTER_STROKE_GEOMETRY).forEach(([character, geometry]) => {
     assert.ok(CHARACTER_STROKES[character].length > 0, `${character} has no Fino route`);
-    // Umlaut bases are the smaller Z-row letters whose thin apexes sit just
-    // outside the skeleton's reach; the dot routes are points inside their
-    // dots. The Schulschrift M keeps a short wedge where its left bar's apex
-    // meets the first diagonal; the taught zigzag walk passes the junction
-    // just below that tip. Allow the wider band there, keep the strict one
-    // for the standalone letters and digits.
-    const errorLimit = 'ÄÖÜäöüMGy'.includes(character) ? 12 : 8;
-    assert.ok(geometry.maximumRouteError <= errorLimit, `${character} misses its template by ${geometry.maximumRouteError}px`);
+    // Clean vectors track the approved ink without following skeleton junction twigs.
+    assert.ok(geometry.maximumRouteError <= 5.5, `${character} misses its template by ${geometry.maximumRouteError}px`);
+    assert.ok(geometry.meanRouteError <= 1, `${character} drifts from the source centre line`);
     assert.ok(geometry.routeWidth > 0 && geometry.routeHeight > 0, `${character} has invalid source bounds`);
-    CHARACTER_STROKES[character].forEach((stroke, strokeIndex) => {
-      for (let index = 1; index < stroke.length - 1; index += 1) {
-        const incoming = {
-          x: (stroke[index].x - stroke[index - 1].x) * 900,
-          y: (stroke[index].y - stroke[index - 1].y) * 620,
-        };
-        const outgoing = {
-          x: (stroke[index + 1].x - stroke[index].x) * 900,
-          y: (stroke[index + 1].y - stroke[index].y) * 620,
-        };
-        const denominator = Math.hypot(incoming.x, incoming.y) * Math.hypot(outgoing.x, outgoing.y);
-        if (denominator <= 1) continue;
-        const cosine = (incoming.x * outgoing.x + incoming.y * outgoing.y) / denominator;
-        if (cosine >= -0.8) continue;
-        // The Schreibanleitung legitimately doubles back: retraces ("auf
-        // derselben Linie wieder hoch") run back over the same centre line,
-        // and vertex tips (the 1's flag, the W apex) turn sharply inside a
-        // few pixels.  Only a reversal that neither turns within a tip-sized
-        // run nor retraces its own path is a routing defect.
-        const minSegment = Math.min(Math.hypot(incoming.x, incoming.y), Math.hypot(outgoing.x, outgoing.y));
-        const distanceToPath = (point, from, to) => {
-          const edgeX = (to.x - from.x) * 900;
-          const edgeY = (to.y - from.y) * 620;
-          const length2 = edgeX * edgeX + edgeY * edgeY;
-          const t = length2 ? Math.max(0, Math.min(1, (
-            ((point.x - from.x) * 900) * edgeX + ((point.y - from.y) * 620) * edgeY
-          ) / length2)) : 0;
-          return Math.hypot(
-            ((point.x - from.x) * 900) - t * edgeX,
-            ((point.y - from.y) * 620) - t * edgeY,
-          );
-        };
-        const retrace = Math.min(
-          distanceToPath(stroke[index - 1], stroke[index], stroke[index + 1]),
-          distanceToPath(stroke[index + 1], stroke[index - 1], stroke[index]),
-        ) < 8;
-        assert.ok(minSegment < 12 || retrace, `${character} stroke ${strokeIndex + 1} doubles back at point ${index}`);
+    CHARACTER_STROKES[character].forEach((stroke) => {
+      for (let i = 1; i < stroke.length; i += 1) {
+        assert.ok(stroke[i].x !== stroke[i-1].x || stroke[i].y !== stroke[i-1].y,
+          `${character} contains a zero-length step`);
       }
     });
   });
@@ -313,9 +275,11 @@ test('approved digits 1, 7, and 9 retain their Schulschrift forms', () => {
   assert.ok(seven.strokes[1][0].x < seven.strokes[1].at(-1).x, '7 crossbar should be drawn from left to right');
   assert.equal(nine.strokes.length, 1, '9 ist ein Strich: das Rund läuft ohne Absetzen in Schaft und Auslauf');
   assert.ok(nine.strokes[0][0].x > 0.4 && nine.strokes[0][0].y < 0.3, '9 beginnt mit dem kleinen Rund oben rechts');
-  assert.ok(Math.abs(nine.strokes[0][0].x - nine.strokes[0][27].x) < 0.1
-    && nine.strokes[0][27].y > nine.strokes[0][0].y, '9 Rund schließt sich zurück zum Ausgangspunkt (ohne Absetzen)');
-  assert.ok(nine.strokes[0].at(-1).y > nine.strokes[0][27].y, '9 Schaft läuft vom Rund aus nach unten in den Auslauf');
+  const nineRoute = nine.strokes[0];
+  const closure = nineRoute.findIndex((p, i) => i > 10 && p.x === nineRoute[0].x && p.y === nineRoute[0].y);
+  assert.ok(closure > 0, '9 closes its bowl at its actual start, regardless of curve sampling density');
+  assert.ok(nineRoute.slice(0, closure).some((p) => p.y > nineRoute[0].y + 0.1), '9 has a real bowl before returning');
+  assert.ok(nineRoute.at(-1).y > nineRoute[closure].y, '9 continues down into its tail');
   assert.ok(nine.strokes[0].at(-1).x < nine.strokes[0][0].x && nine.strokes[0].at(-1).y > 0.8, '9 Auslauf endet unten und nach links ausgerichtet');
 });
 

@@ -3,8 +3,8 @@
 import {
   CHARACTER_TEMPLATE_SHEETS,
   characterTemplateCrop,
-} from './handwriting-template-data.js?v=1.3.43';
-import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.43';
+} from './handwriting-template-data.js?v=1.3.44';
+import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.44';
 import {
   connectInkWidthForBoard,
   connectTrailCollision,
@@ -12,7 +12,7 @@ import {
   mazeWallCollision,
   nextMazeSolutionPoint,
   pointDistanceInPixels,
-} from './mini-games.js?v=1.3.43';
+} from './mini-games.js?v=1.3.44';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -938,35 +938,39 @@ function drawingIdentity(task, userStrokes, width, height, assist = 'easy') {
     const userRadius = rmsRadius(userCore, userCenter);
     const baseScale = clamp(targetRadius / Math.max(1, userRadius), profile.scaleMin, profile.scaleMax);
     let best = null;
+    const consider = (aligned, scale, angle, keepPosition = false) => {
+      const targetMatch = nearestDistanceMetrics(targetCore, pointStrokes(aligned), identityTolerance, 3);
+      const userMatch = nearestDistanceMetrics(aligned, pointStrokes(targetCore), identityTolerance, 3);
+      const coreMse = (targetMatch.mse + userMatch.mse) / 2;
+      const objective = coreMse + 0.4 * ((1 - targetMatch.coverage) + (1 - userMatch.coverage));
+      if (!best || objective < best.objective) {
+        best = { objective, scale, angle, keepPosition,
+          coreCoverage: targetMatch.coverage, corePrecision: userMatch.coverage, coreMse };
+      }
+    };
+    // Retracing changes the ink-weighted centre without changing the visible
+    // letter. Preserve placement when both contours already match closely.
+    // Partial overlaps (E on F, or extra failed ink) still use the full fit.
+    const placedTarget = nearestDistanceMetrics(targetCore, pointStrokes(userCore), identityTolerance * 0.5, 3);
+    const placedUser = nearestDistanceMetrics(userCore, pointStrokes(targetCore), identityTolerance * 0.5, 3);
+    if (placedTarget.coverage >= 0.98 && placedUser.coverage >= 0.98) consider(userCore, 1, 0, true);
     [-profile.angle, -profile.angle / 2, 0, profile.angle / 2, profile.angle].forEach((degrees) => {
       [0.96, 1, 1.04].forEach((residualScale) => {
         const scale = baseScale * residualScale;
         const angle = degrees * Math.PI / 180;
-        const aligned = similarityTransform(userCore, userCenter, targetCenter, scale, angle);
-        const targetMatch = nearestDistanceMetrics(targetCore, pointStrokes(aligned), identityTolerance, 3);
-        const userMatch = nearestDistanceMetrics(aligned, pointStrokes(targetCore), identityTolerance, 3);
-        const coreMse = (targetMatch.mse + userMatch.mse) / 2;
-        const objective = coreMse + 0.4 * ((1 - targetMatch.coverage) + (1 - userMatch.coverage));
-        if (!best || objective < best.objective) {
-          best = {
-            objective,
-            scale,
-            angle,
-            coreCoverage: targetMatch.coverage,
-            corePrecision: userMatch.coverage,
-            coreMse,
-          };
-        }
+        consider(similarityTransform(userCore, userCenter, targetCenter, scale, angle), scale, angle);
       });
     });
+    const align = (samples) => best.keepPosition ? samples
+      : similarityTransform(samples, userCenter, targetCenter, best.scale, best.angle);
 
-    const alignedFull = similarityTransform(userFull, userCenter, targetCenter, best.scale, best.angle);
+    const alignedFull = align(userFull);
     const owned = new Set(userFull);
     const detailTolerance = identityTolerance * (assist === 'easy' ? 1.6 : assist === 'medium' ? 1.4 : 1.25);
     const matchedDots = indexes.some((index) => expectedPixels[index].length === 1)
       ? matchDotPaths(expectedPixels, indexes, userSamplesByStroke
         .filter((stroke) => stroke.some((point) => owned.has(point)))
-        .map((stroke) => similarityTransform(stroke, userCenter, targetCenter, best.scale, best.angle)), detailTolerance)
+        .map(align), detailTolerance)
       : new Set();
     const alignedByPath = new Map(indexes.map((index) => [index, []]));
     alignedFull.forEach((point) => {
@@ -1331,8 +1335,11 @@ export function pointAlongGuidePath(stroke, progress, width, height, angular = f
   samples.push({ segment: 0, t: 0, point: previous, travelled });
   segments.forEach((segment, segmentIndex) => {
     if (segmentIndex > 0) samples.push({ segment: segmentIndex, t: 0, point: previous, travelled });
-    for (let step = 1; step <= 32; step += 1) {
-      const t = step / 32;
+    // Letter curves are already sampled. A straight segment's length and
+    // interpolation are exact, so subdividing it another 32 times adds no accuracy.
+    const steps = segment.type === 'line' ? 1 : 32;
+    for (let step = 1; step <= steps; step += 1) {
+      const t = step / steps;
       const point = pointOnGuideSegment(segment, t);
       travelled += distance(previous, point);
       samples.push({ segment: segmentIndex, t, point, travelled });
