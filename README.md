@@ -8,6 +8,7 @@ Fino schreibt ist eine statische, deutschsprachige Schreiblern-App für kurze Ü
 - drei Hilfestufen: **Leicht**, **Mittel** und **Knifflig**
 - 10 kontrolliert zufällig ausgewählte Aufgaben pro Runde; verfügbare Zahlen, Buchstaben und Vorlagen wechseln sich ab, bevor etwas wiederkommt. Bei **Mein Name** wird zuerst jeder Buchstabe und dann der ganze Name geschrieben.
 - die fertige Zeichnung wird nach jedem abgesetzten Strich mit einer symmetrischen Nächste-Linie-MSE gegen die feste Vorlage geprüft; kindliche Abweichungen bleiben erlaubt
+- die MSE gewichtet nach gezeichneter Strichlänge; Bildschirmgröße und zusätzliche Stiftmesspunkte verändern die Bewertung derselben Form nicht
 - 100 unterschiedliche Übungen für Linien, Zahlen, Buchstaben, Namen, Labyrinthe, Funkelpunkte und bunte Mischung; dazu 36 wirklich verschiedene Formen und kleine Bilder ohne Spiegel- oder Größenkopien
 - Labyrinthe sind immer lösbar und passen ihre quadratischen Gänge ohne Verzerrung an Hoch- und Querformat an
 - bei **Funkelpunkte** erscheint immer nur der nächste Punkt; eine neue Linie darf keine frühere Linie berühren
@@ -135,6 +136,14 @@ Diese Tests benötigen keine zusätzlichen Pakete. Sie prüfen die symmetrische
 MSE-Auswertung, vollständige und fehlende Pfade, kindliche Abweichungen,
 Formen, Punkte, Wiederholungen und alle Buchstaben und Zahlen in drei Stufen.
 Zusätzlich werden Minispiele, Version und Offline-Dateien geprüft.
+
+Die A- und R-Beispiele aus den Fehlermeldungen, kurze Stiftbewegungen und echte
+Punkttipps werden zusätzlich in Chromium und WebKit geprüft (lokaler Server
+auf Port 4173 erforderlich):
+
+```bash
+PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers node tests/mse-browser.mjs
+```
 
 ### Browser-Smoke-Test
 

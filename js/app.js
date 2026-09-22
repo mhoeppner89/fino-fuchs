@@ -6,13 +6,13 @@ import {
   DIFFICULTIES,
   normalizeName,
   reflowTaskWithInk,
-} from './curriculum.js?v=1.3.42';
+} from './curriculum.js?v=1.3.43';
 import {
   DrawingBoard,
   evaluateTaskDrawing,
   feedbackForEvaluation,
   passesDrawingCriteria,
-} from './drawing.js?v=1.3.42';
+} from './drawing.js?v=1.3.43';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -975,15 +975,20 @@ if (new URLSearchParams(location.search).has('test')) {
       const task = state.activeTask;
       if (!task) return null;
       if (task.gameMode) return { task: task.id, index: state.index, transitioning: state.transitioning, game: board.gameSnapshot() };
-      const result = evaluateTaskDrawing(task, board.getUserStrokes(), {
-        ...board.evaluationOptions(),
-        completionGroups: task.completionGroups,
-      });
+      const result = board.currentEvaluation();
       return {
         task: task.id,
         index: state.index,
         transitioning: state.transitioning,
         completion: result.completion,
+        allRequired: result.allRequired,
+        score: result.score,
+        coverage: result.coverage,
+        precision: result.precision,
+        targetMse: result.targetMse,
+        userMse: result.userMse,
+        symmetricMse: result.symmetricMse,
+        identity: result.identity,
         pathCoverage: result.pathCoverage,
       };
     },

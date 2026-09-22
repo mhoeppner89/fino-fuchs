@@ -1,6 +1,6 @@
 # Stroke acceptance audit
 
-## Current runtime status (v1.3.42)
+## Current runtime status (v1.3.43)
 
 The live child-facing evaluator is back on the earlier symmetric closest-line
 MSE implementation in `js/drawing.js`. The later sequential `StrokeProgress`
@@ -8,6 +8,36 @@ experiment and its main-menu strictness switch were removed after they caused
 false rejections on ordinary beginner handwriting. The calibration recorder is
 still available separately at `calibration.html` and does not change the child
 runtime.
+
+### Corrections to the restored MSE approach
+
+- **Display scale:** scoring now uses a fixed comparison board whose shorter
+  side is 390 units, preserving the previous phone-scale tolerance. Both axes
+  scale uniformly. The previous 36-pixel identity cap rejected the reconstructed
+  A and R at screenshot size while accepting exactly the same paths smaller.
+  Sampling, tolerance, dot sizes and contour checks now share this coordinate
+  system. Rendering and the fixed template are untouched.
+- **Stroke length:** each sample represents half the arc length on either side
+  of it. MSE is `sum(weight * (distance / tolerance)^2) / sum(weight)` in each
+  direction. Coverage and the recognition fit use the same weights. Extra
+  pointer events and short pen fragments no longer inflate their contribution.
+  Short required parts still have their individual presence check; dots retain
+  a finite weight. This is not an additional stroke-length rejection threshold.
+- **Sampling:** keep stroke endpoints, preserve represented ink length when
+  reducing the recognition samples, and retain later strokes when the endpoint
+  count exceeds the normal sample budget. Hard-level reverse coverage moves
+  from 87% to 88% to preserve the existing a/u separation with length weighting.
+- **Dots:** accept true stationary taps and small marks; require distinct
+  compact marks for separate umlaut dots. Repeated taps at one location or a
+  connecting bar cannot supply both dots. Placement remains generous.
+- **Input:** retain the actual pointer-up endpoint; no synthetic horizontal
+  segment is added to a stationary tap.
+
+Developer `evaluationSnapshot()` includes MSE in both directions, coverage,
+precision and the existing recognition diagnostics. Tolerance diagnostics use
+comparison-board units; reported ink lengths remain in actual board pixels.
+The A/R fixtures are approximate screenshot reconstructions, not original pen
+recordings. These fixes do not replace calibration against labeled handwriting.
 
 The sections below document the superseded sequential experiment for history;
 their acceptance rules are not active in the current app.

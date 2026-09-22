@@ -638,3 +638,35 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
 - Kept the 69-symbol developer review, selected review difficulty, and the
   separate calibration recorder unchanged.
 - Verification: `npm test` passes 133 tests with zero failures.
+
+## 2026-09-22 — normalize and repair the original MSE scorer (v1.3.43)
+
+- Kept symmetric closest-line MSE and the restored completion flow. Reproduced
+  a display-scale defect: the A/R screenshot reconstructions passed at smaller
+  sizes but failed at full size because identity tolerance stopped at 36 px.
+  Scoring now uses a uniform comparison coordinate system based on the existing
+  390 px phone band; sample spacing, tolerances, and contour checks scale together.
+- Weight MSE, coverage, density support, and recognition fitting by represented
+  arc length. Endpoint samples carry half intervals, so dense events and many
+  short pen fragments do not inflate their contribution. Preserve endpoint and
+  total weight information when reducing recognition samples. Retain later
+  strokes when more than 160 endpoints need representation.
+- Keep existing independent checks for short required details. Required dots
+  accept taps and small marks, but use distinct compact marks so a middle tap,
+  repeated taps in one place, or an umlaut bar cannot fill both dots. A first
+  version narrowed dot placement too far for small names; retained the generous
+  band and distinguished marks instead. Existing jittered KÄTHE passes.
+- Record the real pointer-up endpoint, including a down/up-only stroke. Keep a
+  stationary tap as one point and allow it through dot evaluation/redraw handling.
+- Hard reverse coverage is 88% (previously 87%) to keep the existing a/u
+  separation after length weighting. Easy and medium recognition thresholds
+  are unchanged. Guides never move and no sequential validator was introduced.
+- Added MSE/identity diagnostics to the developer snapshot. Synced the root and
+  testversion runtime and updated offline version identifiers.
+- Verification: all 140 unit/regression tests pass, including missing details,
+  wrong symbols, 69 review characters on all levels/scales, and reconstructed A/R.
+  Eight browser scenarios pass in Chromium and WebKit with no console/page
+  errors: three screenshot replays plus sparse pen endpoint/tap checks per engine.
+  Inspected the rough A and joined R screenshots in `test-artifacts/mse-browser/`.
+- Remaining calibration: the screenshot paths are approximate reconstructions;
+  tune future acceptance changes using labeled recorder data, not new hard gates.

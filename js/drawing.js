@@ -3,8 +3,8 @@
 import {
   CHARACTER_TEMPLATE_SHEETS,
   characterTemplateCrop,
-} from './handwriting-template-data.js?v=1.3.42';
-import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.42';
+} from './handwriting-template-data.js?v=1.3.43';
+import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.43';
 import {
   connectInkWidthForBoard,
   connectTrailCollision,
@@ -12,12 +12,32 @@ import {
   mazeWallCollision,
   nextMazeSolutionPoint,
   pointDistanceInPixels,
-} from './mini-games.js?v=1.3.42';
+} from './mini-games.js?v=1.3.43';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const DEMO_JUMP_UNITS = 0.42;
 const REQUIRED_PATH_COVERAGE = 0.8;
+// Judge in the original phone-sized comparison space. Pixel caps and sampling
+// intervals must scale with the board, otherwise enlarging identical ink makes
+// it fail. This changes scoring coordinates only; the guide never moves.
+const SCORING_BOARD_UNIT = 390;
+
+function scoringSpace(options = {}) {
+  const width = options.width ?? 900;
+  const height = options.height ?? 620;
+  const scale = Math.min(width, height) / SCORING_BOARD_UNIT;
+  return {
+    scale,
+    options: {
+      ...options,
+      width: width / scale,
+      height: height / scale,
+      ...(options.tolerance != null ? { tolerance: options.tolerance / scale } : {}),
+      ...(options.completionTolerance != null ? { completionTolerance: options.completionTolerance / scale } : {}),
+    },
+  };
+}
 // Fino turns toward the guide direction at this rate (rad/s). Fast enough to
 // follow real corners, slow enough to hide the pixel-level zigzag of the
 // generated centre lines that made his heading twitch between frames.
@@ -200,9 +220,9 @@ function polylineLength(stroke, width, height) {
 
 function resampleStroke(stroke, width, height, spacing = 7) {
   if (!stroke.length) return [];
-  if (stroke.length === 1) return [toPixels(stroke[0], width, height)];
   const source = stroke.map((point) => toPixels(point, width, height));
   const result = [source[0]];
+  const positions = [0];
   let carry = 0;
 
   for (let i = 1; i < source.length; i += 1) {
@@ -215,6 +235,7 @@ function resampleStroke(stroke, width, height, spacing = 7) {
       const ratio = (spacing - carry) / segmentLength;
       a = { x: a.x + (b.x - a.x) * ratio, y: a.y + (b.y - a.y) * ratio };
       result.push(a);
+      positions.push(positions.at(-1) + spacing);
       segmentLength = distance(a, b);
       carry = 0;
     }
@@ -222,8 +243,20 @@ function resampleStroke(stroke, width, height, spacing = 7) {
   }
 
   const last = source[source.length - 1];
-  if (distance(result[result.length - 1], last) > spacing * 0.35) result.push(last);
-  return result;
+  if (carry > 1e-9) {
+    result.push(last);
+    positions.push(positions.at(-1) + carry);
+  }
+  // Integrate error over ink length, rather than counting events or endpoints.
+  // A 1 px pen fragment must not outweigh 6 px of a continuous stroke. Dots
+  // retain a finite weight and are checked independently as required details.
+  return result.map((point, index) => ({
+    ...point,
+    weight: result.length === 1 ? spacing : (
+      (positions[index + 1] ?? positions[index])
+        - (positions[index - 1] ?? positions[index])
+    ) / 2,
+  }));
 }
 
 function minDistanceToStrokes(point, strokes) {
@@ -242,8 +275,14 @@ function minDistanceToStrokes(point, strokes) {
 
 function bandCoverage(samples, targetStrokes, tolerance) {
   if (!samples.length || !targetStrokes.length) return 0;
-  const matches = samples.filter((sample) => minDistanceToStrokes(sample, targetStrokes) <= tolerance).length;
-  return matches / samples.length;
+  let matched = 0;
+  let total = 0;
+  for (const sample of samples) {
+    const weight = sample.weight ?? 1;
+    total += weight;
+    if (minDistanceToStrokes(sample, targetStrokes) <= tolerance) matched += weight;
+  }
+  return total ? matched / total : 0;
 }
 
 function longestUncoveredRun(samples, targetStrokes, tolerance) {
@@ -320,11 +359,14 @@ function nearestDistanceMetrics(samples, targetStrokes, tolerance, cap = 2.5) {
     return { coverage: 0, mse: cap ** 2, distances: samples.map(() => Infinity) };
   }
   const distances = samples.map((sample) => minDistanceToStrokes(sample, targetStrokes));
-  const coverage = distances.filter((value) => value <= tolerance).length / distances.length;
-  const mse = distances.reduce((sum, value) => {
+  const totalWeight = samples.reduce((sum, sample) => sum + (sample.weight ?? 1), 0);
+  const coverage = distances.reduce((sum, value, index) => (
+    sum + (value <= tolerance ? samples[index].weight ?? 1 : 0)
+  ), 0) / totalWeight;
+  const mse = distances.reduce((sum, value, index) => {
     const normalized = Math.min(cap, value / Math.max(1, tolerance));
-    return sum + normalized ** 2;
-  }, 0) / distances.length;
+    return sum + normalized ** 2 * (samples[index].weight ?? 1);
+  }, 0) / totalWeight;
   return { coverage, mse, distances };
 }
 
@@ -378,13 +420,23 @@ function alignedByMedianNearest(samples, targets, maximumShift) {
     dx *= maximumShift / length;
     dy *= maximumShift / length;
   }
-  return samples.map((point) => ({ x: point.x + dx, y: point.y + dy }));
+  return samples.map((point) => ({ ...point, x: point.x + dx, y: point.y + dy }));
 }
 
 /**
  * Returns a score in [0,1]. It intentionally tolerates child-like variation.
  */
-export function evaluateDrawing(expectedStrokes, userStrokes, {
+export function evaluateDrawing(expectedStrokes, userStrokes, options = {}) {
+  const space = scoringSpace(options);
+  const result = evaluateDrawingInScoringSpace(expectedStrokes, userStrokes, space.options);
+  return {
+    ...result,
+    expectedLength: result.expectedLength * space.scale,
+    userLength: result.userLength * space.scale,
+  };
+}
+
+function evaluateDrawingInScoringSpace(expectedStrokes, userStrokes, {
   width = 900,
   height = 620,
   tolerance = Math.min(width, height) * 0.105,
@@ -396,7 +448,7 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
   const expectedLength = expectedStrokes.reduce((sum, stroke) => sum + polylineLength(stroke, width, height), 0);
   const userLength = userStrokes.reduce((sum, stroke) => sum + polylineLength(stroke, width, height), 0);
 
-  if (!user.length || userLength < 8) {
+  if (!user.length || !expected.length) {
     return {
       score: 0, coverage: 0, precision: 0, start: 0, direction: 0,
       length: 0, strokeCount: 0, expectedLength, userLength, hasInk: false,
@@ -491,9 +543,28 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
     const groupSamples = indexes.flatMap((index) => expectedSamplesByStroke[index]);
     const groupTolerance = groupTolerances[groupIndex];
     const groupMatch = nearestDistanceMetrics(groupSamples, ownedPoints, groupTolerance);
+    const owned = new Set(ownedSamplesByGroup[groupIndex]);
+    const before = ownedSamplesByGroup[groupIndex][0];
+    const after = alignedSamplesByGroup[groupIndex][0];
+    const dx = before ? after.x - before.x : 0;
+    const dy = before ? after.y - before.y : 0;
+    const matchedDots = indexes.some((index) => expected[index].length === 1)
+      ? matchDotPaths(expected, indexes, userSamplesByStroke
+        .filter((stroke) => stroke.some((point) => owned.has(point)))
+        .map((stroke) => stroke.map((point) => ({ ...point, x: point.x + dx, y: point.y + dy }))),
+      Math.min(groupTolerance, Math.max(10, groupTolerance * 0.72)))
+      : new Set();
     indexes.forEach((index) => {
       const samples = expectedSamplesByStroke[index];
       const pathLength = pixelPolylineLength(samples);
+      if (expected[index].length === 1) {
+        const present = matchedDots.has(index) ? 1 : 0;
+        pathCoverage[index] = present;
+        pathDensitySupport[index] = present;
+        pathLongitudinalSupport[index] = present;
+        pathLongestGaps[index] = 1 - present;
+        return;
+      }
       // Small neighbouring details (a crossbar, dot, flower petal, or tail)
       // need their own local band.  Otherwise a broad child-friendly glyph
       // band could let an adjacent line fill a detail that was never drawn.
@@ -506,7 +577,8 @@ export function evaluateDrawing(expectedStrokes, userStrokes, {
       const pathPoints = pointStrokes(alignedPathSamples);
       const geometricCoverage = bandCoverage(samples, pathPoints, pathTolerance);
       const densitySupport = clamp(
-        ownedSamplesByPath[index].length / Math.max(1, samples.length * 0.6),
+        ownedSamplesByPath[index].reduce((sum, point) => sum + point.weight, 0)
+          / Math.max(1, samples.reduce((sum, point) => sum + point.weight, 0) * 0.6),
         0,
         1,
       );
@@ -733,14 +805,20 @@ function cappedPathSamples(samplesByStroke, indexes, maximum = 160) {
     keep(samples.at(-1));
     samples.slice(1, -1).forEach((point) => remaining.push(point));
   });
-  if (required.length >= maximum) return required.slice(0, maximum);
-  const budget = maximum - required.length;
+  // Preserve every route, even if there are more pen lifts than the budget.
+  const budget = Math.max(1, maximum - required.length);
   if (remaining.length <= budget) return [...required, ...remaining];
   return [
     ...required,
-    ...Array.from({ length: budget }, (_, index) => (
-      remaining[Math.floor((index * remaining.length) / budget)]
-    )),
+    ...Array.from({ length: budget }, (_, index) => {
+      const start = Math.floor(index * remaining.length / budget);
+      const end = Math.floor((index + 1) * remaining.length / budget);
+      const point = remaining[Math.floor((start + end - 1) / 2)];
+      return {
+        ...point,
+        weight: remaining.slice(start, end).reduce((sum, sample) => sum + (sample.weight ?? 1), 0),
+      };
+    }),
   ];
 }
 
@@ -753,16 +831,18 @@ function cappedOwnedStrokeSamples(samplesByStroke, ownedSamples, maximum = 160) 
 }
 
 function sampleCenter(samples) {
+  const totalWeight = samples.reduce((sum, point) => sum + (point.weight ?? 1), 0);
   return samples.reduce((center, point) => ({
-    x: center.x + point.x / samples.length,
-    y: center.y + point.y / samples.length,
+    x: center.x + point.x * (point.weight ?? 1) / totalWeight,
+    y: center.y + point.y * (point.weight ?? 1) / totalWeight,
   }), { x: 0, y: 0 });
 }
 
 function rmsRadius(samples, center) {
+  const totalWeight = samples.reduce((sum, point) => sum + (point.weight ?? 1), 0);
   return Math.sqrt(samples.reduce((sum, point) => (
-    sum + (point.x - center.x) ** 2 + (point.y - center.y) ** 2
-  ), 0) / Math.max(1, samples.length));
+    sum + ((point.x - center.x) ** 2 + (point.y - center.y) ** 2) * (point.weight ?? 1)
+  ), 0) / Math.max(1, totalWeight));
 }
 
 function similarityTransform(samples, sourceCenter, targetCenter, scale, angle) {
@@ -772,17 +852,58 @@ function similarityTransform(samples, sourceCenter, targetCenter, scale, angle) 
     const x = (point.x - sourceCenter.x) * scale;
     const y = (point.y - sourceCenter.y) * scale;
     return {
+      ...point,
       x: targetCenter.x + x * cosine - y * sine,
       y: targetCenter.y + x * sine + y * cosine,
     };
   });
 }
 
+// Required dots need distinct, compact marks. Nearest-line distance alone
+// could count one middle dot twice, or accept a bar in place of an umlaut.
+function matchDotPaths(expected, indexes, candidateStrokes, tolerance) {
+  const dots = indexes.filter((index) => expected[index].length === 1);
+  const assignments = new Map();
+  const separation = Math.min(...dots.flatMap((index, position) => dots.slice(position + 1)
+    .map((other) => distance(expected[index][0], expected[other][0]))));
+  const candidates = candidateStrokes.filter((stroke) => stroke.length).map((stroke) => ({
+    center: sampleCenter(stroke),
+    diameter: Math.hypot(
+      Math.max(...stroke.map((point) => point.x)) - Math.min(...stroke.map((point) => point.x)),
+      Math.max(...stroke.map((point) => point.y)) - Math.min(...stroke.map((point) => point.y)),
+    ),
+  })).filter((candidate) => candidate.diameter <= Math.min(tolerance * 1.2, separation * 0.65))
+    .reduce((marks, candidate) => {
+      // Repeated taps in the same place are still just one visible dot. Keep
+      // the generous placement band, including vertical wobble in small names.
+      if (!Number.isFinite(separation)
+        || !marks.some((mark) => distance(mark.center, candidate.center) < separation * 0.3)) marks.push(candidate);
+      return marks;
+    }, []);
+  const choices = new Map(dots.map((index) => {
+    const point = expected[index][0];
+    return [index, candidates.flatMap((candidate, candidateIndex) => (
+      distance(candidate.center, point) <= tolerance ? [candidateIndex] : []
+    ))];
+  }));
+  const assign = (index, visited) => choices.get(index).some((candidate) => {
+    if (visited.has(candidate)) return false;
+    visited.add(candidate);
+    if (!assignments.has(candidate) || assign(assignments.get(candidate), visited)) {
+      assignments.set(candidate, index);
+      return true;
+    }
+    return false;
+  });
+  dots.forEach((index) => assign(index, new Set()));
+  return new Set(assignments.values());
+}
+
 function drawingIdentity(task, userStrokes, width, height, assist = 'easy') {
   const identityProfiles = {
     easy: { tolerance: 0.072, min: 20, max: 36, scaleMin: 0.7, scaleMax: 1.38, angle: 14, coverage: 0.8, precision: 0.7, mse: 0.95, pathCoverage: 0.66, pathGap: 0.5 },
     medium: { tolerance: 0.061, min: 17, max: 30, scaleMin: 0.76, scaleMax: 1.3, angle: 12, coverage: 0.86, precision: 0.77, mse: 0.72, pathCoverage: 0.74, pathGap: 0.44 },
-    hard: { tolerance: 0.052, min: 14, max: 24, scaleMin: 0.82, scaleMax: 1.22, angle: 9, coverage: 0.91, precision: 0.87, mse: 0.56, pathCoverage: 0.8, pathGap: 0.39 },
+    hard: { tolerance: 0.052, min: 14, max: 24, scaleMin: 0.82, scaleMax: 1.22, angle: 9, coverage: 0.91, precision: 0.88, mse: 0.56, pathCoverage: 0.8, pathGap: 0.39 },
   };
   const profile = identityProfiles[assist] ?? identityProfiles.easy;
   const expectedSamplesByStroke = task.strokes.map((stroke) => resampleStroke(stroke, width, height, 5));
@@ -840,6 +961,13 @@ function drawingIdentity(task, userStrokes, width, height, assist = 'easy') {
     });
 
     const alignedFull = similarityTransform(userFull, userCenter, targetCenter, best.scale, best.angle);
+    const owned = new Set(userFull);
+    const detailTolerance = identityTolerance * (assist === 'easy' ? 1.6 : assist === 'medium' ? 1.4 : 1.25);
+    const matchedDots = indexes.some((index) => expectedPixels[index].length === 1)
+      ? matchDotPaths(expectedPixels, indexes, userSamplesByStroke
+        .filter((stroke) => stroke.some((point) => owned.has(point)))
+        .map((stroke) => similarityTransform(stroke, userCenter, targetCenter, best.scale, best.angle)), detailTolerance)
+      : new Set();
     const alignedByPath = new Map(indexes.map((index) => [index, []]));
     alignedFull.forEach((point) => {
       const distances = indexes.map((index) => minDistanceToStrokes(point, [expectedPixels[index]]));
@@ -853,9 +981,12 @@ function drawingIdentity(task, userStrokes, width, height, assist = 'easy') {
       const samples = expectedSamplesByStroke[index];
       const pathLength = pixelPolylineLength(samples);
       const alignedPoints = pointStrokes(alignedByPath.get(index));
+      if (expectedPixels[index].length === 1) {
+        const pass = matchedDots.has(index);
+        return { index, coverage: pass ? 1 : 0, longestGap: pass ? 0 : 1, pass };
+      }
       if (pathLength <= 12) {
         const nearest = samples.reduce((value, point) => Math.min(value, minDistanceToStrokes(point, alignedPoints)), Infinity);
-        const detailTolerance = identityTolerance * (assist === 'easy' ? 1.6 : assist === 'medium' ? 1.4 : 1.25);
         return { index, coverage: nearest <= detailTolerance ? 1 : 0, longestGap: nearest <= detailTolerance ? 0 : 1, pass: nearest <= detailTolerance };
       }
       // Small marks (a crossbar, dot, or tail) need a tighter coverage band
@@ -908,7 +1039,7 @@ export function resolveRejectedRedraw(task, userStrokes, strokeColors, pendingRe
     return { userStrokes, strokeColors, pendingRejected, changed: false };
   }
   const last = userStrokes.at(-1);
-  if (!last || last.length < 2) return { userStrokes, strokeColors, pendingRejected, changed: false };
+  if (!last?.length) return { userStrokes, strokeColors, pendingRejected, changed: false };
 
   let route = -1;
   let fit = null;
@@ -957,11 +1088,12 @@ export function evaluateTaskDrawing(task, userStrokes, options = {}) {
     ...options,
     completionGroups: options.completionGroups ?? task.completionGroups,
   });
+  const comparison = scoringSpace(options).options;
   let identity = null;
   if (IDENTITY_CATEGORIES.has(task.category) && result.hasInk) {
     identity = result.coverage >= 0.55 && result.precision >= 0.45
-      ? drawingIdentity(task, userStrokes, options.width ?? 900, options.height ?? 620, options.assist ?? 'easy')
-      : { pass: false, completion: 0, groups: [], tolerance: clamp(Math.min(options.width ?? 900, options.height ?? 620) * 0.05, 14, 22) };
+      ? drawingIdentity(task, userStrokes, comparison.width, comparison.height, options.assist ?? 'easy')
+      : { pass: false, completion: 0, groups: [], tolerance: clamp(Math.min(comparison.width, comparison.height) * 0.05, 14, 22) };
     result = {
       ...result,
       identity,
@@ -976,8 +1108,8 @@ export function evaluateTaskDrawing(task, userStrokes, options = {}) {
   let shapeStructure = true;
   let shapeMetrics = null;
   if (BASIC_CONTOUR_SHAPES.has(task.id.replace(/^mixed-/, ''))) {
-    const expected = contourSignature(task.strokes, options.width ?? 900, options.height ?? 620);
-    const actual = contourSignature(userStrokes, options.width ?? 900, options.height ?? 620);
+    const expected = contourSignature(task.strokes, comparison.width, comparison.height);
+    const actual = contourSignature(userStrokes, comparison.width, comparison.height);
     const aspectDifference = Math.abs(Math.log(Math.max(0.05, actual.aspect / expected.aspect)));
     const radialDifference = [-1, 0, 1].reduce((best, shift) => {
       const mse = expected.radial.reduce((sum, value, index) => {
@@ -1057,6 +1189,7 @@ export function judgeStrokeAgainstRoute(userStroke, expectedStroke, {
   tolerance = Math.min(width, height) * 0.11,
 } = {}) {
   if (!expectedStroke?.length || !userStroke?.length) return null;
+  ({ width, height, tolerance } = scoringSpace({ width, height, tolerance }).options);
   const expectedPixels = expectedStroke.map((point) => toPixels(point, width, height));
   const userPixels = userStroke.map((point) => toPixels(point, width, height));
   const userLength = pixelPolylineLength(userPixels);
@@ -1659,7 +1792,8 @@ export class DrawingBoard {
     const toleranceByAssist = { easy: 0.15, medium: 0.125, hard: 0.105 };
     const completionByAssist = { easy: 0.14, medium: 0.125, hard: 0.11 };
     const bounds = drawingBounds(this.width, this.height);
-    const unit = Math.min(bounds.width, bounds.height);
+    const scale = Math.min(bounds.width, bounds.height) / SCORING_BOARD_UNIT;
+    const unit = SCORING_BOARD_UNIT;
     return {
       width: this.width,
       height: this.height,
@@ -1667,12 +1801,12 @@ export class DrawingBoard {
         unit * toleranceByAssist[this.assist],
         this.assist === 'easy' ? 34 : this.assist === 'medium' ? 28 : 24,
         this.assist === 'easy' ? 78 : this.assist === 'medium' ? 66 : 58,
-      ),
+      ) * scale,
       completionTolerance: clamp(
         unit * completionByAssist[this.assist],
         this.assist === 'easy' ? 32 : 26,
         this.assist === 'easy' ? 74 : this.assist === 'medium' ? 66 : 58,
-      ),
+      ) * scale,
       assist: this.assist,
     };
   }
@@ -1713,7 +1847,7 @@ export class DrawingBoard {
   judgeLastStroke() {
     if (!this.task || this.isGameTask() || !this.userStrokes.length) return null;
     const finished = this.userStrokes.at(-1);
-    if (!finished || finished.length < 2) return null;
+    if (!finished?.length) return null;
     const fit = strokeMatchesAnyRoute(this.task, finished, {
       width: this.width,
       height: this.height,
@@ -2046,9 +2180,10 @@ export class DrawingBoard {
       this.onGamePointerUp(event);
       return;
     }
-    if (this.activeStroke && this.activeStroke.length === 1) {
-      const start = this.activeStroke[0];
-      this.activeStroke.push({ ...start, x: clamp(start.x + 0.002, 0, 1) });
+    if (this.activeStroke && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+      const point = this.pointFromEvent(event);
+      const last = this.activeStroke.at(-1);
+      if (!last || point.x !== last.x || point.y !== last.y) this.activeStroke.push(point);
     }
     const finishedStroke = simplifyStroke(this.activeStroke, this.width, this.height);
     this.userStrokes[this.userStrokes.length - 1] = finishedStroke;
