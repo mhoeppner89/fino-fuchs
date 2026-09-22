@@ -786,3 +786,11 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
   and real pointer completion with no errors. Inspected both screenshots.
   Artifacts and focused scripts: test-artifacts/planet-v147/.
 - Root/testversion synchronized; evaluator logic unchanged. No remaining TODOs.
+
+## 2026-09-22 — all-green leaf (v1.3.48)
+
+- Changed the leaf's central vein/stem from brown to green so all four strokes
+  use the same green. Geometry is unchanged.
+- Verified the rendered leaf in WebKit with no browser errors; inspected the
+  screenshot at test-artifacts/leaf-v148/leaf.png. Release/version checks passed
+  (15 tests), and root/testversion runtime files match exactly.

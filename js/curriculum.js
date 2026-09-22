@@ -6,14 +6,14 @@
 import {
   CHARACTER_STROKES,
   CHARACTER_STROKE_GEOMETRY,
-} from './handwriting-stroke-data.js?v=1.3.47';
+} from './handwriting-stroke-data.js?v=1.3.48';
 import {
   connectSolutionStrokes,
   createConnectSpec,
   createMazeSpec,
   layoutConnect,
   layoutMaze,
-} from './mini-games.js?v=1.3.47';
+} from './mini-games.js?v=1.3.48';
 
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));
@@ -588,7 +588,7 @@ const shapeTemplates = [
       join(bezier(p(0.25, 0.78), p(0.12, 0.4), p(0.47, 0.16), p(0.77, 0.18)), bezier(p(0.77, 0.18), p(0.82, 0.51), p(0.61, 0.84), p(0.25, 0.78))),
       bezier(p(0.19, 0.87), p(0.36, 0.68), p(0.59, 0.42), p(0.77, 0.18)),
       poly([0.39, 0.64], [0.33, 0.43]), poly([0.54, 0.46], [0.7, 0.47]),
-    ], complexity: 2, angularStrokes: [2, 3], strokeColors: [PICTURE_INK.green, PICTURE_INK.brown, PICTURE_INK.green, PICTURE_INK.green],
+    ], complexity: 2, angularStrokes: [2, 3], strokeColors: [PICTURE_INK.green, PICTURE_INK.green, PICTURE_INK.green, PICTURE_INK.green],
   }),
   makeTask({
     id: 'shape-moon', category: 'shapes', title: 'Mond', speech: 'Male einen sichelförmigen Mond.', label: 'Mond',
