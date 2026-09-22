@@ -842,3 +842,18 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
   fixed the old six-button layout that clipped the palette on a 320px phone.
 - Artifacts: test-artifacts/palette-connect-v150/. Root/testversion match.
   No remaining implementation TODOs.
+
+## 2026-09-22 — requested test, commit and push verification
+
+- Ran the complete 158-test suite. 157 passed; the sole failure was an outdated
+  source assertion requiring the old six-column phone toolbar, removed when
+  adding the palette. Replaced it with palette control/hidden-state checks;
+  real responsive bounds remain covered by the browser tests.
+- Re-ran the affected curriculum test file: all 47 tests passed. The other
+  111 tests had already passed in the full run; no runtime changes were needed.
+- Re-ran all eight Chromium/WebKit scenarios across four screen sizes:
+  palette selection, preserved ink colours, undo, Bunt, Fino hints and complete
+  Funkelpunkte playthroughs passed with no browser errors. Inspected screenshots.
+- App/testversion runtime copies match and git diff --check passes.
+  Logs: test-artifacts/palette-connect-v150/{full-suite.log,
+  curriculum-recheck.log,browser-checks.log,browser/report-all.json}.

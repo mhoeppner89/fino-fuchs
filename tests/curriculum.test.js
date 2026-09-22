@@ -123,7 +123,10 @@ test('practice view keeps only the board and compact top-bar actions', () => {
   assert.match(html, /id="show-button"[\s\S]*assets\/fox-face\.svg/);
   assert.match(styles, /\.practice-layout\s*\{\s*display:\s*flex;\s*flex:\s*1 1 auto;/s);
   assert.match(styles, /grid-template-columns:\s*minmax\(0, 1\.35fr\) minmax\(0, \.75fr\)/);
-  assert.match(styles, /@media \(min-width: 300px\) and \(max-width: 340px\)[\s\S]*grid-template-columns:\s*repeat\(6, 46px\)/);
+  // The palette uses a responsive toolbar; actual phone bounds
+  // are checked in palette-connect-browser.mjs instead of fixing the grid size.
+  assert.match(html, /class="practice-actions"[\s\S]*id="ink-button"[^>]*aria-controls="ink-palette"/);
+  assert.match(html, /id="ink-palette"[^>]*hidden/);
   assert.match(styles, /@media \(max-width: 299px\)[\s\S]*grid-template-columns:\s*1fr/);
   assert.match(styles, /body\s*\{[^}]*min-width:\s*0/s);
   assert.match(app, /visualViewport[\s\S]*addEventListener\('resize', reveal/);
