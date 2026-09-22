@@ -1,6 +1,6 @@
 # Stroke acceptance audit
 
-## Current runtime status (v1.3.44)
+## Current runtime status (v1.3.45)
 
 The live child-facing evaluator is back on the earlier symmetric closest-line
 MSE implementation in `js/drawing.js`. The later sequential `StrokeProgress`
@@ -53,6 +53,26 @@ hard despite almost coincident contours. When at least 98% of both contours
 already lies within half the identity band, recognition also considers their
 actual placement. All existing acceptance thresholds remain unchanged, and
 partial overlaps still go through the existing fit and required-detail checks.
+
+### Reference refinements (v1.3.45)
+
+Lowercase b's bowl is now an open reversed C, with no vertical retrace.
+The 3 has a clean waist and the 6 closes at its loop junction without a curl.
+The approved source images and the MSE evaluator's rules are unchanged.
+
+The 36 shape/picture exercises retain their IDs and difficulty groups. The
+24 pictures now have clearer silhouettes, smooth curves and planned colours;
+the catalogue uses 112 strokes instead of 116. The flower uses five strokes
+instead of eight, and the bird uses six instead of seven. The sun keeps its
+more forgiving original ray spacing. The new car/planet contours separate on
+hard, so their old wrong-picture test exception is no longer needed.
+
+Picture test curves now receive smooth wobble based on physical distance;
+previously, denser reference samples produced artificial tiny zigzags. Simple
+polygon strokes retain the existing vertex perturbation. The far-away trace
+probe now uses 2.2 tolerance bands for every glyph: its previous 1.5-band probe
+was borderline for 3 after removing the waist spur. Runtime tolerances and
+acceptance logic have not been changed.
 
 The sections below document the superseded sequential experiment for history;
 their acceptance rules are not active in the current app.

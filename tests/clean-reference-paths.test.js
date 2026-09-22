@@ -75,3 +75,31 @@ test('Fino reaches the exact M corners without rounding or cutting across them',
     assert.ok(Math.hypot(guide.point.x-p.x*900, guide.point.y-p.y*620) < 1e-6);
   });
 });
+
+test('lowercase b draws its bowl without retracing the upright', () => {
+  const [stem, bowl] = CHARACTER_STROKES.b;
+  assert.equal(CHARACTER_STROKES.b.length, 2);
+  assert.deepEqual(bowl.at(-1), stem.at(-1));
+  assert.ok(bowl.at(-1).y > bowl[0].y, 'the open reversed C ends at the foot');
+  const stemX = (y) => stem[0].x + (stem[1].x - stem[0].x) * (y - stem[0].y) / (stem[1].y - stem[0].y);
+  for (const point of bowl.slice(2, -2)) {
+    assert.ok((point.x - stemX(point.y)) * 900 > 0.2, 'the bowl must stay off the stem between its endpoints');
+  }
+});
+
+test('3 has no crossing waist spur and 6 closes exactly at its loop junction', () => {
+  const cross = (a, b, c) => (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+  for (const ch of ['3', '6']) {
+    const path = CHARACTER_STROKES[ch][0];
+    for (let i = 1; i < path.length; i++) {
+      for (let j = i + 2; j < path.length; j++) {
+        const a = path[i-1], b = path[i], c = path[j-1], d = path[j];
+        const crossing = cross(a, b, c)*cross(a, b, d) < -1e-18 && cross(c, d, a)*cross(c, d, b) < -1e-18;
+        assert.equal(crossing, false, `${ch}: reference crosses itself at ${i}/${j}`);
+      }
+    }
+  }
+  const six = CHARACTER_STROKES['6'][0];
+  const closure = six.findIndex((p, i) => i < six.length - 2 && p.x === six.at(-1).x && p.y === six.at(-1).y);
+  assert.ok(closure > 1, '6 ends at the existing junction with no curled continuation');
+});

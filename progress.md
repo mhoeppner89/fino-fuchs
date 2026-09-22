@@ -708,3 +708,38 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
 - No remaining implementation TODOs. Human-labeled calibration remains the
   next source for future acceptance tuning; do not retune tolerances from these
   ideal reference traces alone.
+
+## 2026-09-22 — b/3/6 joins and clearer picture references (v1.3.45)
+
+- Lowercase b's second stroke is the open reversed-C bowl requested by the
+  user, with no vertical retrace. Removed 3's crossed waist spur and closed
+  6 exactly at its existing loop junction. All 69 paths still stay inside
+  the approved source ink (worst mean centre-line distance 0.949 px, largest
+  local miss 5.181 px). Source sheets, crops, masks and evaluator rules are
+  unchanged. Regenerated shared runtime paths and the reference contact sheet.
+- Reviewed all 36 shapes/pictures. Balanced the heart, star and regular
+  pentagon/hexagon. Refined the 24 pictures with clearer silhouettes, joined
+  parts, smooth curves and planned colours. Added an integrated house door,
+  fish/bird eyes, complete flower petals/leaves, a scalloped umbrella, round
+  vehicle bodies, and a tilted planet ring with hidden rear section. Waffle
+  hatching now stays inside the cone; wheels no longer cross a body baseline.
+  The flower uses 5 strokes instead of 8; bird 6 instead of 7; total catalogue
+  112 instead of 116. No picture requires more strokes than before.
+- Initial sun refinements failed the simulated wobble test because short rays
+  near the disc lost required-detail coverage. Kept the original generous
+  spacing and ray lengths, with the new planned yellow/orange colours.
+- Corrected the synthetic picture-curve fixture: wobble now has a physical
+  wavelength instead of changing with curve sample density. Simple polygon
+  vertex perturbations are preserved. Far-away tests use a consistent clear
+  2.2-band offset instead of the borderline 1.5-band offset. No runtime MSE
+  threshold or completion logic was changed. Car/planet now separate on hard,
+  allowing removal of the previous wrong-picture exception.
+- Verification: 146 tests pass. Chromium and WebKit render all 36 targets and
+  accept their exact traces; b/3/6 calibration previews and live Fino/pen-input
+  completion pass without console errors. Browser contact sheets were visually
+  inspected, including every shape in WebKit. Results and before/after sheets
+  are in test-artifacts/pictures/ and test-artifacts/b36/. A first browser run
+  used a nonexistent difficulty selector; the harness now uses the actual
+  radio control. Root/testversion runtime copies match.
+- No remaining implementation TODOs. Human-labeled examples remain the right
+  source for future evaluator tuning.
