@@ -1,6 +1,6 @@
 # Stroke acceptance audit
 
-## Current runtime status (v1.3.46)
+## Current runtime status (v1.3.47)
 
 The live child-facing evaluator is back on the earlier symmetric closest-line
 MSE implementation in `js/drawing.js`. The later sequential `StrokeProgress`
@@ -84,6 +84,13 @@ cover nature, food, animals, everyday objects and vehicles. Existing task IDs
 and their order are preserved; additions are appended. Calibration includes
 135 targets when letters, digits and shapes are combined, and its displayed
 counts now come from the actual catalogue. MSE rules are unchanged.
+
+### Planet ring visibility (v1.3.47)
+
+The blue planet remains a complete circle. The purple ellipse now stops at
+its two rear intersections with that circle: the hidden rear section is
+absent from the shared reference, Fino preview and scoring target. The visible
+ring is still one continuous stroke. No evaluator rules changed.
 
 The sections below document the superseded sequential experiment for history;
 their acceptance rules are not active in the current app.

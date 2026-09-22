@@ -655,6 +655,25 @@ test('the train wheels share a size and baseline and the planet has a complete c
   assert.ok(Math.max(...radii) - Math.min(...radii) < 1e-8, 'every outline point lies on the same circle');
 });
 
+test('the planet ring stops at the rear outline and remains visible across the front', () => {
+  const planet = EXERCISE_BANKS.shapes.find((task) => task.id === 'shape-planet');
+  assert.equal(planet.strokes.length, 2, 'one circle and one continuous visible ring');
+  const ring = planet.strokes[1].map(p => {
+    const x = (p.x - 0.5) * 900 / 620;
+    const y = p.y - 0.5;
+    return { radius: Math.hypot(x, y), depth: x * Math.sin(0.3) + y * Math.cos(0.3) };
+  });
+  for (const point of ring) {
+    assert.ok(point.depth >= -1e-8 || point.radius >= 0.235 - 1e-8,
+      'the rear ring must not pass through the planet');
+  }
+  for (const point of [ring[0], ring.at(-1)]) {
+    assert.ok(point.depth < 0 && Math.abs(point.radius - 0.235) < 1e-8,
+      'both rear ends meet the circular outline');
+  }
+  assert.ok(ring.some(p => p.depth > 0 && p.radius < 0.235), 'the front remains visible');
+});
+
 test('measured board space chooses fewer targets in portrait and a row in landscape', () => {
   const source = EXERCISE_BANKS.numbers.find((task) => task.id === 'number-4-vierer');
   const portrait = adaptTaskToViewport({ ...source, slot: 0 }, { width: 390, height: 844 });

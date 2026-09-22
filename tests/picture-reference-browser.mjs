@@ -29,7 +29,7 @@ for (const [engine, launcher] of Object.entries({ chromium, webkit })) {
     await page.locator('label:has(input[name="difficulty"][value="hard"])').click();
     // Select a real session beginning with a new picture that includes taps.
     await page.evaluate(async () => {
-      const { buildSession, seededRandom } = await import('./js/curriculum.js?v=1.3.46');
+      const { buildSession, seededRandom } = await import('./js/curriculum.js?v=1.3.47');
       for (let seed = 1; seed < 1000; seed++) {
         if (buildSession({ category: 'shapes', difficulty: 'hard', rng: seededRandom(seed) })[0].id === 'shape-penguin') {
           Math.random = seededRandom(seed);
@@ -44,11 +44,11 @@ for (const [engine, launcher] of Object.entries({ chromium, webkit })) {
     // real session task before testing demonstration and pointer completion.
     const original = await page.evaluate(() => window.__fuchsschrift.board.task);
     assert.equal(original.id, 'shape-penguin');
-    const tasks = await page.evaluate(async () => (await import('./js/curriculum.js?v=1.3.46')).EXERCISE_BANKS.shapes.map(t => ({ id: t.id, title: t.title })));
+    const tasks = await page.evaluate(async () => (await import('./js/curriculum.js?v=1.3.47')).EXERCISE_BANKS.shapes.map(t => ({ id: t.id, title: t.title })));
     for (const task of tasks) {
       const pass = await page.evaluate(async (id) => {
-        const { EXERCISE_BANKS, adaptTaskToViewport } = await import('./js/curriculum.js?v=1.3.46');
-        const { passesDrawingCriteria } = await import('./js/drawing.js?v=1.3.46');
+        const { EXERCISE_BANKS, adaptTaskToViewport } = await import('./js/curriculum.js?v=1.3.47');
+        const { passesDrawingCriteria } = await import('./js/drawing.js?v=1.3.47');
         const board = window.__fuchsschrift.board;
         const target = adaptTaskToViewport(EXERCISE_BANKS.shapes.find(t => t.id === id), { width: board.width, height: board.height });
         board.setTask(target, 'easy');

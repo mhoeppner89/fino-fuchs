@@ -6,14 +6,14 @@
 import {
   CHARACTER_STROKES,
   CHARACTER_STROKE_GEOMETRY,
-} from './handwriting-stroke-data.js?v=1.3.46';
+} from './handwriting-stroke-data.js?v=1.3.47';
 import {
   connectSolutionStrokes,
   createConnectSpec,
   createMazeSpec,
   layoutConnect,
   layoutMaze,
-} from './mini-games.js?v=1.3.46';
+} from './mini-games.js?v=1.3.47';
 
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));
@@ -185,6 +185,12 @@ const PICTURE_INK = Object.freeze({
   red: '#D96450',
   yellow: '#E4AE21',
 });
+
+// Intersection of the ring ellipse with the planet's circular outline.
+// The arc between the two rear intersections is hidden by the planet.
+const PLANET_RING_CUT = Math.acos(Math.sqrt(
+  (0.235 ** 2 - 0.09 ** 2) / (0.39 ** 2 - 0.09 ** 2),
+)) * 180 / Math.PI;
 
 const shapeTemplates = [
   makeTask({
@@ -539,7 +545,7 @@ const shapeTemplates = [
     id: 'shape-planet', category: 'shapes', title: 'Planet', speech: 'Male einen Planeten mit Ring.', label: 'Planet',
     strokes: [
       arc(0.5, 0.5, 0.235, 0.235, -90, 270, 56),
-      arc(0.5, 0.5, 0.39, 0.09, 180, 540, 64).map(({ x, y }) => {
+      arc(0.5, 0.5, 0.39, 0.09, 180 + PLANET_RING_CUT, -PLANET_RING_CUT, 64).map(({ x, y }) => {
         const angle = -0.3;
         return p(0.5 + (x - 0.5) * Math.cos(angle) - (y - 0.5) * Math.sin(angle),
           0.5 + (x - 0.5) * Math.sin(angle) + (y - 0.5) * Math.cos(angle));

@@ -770,3 +770,19 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
   browser contact sheets for all 32 affected pictures and both browser engines.
   Artifacts: test-artifacts/pictures-v146/ (including browser/report.json).
 - No remaining implementation TODOs.
+
+## 2026-09-22 — hide the planet's rear ring (v1.3.47)
+
+- Removed only the rear ellipse arc inside the planet, using the exact
+  circle/ellipse intersections. Kept the complete blue circle and two-stroke
+  exercise. Shared paths keep Fino, calibration, and scoring consistent.
+- Added a regression verifying that the rear ring never enters the disk,
+  both ends meet its outline, and the foreground arc remains visible.
+- Focused checks passed: circle/wheel and ring geometry regressions; planet
+  exact traces on all three levels/four viewports; child variations and
+  missing-circle/ring negatives; all 130 planet/other-picture comparisons;
+  release/version checks. No unrelated full-suite rerun was needed.
+- Chromium and WebKit both passed planet calibration, rendering, Fino preview
+  and real pointer completion with no errors. Inspected both screenshots.
+  Artifacts and focused scripts: test-artifacts/planet-v147/.
+- Root/testversion synchronized; evaluator logic unchanged. No remaining TODOs.
