@@ -6,14 +6,14 @@
 import {
   CHARACTER_STROKES,
   CHARACTER_STROKE_GEOMETRY,
-} from './handwriting-stroke-data.js?v=1.3.48';
+} from './handwriting-stroke-data.js?v=1.3.49';
 import {
   connectSolutionStrokes,
   createConnectSpec,
   createMazeSpec,
   layoutConnect,
   layoutMaze,
-} from './mini-games.js?v=1.3.48';
+} from './mini-games.js?v=1.3.49';
 
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));
@@ -678,10 +678,10 @@ const shapeTemplates = [
   makeTask({
     id: 'shape-watermelon', category: 'shapes', title: 'Melone', speech: 'Male ein Stück Wassermelone.', label: 'Melone',
     strokes: [
-      join(arc(0.5, 0.38, 0.36, 0.36, 0, 180, 48), poly([0.14, 0.38], [0.86, 0.38])),
-      arc(0.5, 0.44, 0.28, 0.23, 0, 180, 40),
+      arc(0.5, 0.38, 0.36, 0.36, 0, 180, 48),
+      join(poly([0.14, 0.38], [0.86, 0.38], [0.78, 0.44]), arc(0.5, 0.44, 0.28, 0.23, 0, 180, 40), poly([0.22, 0.44], [0.14, 0.38])),
       poly([0.37, 0.48], [0.4, 0.53]), poly([0.5, 0.52], [0.5, 0.58]), poly([0.63, 0.48], [0.6, 0.53]),
-    ], complexity: 3, angularStrokes: [0, 2, 3, 4], strokeColors: [PICTURE_INK.green, PICTURE_INK.red, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal],
+    ], complexity: 3, angularStrokes: [1, 2, 3, 4], strokeColors: [PICTURE_INK.green, PICTURE_INK.red, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal],
   }),
   makeTask({
     id: 'shape-cat', category: 'shapes', title: 'Katze', speech: 'Male ein Katzengesicht mit Schnurrhaaren.', label: 'Katze',
@@ -753,10 +753,11 @@ const shapeTemplates = [
     id: 'shape-ladybug', category: 'shapes', title: 'Marienkäfer', speech: 'Male einen Marienkäfer mit Punkten.', label: 'Marienkäfer',
     strokes: [
       arc(0.5, 0.59, 0.22, 0.26, -90, 270, 44), arc(0.5, 0.23, 0.1, 0.1, 90, 450, 32),
-      poly([0.5, 0.33], [0.5, 0.85]), arc(0.4, 0.54, 0.045, 0.045, -90, 270, 24), arc(0.6, 0.66, 0.045, 0.045, -90, 270, 24),
+      poly([0.5, 0.33], [0.5, 0.85]),
+      ...[0.46, 0.59, 0.72].flatMap((y) => [0.4, 0.6].map((x) => arc(x, y, 0.038, 0.038, -90, 270, 24))),
       bezier(p(0.44, 0.15), p(0.41, 0.08), p(0.36, 0.07), p(0.34, 0.12)),
       bezier(p(0.56, 0.15), p(0.59, 0.08), p(0.64, 0.07), p(0.66, 0.12)),
-    ], complexity: 3, angularStrokes: [2], strokeColors: [PICTURE_INK.red, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal],
+    ], complexity: 3, angularStrokes: [2], strokeColors: [PICTURE_INK.red, ...Array(10).fill(PICTURE_INK.charcoal)],
   }),
   makeTask({
     id: 'shape-crab', category: 'shapes', title: 'Krabbe', speech: 'Male eine Krabbe mit Scheren.', label: 'Krabbe',
@@ -821,8 +822,9 @@ const shapeTemplates = [
       join(bezier(p(0.43, 0.35), p(0.65, 0.25), p(0.86, 0.33), p(0.86, 0.5)), bezier(p(0.86, 0.5), p(0.86, 0.68), p(0.57, 0.69), p(0.4, 0.59)), poly([0.4, 0.59], [0.22, 0.48], [0.1, 0.48], [0.1, 0.3], [0.23, 0.4], [0.43, 0.35])),
       poly([0.5, 0.325], [0.5, 0.18]), poly([0.23, 0.18], [0.8, 0.18]),
       join(poly([0.45, 0.615], [0.45, 0.77], [0.8, 0.77]), bezier(p(0.8, 0.77), p(0.84, 0.77), p(0.86, 0.74), p(0.86, 0.7))),
+      poly([0.74704, 0.63824], [0.74704, 0.77]),
       join(bezier(p(0.65, 0.37), p(0.8, 0.37), p(0.84, 0.48), p(0.79, 0.53)), poly([0.79, 0.53], [0.65, 0.53], [0.65, 0.37])),
-    ], complexity: 3, angularStrokes: [0, 1, 2, 3, 4], strokeColors: [PICTURE_INK.red, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.blue],
+    ], complexity: 3, angularStrokes: [0, 1, 2, 3, 4, 5], strokeColors: [PICTURE_INK.red, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.charcoal, PICTURE_INK.blue],
   }),
   makeTask({
     id: 'shape-hot-air-balloon', category: 'shapes', title: 'Heißluftballon', speech: 'Male einen Heißluftballon mit Korb.', label: 'Heißluftballon',

@@ -794,3 +794,18 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
 - Verified the rendered leaf in WebKit with no browser errors; inspected the
   screenshot at test-artifacts/leaf-v148/leaf.png. Release/version checks passed
   (15 tests), and root/testversion runtime files match exactly.
+
+## 2026-09-22 — melon, ladybug and helicopter details (v1.3.49)
+
+- Melon's straight cut edge is red, joined to its red flesh curve, while the
+  outer rind stays green. Kept five continuous drawing strokes.
+- Ladybug now has six evenly spaced spots (three per wing), up from two.
+- Added the helicopter's front vertical landing-gear support from its body
+  outline to the skid, with the matching charcoal colour.
+- Focused scoring checks passed for all three pictures: exact paths on three
+  levels/four viewports, and twelve child-like variations. Release/version
+  and existing picture-colour checks passed (17 tests).
+- Chromium and WebKit both rendered all three pictures, showed Fino's preview,
+  and completed them with real pointer input, with no browser errors. Inspected
+  all six screenshots. Artifacts: test-artifacts/pictures-v149/.
+- Root/testversion runtime files match. No remaining implementation TODOs.

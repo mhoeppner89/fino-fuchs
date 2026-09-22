@@ -6,13 +6,13 @@ import {
   DIFFICULTIES,
   normalizeName,
   reflowTaskWithInk,
-} from './curriculum.js?v=1.3.48';
+} from './curriculum.js?v=1.3.49';
 import {
   DrawingBoard,
   evaluateTaskDrawing,
   feedbackForEvaluation,
   passesDrawingCriteria,
-} from './drawing.js?v=1.3.48';
+} from './drawing.js?v=1.3.49';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];

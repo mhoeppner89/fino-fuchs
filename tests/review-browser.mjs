@@ -13,7 +13,7 @@ try {
   await page.locator('#start-button').click();
   await page.waitForFunction(() => window.__fuchsschrift?.getState().screen === 'practice' && window.__fuchsschrift.board.task);
   const expected = await page.evaluate(async () => {
-    const { buildReviewSession } = await import('./js/curriculum.js?v=1.3.48');
+    const { buildReviewSession } = await import('./js/curriculum.js?v=1.3.49');
     return buildReviewSession().map((task) => task.id);
   });
   assert.equal(expected.length, 69);
