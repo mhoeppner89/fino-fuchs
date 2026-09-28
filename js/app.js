@@ -589,6 +589,15 @@ function checkDrawing({ quietIncomplete = false } = {}) {
     }
     return { passed: false, result: snapshot, inProgress: true };
   }
+  // Judge the newest pen movement before allowing the whole-character score
+  // to pass. A rejected attempt remains visible but is removed from scoring.
+  if (board.rejectLastStrokeForScoring()) {
+    const result = board.currentEvaluation();
+    state.attempts += 1;
+    board.flashGuide();
+    showToast('Fast! Versuch es noch einmal.', 1800);
+    return { passed: false, result, strokeRejected: true };
+  }
   const userStrokes = board.getUserStrokes();
   const result = board.currentEvaluation() ?? evaluateTaskDrawing(task, userStrokes, {
     ...board.evaluationOptions(),
@@ -599,17 +608,6 @@ function checkDrawing({ quietIncomplete = false } = {}) {
   if (passed) {
     celebrate(praise[Math.floor(Math.random() * praise.length)]);
     return { passed: true, result };
-  }
-
-  // Stroke-by-stroke recognition: a stroke that matches none of the guide
-  // routes was drawn in the wrong place (wrong letter, mirrored, far off, or
-  // a scribble). Tell the child to try that stroke again instead of quietly
-  // waiting for the whole task to finish.
-  if (board.judgeLastStroke() === 'rejected') {
-    state.attempts += 1;
-    board.flashGuide();
-    showToast('Fast! Versuch es noch einmal.', 1800);
-    return { passed: false, result, strokeRejected: true };
   }
 
   // A partial multi-stroke drawing is progress, not a failed attempt. The
@@ -699,11 +697,13 @@ function handleBoardResize() {
     state.activeTask = task;
     board.setTask(task, task.assist);
   } else if (board.hasInk()) {
+    const rejectedStrokeIndexes = board.getRejectedStrokeIndexes();
     const reflowed = reflowTaskWithInk(state.activeTask, board.getUserStrokes(), viewport);
     state.activeTask = reflowed.task;
     board.replaceTask(reflowed.task, {
       userStrokes: reflowed.userStrokes,
       strokeColors: board.getUserStrokeColors(),
+      rejectedStrokeIndexes,
       gameState: board.gameState,
     });
   } else {
@@ -735,9 +735,8 @@ board = new DrawingBoard(elements.drawingCanvas, {
   },
   onStrokeEnd() {
     if (!board.isGameTask()) {
-      // A stroke that redoes a previously-rejected pen movement supersedes it:
-      // drop the old attempt so the evaluation counts only successful strokes.
-      board.resolveRejectedRedraw();
+      // Rejected ink stays on the canvas, but never affects the score.
+      board.rejectLastStrokeForScoring();
       scheduleAutoCheck();
     }
     updateRoundControls();

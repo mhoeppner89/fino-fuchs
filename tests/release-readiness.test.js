@@ -70,9 +70,16 @@ test('letter and number Fino follows the child and previews the next stroke', ()
   const drawing = read('js/drawing.js');
   assert.match(app, /const shouldDemo = !task\.gameMode/);
   assert.match(app, /await previewCurrentStroke\(\{ force: true \}\);/);
-  assert.match(app, /board\.judgeLastStroke\(\) === 'rejected'/);
+  assert.match(app, /board\.rejectLastStrokeForScoring\(\)/);
   assert.match(app, /aria-label', 'Fino zeigt die Spur'/);
   assert.match(drawing, /judgeLastStroke\(\)/);
+  assert.match(drawing, /scoreableStrokes\(this\.userStrokes, this\.rejectedStrokes\)/);
+  assert.match(app, /rejectedStrokeIndexes/);
+  const checkDrawing = app.slice(app.indexOf('function checkDrawing'), app.indexOf('function finishSession'));
+  assert.ok(
+    checkDrawing.indexOf('board.rejectLastStrokeForScoring()') < checkDrawing.indexOf('const passed = passCriteria'),
+    'the last stroke must be rejected before the whole-character pass check',
+  );
   assert.match(drawing, /x: target\.x < this\.width \/ 2 \? -foxSize : this\.width \+ foxSize/);
   assert.match(drawing, /this\.foxPosition = finishedStroke\.at\(-1\)/);
   // Fino jumps from where he is actually standing, never from the board edge

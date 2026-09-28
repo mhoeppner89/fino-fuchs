@@ -1021,70 +1021,9 @@ function drawingIdentity(task, userStrokes, width, height, assist = 'easy') {
   return { pass, completion, groups: groupMetrics, tolerance: identityTolerance };
 }
 
-/**
- * Stroke-by-stroke redo resolution for multi-stroke glyphs (letters, numbers,
- * and names). A child may need several tries at one pen movement: the first
- * try can be so far off-target that recognition rejects it, then the redraw
- * succeeds. The rejected stroke would otherwise stay in the ink and keep
- * dragging down the whole-task score. The app knows the child redid that exact
- * pen movement (the redraw matches the same guide route), so this removes the
- * superseded attempt and keeps only the successful strokes. Extra marks from a
- * different letter (a G's bar drawn for a C) are never rejected-then-redone,
- * so they stay in the ink and keep failing the wrong-glyph checks.
- *
- * `pendingRejected` maps a guide route index to the stroke objects waiting for
- * a successful redraw of that route; it is mutated in place so the board can
- * keep it across pen movements.
- */
-export function resolveRejectedRedraw(task, userStrokes, strokeColors, pendingRejected, {
-  width = 900,
-  height = 620,
-  tolerance = Math.min(width, height) * 0.11,
-} = {}) {
-  if (!['letters', 'numbers', 'name'].includes(task?.category) || !userStrokes.length) {
-    return { userStrokes, strokeColors, pendingRejected, changed: false };
-  }
-  const last = userStrokes.at(-1);
-  if (!last?.length) return { userStrokes, strokeColors, pendingRejected, changed: false };
-
-  let route = -1;
-  let fit = null;
-  let bestScore = -1;
-  task.strokes.forEach((expected, index) => {
-    if (!expected?.length) return;
-    const candidate = judgeStrokeAgainstRoute(last, expected, { width, height, tolerance });
-    if (!candidate) return;
-    const score = Math.min(candidate.coverage, candidate.precision);
-    if (score > bestScore) { bestScore = score; route = index; fit = candidate; }
-  });
-  const accepted = Boolean(fit && (fit.coverage >= 0.5 || fit.precision >= 0.8));
-
-  if (!accepted) {
-    // The newest stroke is itself a failed attempt: remember it for its
-    // nearest route so a later successful redraw of that route supersedes it.
-    if (route >= 0) {
-      if (!pendingRejected.has(route)) pendingRejected.set(route, []);
-      const refs = pendingRejected.get(route);
-      if (!refs.includes(last)) refs.push(last);
-    }
-    return { userStrokes, strokeColors, pendingRejected, changed: false };
-  }
-
-  const refs = pendingRejected.get(route);
-  if (!refs?.length) return { userStrokes, strokeColors, pendingRejected, changed: false };
-  pendingRejected.delete(route);
-  const nextStrokes = [...userStrokes];
-  const nextColors = [...strokeColors];
-  let changed = false;
-  refs.forEach((ref) => {
-    const index = nextStrokes.indexOf(ref);
-    if (index >= 0) {
-      nextStrokes.splice(index, 1);
-      nextColors.splice(index, 1);
-      changed = true;
-    }
-  });
-  return { userStrokes: nextStrokes, strokeColors: nextColors, pendingRejected, changed };
+/** Return only ink that the whole-character evaluator is allowed to score. */
+export function scoreableStrokes(userStrokes, rejectedStrokes = new Set()) {
+  return userStrokes.filter((stroke) => !rejectedStrokes.has(stroke));
 }
 
 /** Activity-aware completion keeps forgiving line distance while preventing a
@@ -1463,9 +1402,8 @@ export class DrawingBoard {
     this.gameErrorUntil = 0;
     this.inkRevision = 0;
     this.evaluationCache = null;
-    // Rejected pen movements waiting for a successful redraw of the same
-    // guide route, keyed by route index. See resolveRejectedRedraw().
-    this.pendingRejected = new Map();
+    // Rejected ink stays visible, but is excluded from later scoring.
+    this.rejectedStrokes = new Set();
     this.renderFrame = 0;
     this.mazeLayers = null;
     this.connectBackdrop = null;
@@ -1655,7 +1593,7 @@ export class DrawingBoard {
     this.highlightUntil = 0;
     this.inkRevision += 1;
     this.evaluationCache = null;
-    this.pendingRejected = new Map();
+    this.rejectedStrokes = new Set();
     this.initializeGameState();
     this.mazeLayers = null;
     this.connectBackdrop = null;
@@ -1678,7 +1616,7 @@ export class DrawingBoard {
     this.highlightUntil = 0;
     this.inkRevision += 1;
     this.evaluationCache = null;
-    this.pendingRejected = new Map();
+    this.rejectedStrokes = new Set();
     this.initializeGameState();
     this.mazeLayers = null;
     this.connectBackdrop = null;
@@ -1691,7 +1629,8 @@ export class DrawingBoard {
     this.cancelActiveStrokeForResize();
     if (!this.userStrokes.length) return false;
     this.stopDemo({ render: false });
-    this.userStrokes.pop();
+    const removedStroke = this.userStrokes.pop();
+    this.rejectedStrokes.delete(removedStroke);
     this.strokeColors.pop();
     this.foxPosition = this.usesPenFollowingFino()
       ? this.userStrokes.at(-1)?.at(-1) ?? null
@@ -1708,7 +1647,6 @@ export class DrawingBoard {
     cancelAnimationFrame(this.jumpFrame);
     this.inkRevision += 1;
     this.evaluationCache = null;
-    this.pendingRejected = new Map();
     this.render();
     this.hooks.onInkChange?.(this.hasInk());
     return true;
@@ -1722,8 +1660,18 @@ export class DrawingBoard {
     return this.userStrokes.map((stroke) => stroke.map((point) => ({ ...point })));
   }
 
+  getScoreableStrokes() {
+    return scoreableStrokes(this.userStrokes, this.rejectedStrokes);
+  }
+
   getUserStrokeColors() {
     return [...this.strokeColors];
+  }
+
+  getRejectedStrokeIndexes() {
+    return this.userStrokes.flatMap((stroke, index) => (
+      this.rejectedStrokes.has(stroke) ? [index] : []
+    ));
   }
 
   setUserStrokes(strokes) {
@@ -1734,7 +1682,7 @@ export class DrawingBoard {
       : null;
     this.inkRevision += 1;
     this.evaluationCache = null;
-    this.pendingRejected = new Map();
+    this.rejectedStrokes = new Set();
     if (this.task?.gameMode === 'maze') {
       const endpoint = this.userStrokes.at(-1)?.at(-1) ?? null;
       this.gameState = {
@@ -1776,7 +1724,9 @@ export class DrawingBoard {
       : null;
     this.inkRevision += 1;
     this.evaluationCache = null;
-    this.pendingRejected = new Map();
+    this.rejectedStrokes = new Set((options.rejectedStrokeIndexes ?? [])
+      .map((index) => this.userStrokes[index])
+      .filter(Boolean));
     this.render();
     this.hooks.onInkChange?.(this.hasInk());
   }
@@ -1850,7 +1800,7 @@ export class DrawingBoard {
   currentEvaluation() {
     if (!this.task || this.isGameTask()) return null;
     if (this.evaluationCache?.revision === this.inkRevision) return this.evaluationCache.result;
-    const result = evaluateTaskDrawing(this.task, this.userStrokes, {
+    const result = evaluateTaskDrawing(this.task, this.getScoreableStrokes(), {
       ...this.evaluationOptions(),
       completionGroups: this.task.completionGroups,
     });
@@ -1878,35 +1828,21 @@ export class DrawingBoard {
     return fit ? 'accepted' : 'rejected';
   }
 
-  /**
-   * Stroke-by-stroke redo: when the newest stroke is a rejected attempt, keep
-   * it visible but remember it for the route it best-matches. When a later
-   * stroke is accepted for that same route, remove the superseded rejected
-   * strokes from the ink so the whole-task score reflects only the successful
-   * attempts. Called after every completed pen movement (letters/numbers only).
-   */
-  resolveRejectedRedraw() {
-    if (this.isGameTask()) return false;
-    const tolerance = this.evaluationOptions().completionTolerance;
-    const result = resolveRejectedRedraw(this.task, this.userStrokes, this.strokeColors, this.pendingRejected, {
-      width: this.width,
-      height: this.height,
-      tolerance,
-    });
-    if (result.changed) {
-      this.userStrokes = result.userStrokes;
-      this.strokeColors = result.strokeColors;
+  /** Keep rejected ink visible while preventing it from affecting future scores. */
+  rejectLastStrokeForScoring() {
+    if (this.judgeLastStroke() !== 'rejected') return false;
+    const last = this.userStrokes.at(-1);
+    if (!this.rejectedStrokes.has(last)) {
+      this.rejectedStrokes.add(last);
       this.inkRevision += 1;
       this.evaluationCache = null;
-      this.render();
-      this.hooks.onInkChange?.(this.hasInk());
     }
-    return result.changed;
+    return true;
   }
 
   activeGuideStageIndex() {
     const stages = this.guideStages();
-    if (!stages.length || !this.hasInk()) return 0;
+    if (!stages.length || !this.getScoreableStrokes().some((stroke) => stroke.length)) return 0;
     if (this.activeStroke && Number.isInteger(this.activeGuideStageAtStart)) return this.activeGuideStageAtStart;
     const result = this.currentEvaluation();
     const stageIndex = stages.findIndex((stage) => stage.some((index) => result.pathCoverage[index] < REQUIRED_PATH_COVERAGE));
@@ -1932,7 +1868,7 @@ export class DrawingBoard {
     if (this.task?.gameMode === 'connect') return this.gameState?.reachedIndex ?? 0;
     if (this.task?.gameMode === 'maze') return 0;
     if (this.activeStroke && Number.isInteger(this.activeGuideIndex)) return this.activeGuideIndex;
-    if (!this.task?.strokes?.length || !this.hasInk()) return 0;
+    if (!this.task?.strokes?.length || !this.getScoreableStrokes().some((stroke) => stroke.length)) return 0;
     const pathCoverage = this.currentEvaluation()?.pathCoverage ?? [];
     const next = pathCoverage.findIndex((coverage) => coverage < REQUIRED_PATH_COVERAGE);
     return next >= 0 ? next : Math.max(0, this.task.strokes.length - 1);

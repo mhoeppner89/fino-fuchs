@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { adaptTaskToViewport, EXERCISE_BANKS } from '../js/curriculum.js';
-import { evaluateTaskDrawing, passesDrawingCriteria, resolveRejectedRedraw, strokeMatchesAnyRoute } from '../js/drawing.js';
+import { DrawingBoard, evaluateTaskDrawing, passesDrawingCriteria, strokeMatchesAnyRoute } from '../js/drawing.js';
 
 const VIEWPORTS = [
   { width: 320, height: 568 },
@@ -176,12 +176,10 @@ test('missing teaching details remain incomplete', () => {
   });
 });
 
-test('a corrected rejected first attempt no longer blocks success on multi-stroke glyphs', () => {
-  // The first try at the first stroke can be so far off-target that recognition
-  // rejects it; the redraw then succeeds and the child finishes the rest. The
-  // rejected attempt must be superseded (removed from the ink) when the redraw
-  // matches the same guide route, so the evaluation counts only the strokes the
-  // child actually got right.
+test('rejected attempts stay visible but never enter whole-character scoring', () => {
+  // The first try can be so far off-target that stroke recognition rejects it.
+  // It remains in the visible ink, but the MSE and identity checks must ignore
+  // it immediately, including during the wait for a retry.
   const viewport = VIEWPORTS[1];
   const cases = [
     ['numbers', 'number-7-gross'],
@@ -193,29 +191,45 @@ test('a corrected rejected first attempt no longer blocks success on multi-strok
     const task = adaptTaskToViewport(source, viewport);
     const tolerance = options(viewport).completionTolerance;
     const badFirst = task.strokes[0].map((point) => ({ x: point.x + 0.28, y: point.y + 0.30 }));
+    assert.equal(strokeMatchesAnyRoute(task, badFirst, { ...viewport, tolerance }), false, `${id}: bad attempt should be rejected`);
 
-    // 1. The bad first attempt is rejected: it stays in the ink (still visible)
-    //    but is remembered for the route it best-matches.
-    const pending = new Map();
-    const first = resolveRejectedRedraw(task, [badFirst], [], pending, { ...viewport, tolerance });
-    assert.equal(first.changed, false, `${id}: first bad attempt should not be removed`);
-    const rejectedRoute = [...pending.keys()][0];
-    assert.ok(rejectedRoute !== undefined, `${id}: rejected attempt should be remembered for a route`);
+    // Exercise the real board methods without constructing a DOM canvas.
+    const board = Object.assign(Object.create(DrawingBoard.prototype), {
+      task,
+      assist: 'easy',
+      width: viewport.width,
+      height: viewport.height,
+      userStrokes: [badFirst],
+      rejectedStrokes: new Set(),
+      inkRevision: 1,
+      evaluationCache: null,
+    });
+    const beforeRejection = board.currentEvaluation();
+    assert.equal(beforeRejection.hasInk, true);
+    assert.equal(board.rejectLastStrokeForScoring(), true, `${id}: failed attempt should be recorded`);
+    const whileRetrying = board.currentEvaluation();
+    assert.equal(board.userStrokes.length, 1, `${id}: failed attempt remains visible`);
+    assert.equal(whileRetrying.hasInk, false, `${id}: failed attempt is excluded before retry`);
+    assert.notEqual(beforeRejection.userLength, whileRetrying.userLength, `${id}: rejected ink no longer affects the score`);
+    assert.equal(board.nextGuideStrokeIndex(), 0, `${id}: rejected ink does not advance the guide`);
 
-    // 2. The redraw of the same route supersedes the rejected attempt.
-    const redraw = task.strokes[rejectedRoute];
-    const second = resolveRejectedRedraw(task, [badFirst, redraw], [], pending, { ...viewport, tolerance });
-    assert.equal(second.changed, true, `${id}: redraw should supersede the rejected attempt`);
-    assert.equal(second.userStrokes.length, 1, `${id}: rejected attempt should be removed from the ink`);
-    assert.equal(second.userStrokes[0], redraw, `${id}: the successful redraw stays`);
+    // Very short marks can have no nearest-route fit at all. Filtering uses
+    // the rejected stroke object, so it does not depend on route assignment.
+    const shortFailure = [{ x: 0.05, y: 0.05 }, { x: 0.051, y: 0.051 }];
+    assert.equal(strokeMatchesAnyRoute(task, shortFailure, { ...viewport, tolerance }), false);
+    board.userStrokes.push(shortFailure);
+    board.inkRevision += 1;
+    board.evaluationCache = null;
+    assert.equal(board.rejectLastStrokeForScoring(), true, `${id}: short failure should also be recorded`);
 
-    // 3. Finishing the remaining strokes passes, and the ghost ink alone would
-    //    have kept failing (which is what the interactive resolution fixes).
-    const rest = task.strokes.filter((_, index) => index !== rejectedRoute);
-    const finished = [...second.userStrokes, ...rest];
-    assert.equal(passes(task, finished, viewport), true, `${id}: corrected multi-stroke drawing must pass`);
-    const ghost = [badFirst, ...task.strokes];
-    assert.equal(passes(task, ghost, viewport), false, `${id}: unresolved ghost ink must not pass on its own`);
+    // The successful redraw is added to scoring while the rejected attempt
+    // remains on screen; later strokes can then complete the character.
+    const redraw = task.strokes[0];
+    board.userStrokes.push(redraw, ...task.strokes.slice(1));
+    board.inkRevision += 1;
+    board.evaluationCache = null;
+    assert.deepEqual(board.getRejectedStrokeIndexes(), [0, 1], `${id}: both failed attempts remain visible`);
+    assert.equal(passesDrawingCriteria(board.currentEvaluation(), 'easy', { qualityAdjustment: 0.025 }), true, `${id}: corrected drawing passes`);
   });
 });
 
