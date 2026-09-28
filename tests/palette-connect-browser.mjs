@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { chromium, webkit } from 'playwright';
-const output='test-artifacts/palette-connect-v151/browser';
+const output='test-artifacts/palette-connect-v152/browser';
 mkdirSync(output,{recursive:true});
 const report=[];
 await Promise.all(Object.entries({chromium,webkit}).map(async ([engine,launcher])=>{
@@ -58,7 +58,7 @@ await Promise.all(Object.entries({chromium,webkit}).map(async ([engine,launcher]
      assert.ok(await page.evaluate(()=>window.__fuchsschrift.board.demoFoxPosition()));
     }
     const route=await page.evaluate(async()=>{
-     const {connectHintRoute}=await import('./js/mini-games.js?v=1.3.51');
+     const {connectHintRoute}=await import('./js/mini-games.js?v=1.3.52');
      const b=window.__fuchsschrift.board,r=b.canvas.getBoundingClientRect();
      b.stopDemo();
      const route=connectHintRoute(b.task.game,b.userStrokes,b.gameState.reachedIndex,b.width,b.height);

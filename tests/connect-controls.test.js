@@ -23,46 +23,18 @@ function boardFor(game, viewport = { width, height }) {
 const eventAt = (p, viewport = { width, height }) => ({ clientX: p.x * viewport.width, clientY: p.y * viewport.height, pointerId: 1, preventDefault() {} });
 const move = (board, p) => board.onGamePointerMove(eventAt(p, board));
 
-test('Funkelpunkte target circles stay still instead of pulsing between redraws', () => {
+test('Funkelpunkte markers do not schedule their own redraw loop', () => {
   const game = gameFor([point(0.25, 0.5), point(0.75, 0.5)]);
   const board = boardFor(game);
-  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
-  const originalPerformance = Object.getOwnPropertyDescriptor(globalThis, 'performance');
-  const markers = [];
-  let clock = 110;
   let scheduledRenders = 0;
-  Object.defineProperty(globalThis, 'window', {
-    configurable: true,
-    value: { matchMedia: () => ({ matches: false }) },
-  });
-  Object.defineProperty(globalThis, 'performance', {
-    configurable: true,
-    value: { now: () => clock },
-  });
   board.buildConnectBackdrop = () => ({});
+  board.buildConnectMarkerSprites = () => [];
   board.drawInk = () => {};
   board.drawGuideFox = () => {};
-  board.drawPoint = (_context, position, radius, options) => markers.push({ position, radius, options });
-  board.colorForStroke = () => '#3F8FB5';
   board.requestRender = () => { scheduledRenders += 1; };
 
-  try {
-    board.gameState.popStartedAt = 0;
-    board.gameState.hintUntil = 150;
-    board.drawConnect({ drawImage() {} });
-    clock = 200;
-    board.drawConnect({ drawImage() {} });
-  } finally {
-    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
-    else delete globalThis.window;
-    if (originalPerformance) Object.defineProperty(globalThis, 'performance', originalPerformance);
-    else delete globalThis.performance;
-  }
-
-  const targetMarkers = markers.filter(({ position }) => position === game.points[1]);
-  assert.equal(targetMarkers.length, 2);
-  assert.equal(targetMarkers[0].radius, targetMarkers[1].radius);
-  assert.equal(targetMarkers[0].options.pulse ?? 1, targetMarkers[1].options.pulse ?? 1);
+  board.drawConnect({ drawImage() {} });
+  board.drawConnect({ drawImage() {} });
   assert.equal(scheduledRenders, 0, 'the markers must not start a redraw loop of their own');
 });
 
@@ -76,6 +48,47 @@ test('a missed Funkelpunkte start does not start an invisible guide redraw loop'
 
   assert.equal(board.gameState.status, 'ready');
   assert.equal(board.guideFlashed, undefined);
+});
+
+test('Funkelpunkte reuses marker sprites while dragging and refreshes them on state changes', () => {
+  const game = gameFor([point(0.2, 0.5), point(0.5, 0.35), point(0.8, 0.5)]);
+  const board = boardFor(game);
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const paintedMarkers = [];
+  let targetColor = '#3F8FB5';
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement: () => ({
+        width: 0,
+        height: 0,
+        getContext: () => ({ setTransform() {} }),
+      }),
+    },
+  });
+  board.dpr = 1;
+  board.buildConnectBackdrop = () => ({});
+  board.drawInk = () => {};
+  board.drawPoint = (_context, position, radius, options) => paintedMarkers.push({ position, radius, options });
+  board.drawGuideFox = () => {};
+  board.colorForStroke = () => targetColor;
+
+  try {
+    board.drawConnect({ drawImage() {} });
+    board.drawConnect({ drawImage() {} });
+    assert.equal(paintedMarkers.length, 2, 'a normal redraw should reuse the two visible markers');
+
+    board.gameState.reachedIndex = 1;
+    board.drawConnect({ drawImage() {} });
+    assert.equal(paintedMarkers.length, 5, 'advancing reveals one completed and two active markers');
+
+    targetColor = '#DE6352';
+    board.drawConnect({ drawImage() {} });
+    assert.equal(paintedMarkers.length, 8, 'changing the selected colour rebuilds the active markers');
+  } finally {
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else delete globalThis.document;
+  }
 });
 
 function assertClear(route, game, lockedStrokes, index = 0) {

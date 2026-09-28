@@ -872,3 +872,14 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
   tests). Chromium and WebKit each rendered six consecutive identical idle
   canvas frames with no page errors. Screenshot:
   `test-artifacts/funkelpunkte-v151/chromium-connect.png`.
+
+## 2026-09-28 — Reuse Funkelpunkte markers during touch redraws (v1.3.52)
+
+- Touch movement redraws the game canvas each frame. Cached each visible number
+  circle as a small sprite, so its outline, label, and shadow are painted once
+  per game step and reused while the child draws. The cache refreshes for a new
+  step, colour, task, or viewport size.
+- Verification: focused connect and release-readiness suites pass (27 tests).
+  On iPhone-sized WebKit (390×844 at 3×), a live drag kept marker paint count
+  fixed at two through thirteen stroke samples, with no browser errors. Screenshot:
+  `test-artifacts/funkelpunkte-v152/webkit-mobile-drag.png`.

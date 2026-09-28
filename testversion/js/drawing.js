@@ -3,8 +3,8 @@
 import {
   CHARACTER_TEMPLATE_SHEETS,
   characterTemplateCrop,
-} from './handwriting-template-data.js?v=1.3.51';
-import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.51';
+} from './handwriting-template-data.js?v=1.3.52';
+import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.52';
 import {
   connectInkWidthForBoard,
   connectTrailCollision,
@@ -14,7 +14,7 @@ import {
   pointDistanceInPixels,
   planConnectContinuation,
   connectHintRoute,
-} from './mini-games.js?v=1.3.51';
+} from './mini-games.js?v=1.3.52';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -1469,6 +1469,7 @@ export class DrawingBoard {
     this.renderFrame = 0;
     this.mazeLayers = null;
     this.connectBackdrop = null;
+    this.connectMarkerSprites = null;
     this.templateImages = new Map();
     this.width = 800;
     this.height = 560;
@@ -1538,6 +1539,7 @@ export class DrawingBoard {
       this.canvas.height = pixelHeight;
       this.mazeLayers = null;
       this.connectBackdrop = null;
+      this.connectMarkerSprites = null;
     }
     this.context.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.render();
@@ -1657,6 +1659,7 @@ export class DrawingBoard {
     this.initializeGameState();
     this.mazeLayers = null;
     this.connectBackdrop = null;
+    this.connectMarkerSprites = null;
     cancelAnimationFrame(this.demoFrame);
     cancelAnimationFrame(this.jumpFrame);
     this.render();
@@ -1678,6 +1681,8 @@ export class DrawingBoard {
     this.pendingRejected = new Map();
     this.initializeGameState();
     this.mazeLayers = null;
+    this.connectBackdrop = null;
+    this.connectMarkerSprites = null;
     this.render();
     this.hooks.onInkChange?.(false);
   }
@@ -1757,6 +1762,7 @@ export class DrawingBoard {
     this.task = task;
     this.mazeLayers = null;
     this.connectBackdrop = null;
+    this.connectMarkerSprites = null;
     this.userStrokes = userStrokes.map((stroke) => stroke.map((point) => ({ ...point })));
     this.strokeColors = [...strokeColors];
     this.gameState = gameState ? { ...gameState } : null;
@@ -2998,6 +3004,61 @@ export class DrawingBoard {
     return canvas;
   }
 
+  buildConnectMarkerSprites() {
+    const game = this.task.game;
+    const reached = this.gameState.reachedIndex;
+    const targetColor = this.colorForStroke(reached);
+    const spriteDpr = this.dpr;
+    const key = `${this.width.toFixed(2)}:${this.height.toFixed(2)}:${spriteDpr.toFixed(3)}:${reached}:${targetColor}`;
+    if (this.connectMarkerSprites?.game === game && this.connectMarkerSprites.key === key) {
+      return this.connectMarkerSprites.sprites;
+    }
+
+    const markers = [];
+    for (let index = 0; index < reached; index += 1) {
+      markers.push({
+        point: game.points[index],
+        radius: game.pointRadius * 0.72,
+        options: { color: '#55A875', number: index + 1, complete: true },
+      });
+    }
+    if (game.points[reached + 1]) {
+      markers.push({
+        point: game.points[reached + 1],
+        radius: game.pointRadius,
+        options: { color: targetColor, number: reached + 2 },
+      });
+    }
+    if (game.points[reached]) {
+      markers.push({
+        point: game.points[reached],
+        radius: game.pointRadius,
+        options: { color: '#F08A45', number: reached + 1 },
+      });
+    }
+
+    // Reuse rasterized circles while the child drags. Rebuilding text and
+    // blurred shadows on every pointer frame made mobile canvas redraws heavy.
+    const padding = 24;
+    const sprites = markers.map(({ point, radius, options }) => {
+      const cssSize = (radius + padding) * 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(cssSize * spriteDpr));
+      canvas.height = canvas.width;
+      const size = canvas.width / spriteDpr;
+      const context = canvas.getContext('2d');
+      context.setTransform(spriteDpr, 0, 0, spriteDpr, 0, 0);
+      this.drawPoint(context, {
+        x: size / 2 / this.width,
+        y: size / 2 / this.height,
+      }, radius, options);
+      const center = toPixels(point, this.width, this.height);
+      return { canvas, x: center.x - size / 2, y: center.y - size / 2, size };
+    });
+    this.connectMarkerSprites = { game, key, sprites };
+    return sprites;
+  }
+
   drawConnect(context) {
     const game = this.task.game;
     const reached = this.gameState.reachedIndex;
@@ -3005,27 +3066,15 @@ export class DrawingBoard {
     context.drawImage(this.buildConnectBackdrop(), 0, 0, this.width, this.height);
 
     this.drawInk(context);
-    for (let index = 0; index < reached; index += 1) {
-      this.drawPoint(context, game.points[index], game.pointRadius * 0.72, {
-        color: '#55A875', number: index + 1, complete: true,
-      });
-    }
+    this.buildConnectMarkerSprites().forEach(({ canvas, x, y, size }) => {
+      context.drawImage(canvas, x, y, size, size);
+    });
     const current = game.points[reached];
-    const target = game.points[reached + 1];
     const routeHint = this.gameHint?.type === 'connect-route'
       ? pointAlongGuidePath(this.gameHint.route, this.gameHint.progress, this.width, this.height, false)
       : null;
-    if (target) {
-      this.drawPoint(context, target, game.pointRadius, {
-        color: this.colorForStroke(reached),
-        number: reached + 2,
-      });
-    }
     if (current) {
       const currentPixel = toPixels(current, this.width, this.height);
-      this.drawPoint(context, current, game.pointRadius, {
-        color: '#F08A45', number: reached + 1,
-      });
       if (!this.activeStroke?.length && !routeHint) this.drawGuideFox(context, currentPixel, 0);
     }
     if (routeHint && !this.activeStroke?.length) this.drawGuideFox(context, routeHint.point, routeHint.angle);
