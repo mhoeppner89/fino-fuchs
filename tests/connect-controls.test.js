@@ -23,6 +23,61 @@ function boardFor(game, viewport = { width, height }) {
 const eventAt = (p, viewport = { width, height }) => ({ clientX: p.x * viewport.width, clientY: p.y * viewport.height, pointerId: 1, preventDefault() {} });
 const move = (board, p) => board.onGamePointerMove(eventAt(p, board));
 
+test('Funkelpunkte target circles stay still instead of pulsing between redraws', () => {
+  const game = gameFor([point(0.25, 0.5), point(0.75, 0.5)]);
+  const board = boardFor(game);
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalPerformance = Object.getOwnPropertyDescriptor(globalThis, 'performance');
+  const markers = [];
+  let clock = 110;
+  let scheduledRenders = 0;
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { matchMedia: () => ({ matches: false }) },
+  });
+  Object.defineProperty(globalThis, 'performance', {
+    configurable: true,
+    value: { now: () => clock },
+  });
+  board.buildConnectBackdrop = () => ({});
+  board.drawInk = () => {};
+  board.drawGuideFox = () => {};
+  board.drawPoint = (_context, position, radius, options) => markers.push({ position, radius, options });
+  board.colorForStroke = () => '#3F8FB5';
+  board.requestRender = () => { scheduledRenders += 1; };
+
+  try {
+    board.gameState.popStartedAt = 0;
+    board.gameState.hintUntil = 150;
+    board.drawConnect({ drawImage() {} });
+    clock = 200;
+    board.drawConnect({ drawImage() {} });
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
+    if (originalPerformance) Object.defineProperty(globalThis, 'performance', originalPerformance);
+    else delete globalThis.performance;
+  }
+
+  const targetMarkers = markers.filter(({ position }) => position === game.points[1]);
+  assert.equal(targetMarkers.length, 2);
+  assert.equal(targetMarkers[0].radius, targetMarkers[1].radius);
+  assert.equal(targetMarkers[0].options.pulse ?? 1, targetMarkers[1].options.pulse ?? 1);
+  assert.equal(scheduledRenders, 0, 'the markers must not start a redraw loop of their own');
+});
+
+test('a missed Funkelpunkte start does not start an invisible guide redraw loop', () => {
+  const game = gameFor([point(0.3, 0.5), point(0.7, 0.5)]);
+  const board = boardFor(game);
+  const missedPickup = point(game.points[0].x + 100 / width, game.points[0].y);
+  board.flashGuide = () => { board.guideFlashed = true; };
+
+  board.onGamePointerDown(eventAt(missedPickup), missedPickup);
+
+  assert.equal(board.gameState.status, 'ready');
+  assert.equal(board.guideFlashed, undefined);
+});
+
 function assertClear(route, game, lockedStrokes, index = 0) {
   assert.ok(route?.length > 1);
   for (let i = 1; i < route.length; i++) {

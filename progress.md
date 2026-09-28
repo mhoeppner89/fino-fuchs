@@ -857,3 +857,18 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
 - App/testversion runtime copies match and git diff --check passes.
   Logs: test-artifacts/palette-connect-v150/{full-suite.log,
   curriculum-recheck.log,browser-checks.log,browser/report-all.json}.
+
+## 2026-09-28 — Steady Funkelpunkte markers (v1.3.51)
+
+- Removed the target circles' repeated size changes: both the bounce after
+  reaching a point and the faster hint pulse made the circles appear to flicker.
+  Their radius and number now stay fixed while Fino's route hint still animates.
+- Removed the guide redraw loop after a missed game start; the game already
+  displays its own start prompt, and the guide redraw had no visible effect.
+- Added regressions for stable marker size, no idle marker redraw loop, and no
+  invisible redraw after a missed pickup. Root and testversion runtime copies
+  are synchronized.
+- Verification: the focused connect and release-readiness suites pass (26
+  tests). Chromium and WebKit each rendered six consecutive identical idle
+  canvas frames with no page errors. Screenshot:
+  `test-artifacts/funkelpunkte-v151/chromium-connect.png`.

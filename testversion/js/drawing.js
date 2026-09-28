@@ -3,8 +3,8 @@
 import {
   CHARACTER_TEMPLATE_SHEETS,
   characterTemplateCrop,
-} from './handwriting-template-data.js?v=1.3.50';
-import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.50';
+} from './handwriting-template-data.js?v=1.3.51';
+import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.51';
 import {
   connectInkWidthForBoard,
   connectTrailCollision,
@@ -14,7 +14,7 @@ import {
   pointDistanceInPixels,
   planConnectContinuation,
   connectHintRoute,
-} from './mini-games.js?v=1.3.50';
+} from './mini-games.js?v=1.3.51';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -1627,7 +1627,6 @@ export class DrawingBoard {
     } else if (this.task?.gameMode === 'connect') {
       this.gameState = {
         mode: 'connect', status: 'ready', collisions: 0, reachedIndex: 0,
-        popStartedAt: performance.now(), hintUntil: 0,
       };
     } else {
       this.gameState = null;
@@ -1698,7 +1697,6 @@ export class DrawingBoard {
     } else if (this.gameState?.mode === 'connect') {
       this.gameState.status = 'ready';
       this.gameState.reachedIndex = Math.max(0, this.gameState.reachedIndex - 1);
-      this.gameState.popStartedAt = performance.now();
     }
     this.activeStroke = null;
     this.jumpAnimation = null;
@@ -1744,7 +1742,7 @@ export class DrawingBoard {
       const reachedIndex = Math.min(this.task.game.points.length - 1, this.userStrokes.length);
       this.gameState = {
         mode: 'connect', status: reachedIndex >= this.task.game.points.length - 1 ? 'complete' : 'ready',
-        collisions: 0, reachedIndex, popStartedAt: performance.now(), hintUntil: 0,
+        collisions: 0, reachedIndex,
       };
     }
     this.render();
@@ -1801,8 +1799,6 @@ export class DrawingBoard {
 
   advanceTime(milliseconds = 0) {
     const amount = Math.max(0, Number(milliseconds) || 0);
-    if (this.gameState?.popStartedAt) this.gameState.popStartedAt -= amount;
-    if (this.gameState?.hintUntil) this.gameState.hintUntil -= amount;
     if (this.jumpAnimation?.startedAt) this.jumpAnimation.startedAt -= amount;
     if (this.gameHint?.startedAt) this.gameHint.startedAt -= amount;
     this.render();
@@ -1953,7 +1949,6 @@ export class DrawingBoard {
       if (!route?.length) return Promise.resolve();
       const routeLength = polylineLength(route, this.width, this.height);
       const duration = reducedMotion ? 1 : clamp((routeLength / 250) * 1000, 450, 1900);
-      this.gameState.hintUntil = performance.now() + duration;
       this.gameHint = { type: 'connect-route', route, progress: 0, startedAt: performance.now(), duration };
       return new Promise((resolve) => {
         this.demoResolve = resolve;
@@ -2296,9 +2291,7 @@ export class DrawingBoard {
       ? Math.max(game.startRadius, inkWidthForBoard(this.width, this.height, this.task) * 1.7)
       : game.hitRadius * 1.12;
     if (pointDistanceInPixels(point, current, this.width, this.height) > radius) {
-      if (this.gameState) this.gameState.hintUntil = performance.now() + 850;
       this.hooks.onGameMistake?.('start', this.gameState?.collisions ?? 0);
-      this.flashGuide();
       return;
     }
 
@@ -2457,7 +2450,6 @@ export class DrawingBoard {
       this.gameState.endpoint = this.task.game.goal;
     } else {
       this.gameState.reachedIndex += 1;
-      this.gameState.popStartedAt = performance.now();
     }
     this.gameState.status = complete ? 'complete' : 'ready';
     this.render();
@@ -2961,9 +2953,8 @@ export class DrawingBoard {
     this.drawGuideFox(context, toPixels(foxPoint, this.width, this.height), angle);
   }
 
-  drawPoint(context, point, radius, { color, number, pulse = 1, complete = false } = {}) {
+  drawPoint(context, point, radius, { color, number, complete = false } = {}) {
     const pixel = toPixels(point, this.width, this.height);
-    const scaledRadius = radius * pulse;
     context.save();
     context.shadowColor = `${color}55`;
     context.shadowBlur = complete ? 0 : 14;
@@ -2971,12 +2962,12 @@ export class DrawingBoard {
     context.strokeStyle = color;
     context.lineWidth = complete ? 3 : 4;
     context.beginPath();
-    context.arc(pixel.x, pixel.y, scaledRadius, 0, Math.PI * 2);
+    context.arc(pixel.x, pixel.y, radius, 0, Math.PI * 2);
     context.fill();
     context.stroke();
     context.shadowBlur = 0;
     context.fillStyle = complete ? '#4F9A6A' : color;
-    context.font = `800 ${clamp(scaledRadius * 1.05, 14, 24)}px ui-rounded, system-ui, sans-serif`;
+    context.font = `800 ${clamp(radius * 1.05, 14, 24)}px ui-rounded, system-ui, sans-serif`;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.fillText(complete ? '✓' : String(number), pixel.x, pixel.y + 1);
@@ -3010,12 +3001,6 @@ export class DrawingBoard {
   drawConnect(context) {
     const game = this.task.game;
     const reached = this.gameState.reachedIndex;
-    const now = performance.now();
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const popProgress = reducedMotion ? 1 : clamp((now - this.gameState.popStartedAt) / 380, 0, 1);
-    const easedPop = 1 + Math.sin(Math.min(1, popProgress) * Math.PI) * 0.22;
-    const hinting = now < (this.gameState.hintUntil ?? 0);
-    const pulse = hinting && !reducedMotion ? 1 + Math.sin(now / 110) * 0.12 : easedPop;
 
     context.drawImage(this.buildConnectBackdrop(), 0, 0, this.width, this.height);
 
@@ -3034,7 +3019,6 @@ export class DrawingBoard {
       this.drawPoint(context, target, game.pointRadius, {
         color: this.colorForStroke(reached),
         number: reached + 2,
-        pulse,
       });
     }
     if (current) {
@@ -3054,7 +3038,6 @@ export class DrawingBoard {
         Math.atan2((last.y - previous.y) * this.height, (last.x - previous.x) * this.width),
       );
     }
-    if (popProgress < 1 || hinting) this.requestRender();
   }
 
   drawGame(context) {
