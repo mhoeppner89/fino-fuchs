@@ -134,12 +134,13 @@ test('practice view keeps only the board and compact top-bar actions', () => {
   assert.match(app, /practiceScreen\.inert = true/);
 });
 
-test('home screen exposes all eight child activities without emoji art', () => {
+test('home screen exposes all nine child activities without emoji art', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  assert.equal((html.match(/class="activity-card/g) ?? []).length, 8);
-  ['maze', 'connect'].forEach((category) => assert.match(html, new RegExp(`data-category="${category}"`)));
+  assert.equal((html.match(/class="activity-card/g) ?? []).length, 9);
+  ['maze', 'connect', 'sudoku'].forEach((category) => assert.match(html, new RegExp(`data-category="${category}"`)));
   assert.match(html, />Labyrinth</);
   assert.match(html, />Funkelpunkte</);
+  assert.match(html, />Mini-Sudoku</);
 });
 
 test('the home screen shows the current app version discreetly', () => {

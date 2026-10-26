@@ -6,13 +6,14 @@ import {
   DIFFICULTIES,
   normalizeName,
   reflowTaskWithInk,
-} from './curriculum.js?v=1.3.52';
+} from './curriculum.js?v=1.3.53';
 import {
   DrawingBoard,
   evaluateTaskDrawing,
   feedbackForEvaluation,
   passesDrawingCriteria,
-} from './drawing.js?v=1.3.52';
+} from './drawing.js?v=1.3.53';
+import { SudokuGame } from './sudoku-ui.js?v=1.3.53';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -46,6 +47,8 @@ const elements = {
   practiceStatus: $('#practice-status'),
   drawingCard: $('.drawing-card'),
   drawingCanvas: $('#drawing-canvas'),
+  sudokuRoot: $('#sudoku-game'),
+  sudokuCanvas: $('#sudoku-canvas'),
   fullscreenButton: $('#fullscreen-button'),
   rotateSuggestion: $('#rotate-suggestion'),
   canvasHint: $('#canvas-hint'),
@@ -200,10 +203,14 @@ function showScreen(name) {
   document.body.dataset.screen = name;
   document.documentElement.classList.toggle('practice-active', name === 'practice');
   if (name === 'practice') {
+    const sudoku = state.category === 'sudoku';
+    elements.practiceScreen.classList.toggle('is-sudoku', sudoku);
+    elements.sudokuRoot.hidden = !sudoku;
+    elements.drawingCanvas.hidden = sudoku;
     armPracticeHistoryGuard();
     requestAnimationFrame(() => {
       board.resize();
-      elements.drawingCanvas.focus({ preventScroll: true });
+      (sudoku ? elements.sudokuCanvas : elements.drawingCanvas).focus({ preventScroll: true });
     });
   } else {
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -217,6 +224,7 @@ function preventPracticeGesture(event) {
 
 function eventTouchesDrawingSurface(event) {
   const path = event.composedPath?.() ?? [];
+  if (state.category === 'sudoku') return path.includes(elements.sudokuCanvas);
   return path.includes(elements.drawingCanvas) || path.includes(elements.drawingCard);
 }
 
@@ -253,7 +261,8 @@ window.addEventListener('popstate', () => {
   }
   if (!practiceHistoryGuardActive) return;
   practiceHistoryGuardActive = false;
-  if (board.isDrawing()) board.finishInterruptedStroke();
+  if (isSudokuTask()) sudokuGame.finishInterruptedStroke();
+  else if (board.isDrawing()) board.finishInterruptedStroke();
   armPracticeHistoryGuard();
   openExitModal();
 });
@@ -307,6 +316,8 @@ function selectCategory(category, { announce = true, focusInput = false } = {}) 
     panel.hidden = !selected;
     panel.classList.toggle('is-visible', selected);
   });
+  const descriptions = category === 'sudoku' ? ['12 Startfelder', '9 Startfelder', '6 Startfelder'] : ['Klare Spur', 'Feine Spur', 'Zarte Spur'];
+  $$('.difficulty-option small').forEach((item, index) => { item.textContent = descriptions[index]; });
   // Safari only opens its keyboard when focus happens in the tap itself.
   if (category === 'name' && focusInput) focusForKeyboard(elements.childName);
   if (announce) speak(CATEGORY_CONFIG[category].speech);
@@ -339,6 +350,7 @@ function updateCustomSetField(category, { focus = false } = {}) {
 function selectedOption() {
   if (state.category === 'numbers') return selectedSetMode('numbers') === 'custom' ? normalizeNumberSet(elements.numberSet.value) : 'all';
   if (state.category === 'letters') return selectedSetMode('letters') === 'custom' ? normalizeLetterSet(elements.letterSet.value) : 'all';
+  if (state.category === 'sudoku') return $('input[name="sudoku-symbols"]:checked')?.value ?? 'numbers';
   return '';
 }
 
@@ -378,27 +390,33 @@ function updateFinoButton() {
   // while the child draws, so the button never doubles as an on/off toggle.
   elements.showButton.classList.remove('is-muted');
   elements.showButton.removeAttribute('aria-pressed');
-  elements.showButton.setAttribute('aria-label', 'Fino zeigt die Spur');
+  elements.showButton.setAttribute('aria-label', isSudokuTask() ? 'Fino gibt einen Sudoku-Tipp' : 'Fino zeigt die Spur');
 }
+
+function isSudokuTask() { return state.activeTask?.gameMode === 'sudoku'; }
 
 function updateRoundControls() {
   const hasTask = Boolean(state.activeTask);
-  const hasInk = board?.hasInk() ?? false;
-  const drawing = board?.isDrawing() ?? false;
+  const hasInk = isSudokuTask() ? sudokuGame?.hasInk() ?? false : board?.hasInk() ?? false;
+  const drawing = isSudokuTask() ? sudokuGame?.isDrawing() ?? false : board?.isDrawing() ?? false;
   const disabled = state.transitioning || drawing || !hasTask;
   elements.exitButton.disabled = disabled;
   elements.previousTaskButton.disabled = disabled || state.index === 0;
   elements.nextTaskButton.disabled = disabled || state.index >= state.session.length - 1;
-  elements.clearButton.disabled = disabled || !hasInk;
-  elements.undoButton.disabled = disabled || !hasInk;
+  elements.clearButton.disabled = disabled || (isSudokuTask() ? !sudokuGame?.canClear() : !hasInk);
+  elements.undoButton.disabled = disabled || (isSudokuTask() ? !sudokuGame?.canUndo() : !hasInk);
   elements.showButton.disabled = disabled;
   elements.inkButton.disabled = disabled;
   elements.fullscreenButton.disabled = state.transitioning;
+  elements.clearButton.setAttribute('aria-label', isSudokuTask() ? 'Schreibfeld leeren' : 'Zeichenfläche leeren');
+  elements.undoButton.setAttribute('aria-label', isSudokuTask() ? 'Letzten Strich oder Eintrag zurücknehmen' : 'Letzten Strich löschen');
+  if (isSudokuTask()) sudokuGame?.setLocked(state.transitioning);
   updateFinoButton();
 }
 
 async function previewCurrentStroke({ force = false } = {}) {
   if (state.transitioning || state.screen !== 'practice' || !state.activeTask) return false;
+  if (isSudokuTask()) { sudokuGame.hint(); return true; }
   const previewKey = board.isGameTask()
     ? `${state.activeTask.gameMode}-${board.gameSnapshot()?.progress ?? 0}`
     : board.nextGuideStrokeIndex();
@@ -444,8 +462,12 @@ async function renderTask() {
     return;
   }
 
+  const sudoku = sourceTask.gameMode === 'sudoku';
+  elements.practiceScreen.classList.toggle('is-sudoku', sudoku);
+  elements.sudokuRoot.hidden = !sudoku;
+  elements.drawingCanvas.hidden = sudoku;
   board.resize();
-  const task = adaptTaskToViewport(sourceTask, board.getViewport());
+  const task = sudoku ? sourceTask : adaptTaskToViewport(sourceTask, board.getViewport());
   state.activeTask = task;
 
   state.attempts = 0;
@@ -463,7 +485,14 @@ async function renderTask() {
       ? 'Neue Funkelpunkte. Starte bei Fino und verbinde den nächsten Punkt.'
       : `Neue Aufgabe: ${task.title}.`;
   elements.canvasHint.classList.add('is-hidden');
-  board.setTask(task, task.assist);
+  if (sudoku) {
+    board.clear();
+    sudokuGame.setTask(task);
+    sudokuGame.setInkColor(board.inkColor);
+  } else {
+    sudokuGame.setLocked(true);
+    board.setTask(task, task.assist);
+  }
   board.setFinoEnabled(state.finoEnabled);
   updateRoundControls();
 
@@ -581,6 +610,14 @@ function celebrate(message, { gentle = false } = {}) {
 function checkDrawing({ quietIncomplete = false } = {}) {
   if (state.transitioning || !state.activeTask) return null;
   const task = state.activeTask;
+  if (isSudokuTask()) {
+    const result = sudokuGame.snapshot();
+    if (result.status === 'complete') {
+      celebrate(praise[Math.floor(Math.random() * praise.length)]);
+      return { passed: true, result };
+    }
+    return { passed: false, result, inProgress: true };
+  }
   if (task.gameMode) {
     const snapshot = board.gameSnapshot();
     if (snapshot?.status === 'complete') {
@@ -657,7 +694,7 @@ function returnHome() {
 }
 
 function openExitModal() {
-  if (board.isDrawing()) return;
+  if (isSudokuTask() ? sudokuGame.isDrawing() : board.isDrawing()) return;
   elements.exitModal.hidden = false;
   elements.practiceScreen.inert = true;
   stopSpeech();
@@ -683,6 +720,7 @@ function handleBoardResize() {
   window.clearTimeout(state.resizeTimer);
   state.resizeTimer = 0;
   if (!board || state.screen !== 'practice' || !state.activeTask || !state.session[state.index]) return;
+  if (isSudokuTask()) { sudokuGame.resize(); return; }
   if (board.isDrawing()) board.cancelActiveStrokeForResize();
   const viewport = board.getViewport();
   const oldViewport = state.activeTask.viewport;
@@ -719,6 +757,7 @@ function handleBoardResize() {
 }
 
 let board = null;
+let sudokuGame = null;
 board = new DrawingBoard(elements.drawingCanvas, {
   onInkChange(hasInk) {
     elements.canvasHint.classList.add('is-hidden');
@@ -767,6 +806,11 @@ board = new DrawingBoard(elements.drawingCanvas, {
   },
 });
 
+sudokuGame = new SudokuGame(elements.sudokuRoot, {
+  onChange: () => updateRoundControls(),
+  onComplete: () => checkDrawing(),
+});
+
 function closeInkPalette() {
   elements.inkPalette.hidden = true;
   elements.inkButton.setAttribute('aria-expanded', 'false');
@@ -782,6 +826,7 @@ elements.inkPalette.addEventListener('click', (event) => {
   const button = event.target.closest('[data-ink-color]');
   if (!button || board.isDrawing()) return;
   board.setInkColor(button.dataset.inkColor || null);
+  sudokuGame.setInkColor(board.inkColor);
   $$('[data-ink-color]', elements.inkPalette).forEach((swatch) => {
     swatch.setAttribute('aria-pressed', String(swatch === button));
   });
@@ -855,7 +900,8 @@ elements.clearButton.addEventListener('click', () => {
   clearAutoCheck();
   clearPreview();
   state.previewedStrokeIndex = null;
-  board.clear();
+  if (isSudokuTask()) sudokuGame.clear();
+  else board.clear();
 });
 
 elements.showButton.addEventListener('click', async () => {
@@ -870,6 +916,7 @@ document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
 elements.undoButton.addEventListener('click', () => {
   clearAutoCheck();
   clearPreview();
+  if (isSudokuTask()) { sudokuGame.undo(); return; }
   if (board.undoLastStroke()) {
     state.previewedStrokeIndex = null;
     scheduleNextStrokePreview();
@@ -924,7 +971,8 @@ document.addEventListener('keydown', (event) => {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     stopSpeech();
-    if (board.isDrawing()) {
+    if (isSudokuTask()) sudokuGame.finishInterruptedStroke();
+    else if (board.isDrawing()) {
       board.finishInterruptedStroke();
       updateRoundControls();
     }
@@ -951,8 +999,8 @@ window.render_game_to_text = () => JSON.stringify({
   userStrokes: board.getUserStrokes().length,
   inkColors: board.getUserStrokeColors(),
   selectedInkColor: board.inkColor,
-  fino: { enabled: true, mode: 'preview' },
-  game: board.gameSnapshot(),
+  fino: { enabled: true, mode: isSudokuTask() ? 'sudoku-hint' : 'preview' },
+  game: isSudokuTask() ? sudokuGame.snapshot() : board.gameSnapshot(),
 });
 
 window.advanceTime = (milliseconds) => board.advanceTime(milliseconds);
@@ -1001,21 +1049,36 @@ if (new URLSearchParams(location.search).has('test')) {
     solveCurrent() {
       const task = state.activeTask;
       if (!task) return false;
+      if (isSudokuTask()) {
+        sudokuGame.values = [...task.game.solution];
+        sudokuGame.status = 'complete';
+        sudokuGame.render();
+        checkDrawing();
+        return true;
+      }
       board.setUserStrokes(task.strokes);
       checkDrawing();
       return true;
     },
     failCurrent() {
+      if (isSudokuTask()) return { passed: false, result: sudokuGame.snapshot() };
       board.setUserStrokes([[{ x: 0.05, y: 0.05 }, { x: 0.95, y: 0.95 }, { x: 0.05, y: 0.95 }]]);
       return checkDrawing();
     },
     submitCurrent(strokes, { quietIncomplete = true } = {}) {
+      if (isSudokuTask()) {
+        sudokuGame.drafts[sudokuGame.selected] = strokes.map((stroke) => stroke.map((point) => ({ ...point })));
+        sudokuGame.draftColors[sudokuGame.selected] = strokes.map(() => sudokuGame.inkColor);
+        sudokuGame.submit();
+        return { passed: sudokuGame.status === 'complete', result: sudokuGame.snapshot() };
+      }
       board.setUserStrokes(strokes);
       return checkDrawing({ quietIncomplete });
     },
     evaluationSnapshot() {
       const task = state.activeTask;
       if (!task) return null;
+      if (isSudokuTask()) return { task: task.id, index: state.index, transitioning: state.transitioning, game: sudokuGame.snapshot() };
       if (task.gameMode) return { task: task.id, index: state.index, transitioning: state.transitioning, game: board.gameSnapshot() };
       const result = board.currentEvaluation();
       return {
@@ -1036,5 +1099,6 @@ if (new URLSearchParams(location.search).has('test')) {
     },
     finish: () => finishSession(),
     board,
+    sudoku: sudokuGame,
   };
 }

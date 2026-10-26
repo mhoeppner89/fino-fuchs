@@ -6,14 +6,15 @@
 import {
   CHARACTER_STROKES,
   CHARACTER_STROKE_GEOMETRY,
-} from './handwriting-stroke-data.js?v=1.3.52';
+} from './handwriting-stroke-data.js?v=1.3.53';
 import {
   connectSolutionStrokes,
   createConnectSpec,
   createMazeSpec,
   layoutConnect,
   layoutMaze,
-} from './mini-games.js?v=1.3.52';
+} from './mini-games.js?v=1.3.53';
+import { createSudokuPuzzle } from './sudoku.js?v=1.3.53';
 
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));
@@ -911,6 +912,7 @@ export const CATEGORY_CONFIG = Object.freeze({
   name: { label: 'Mein Name', speech: 'Deinen Namen üben', icon: 'name' },
   maze: { label: 'Labyrinth', speech: 'Finde den Weg durchs Labyrinth', icon: 'maze' },
   connect: { label: 'Funkelpunkte', speech: 'Verbinde die auftauchenden Punkte', icon: 'connect' },
+  sudoku: { label: 'Mini-Sudoku', speech: 'Löse ein kleines Sudoku', icon: 'sudoku' },
   mixed: { label: 'Bunte Mischung', speech: 'Alles gemischt', icon: 'mixed' },
   // Nur über den Testmodus (?test) erreichbar: alle Buchstaben und Zahlen
   // nacheinander als Einzelaufgabe, für die visuelle Symbolprüfung.
@@ -1952,6 +1954,9 @@ function variedSymbolBox(task, box, visibleIndex, profile, groupCount) {
  */
 export function adaptTaskToViewport(task, viewport) {
   const profile = layoutProfileForViewport(viewport);
+  if (task.gameMode === 'sudoku') {
+    return Object.freeze({ ...task, layout: 'sudoku-4x4', viewport: Object.freeze({ width: profile.width, height: profile.height, portrait: profile.portrait }) });
+  }
   if (task.gameMode === 'maze') {
     const gameSpec = task.gameSpec ?? task.game;
     const game = layoutMaze(gameSpec, profile);
@@ -2113,6 +2118,27 @@ export function reflowTaskWithInk(task, userStrokes, viewport) {
 export function buildSession({ category, difficulty = 'easy', option = '', name = '', viewport, rng = Math.random }) {
   if (!CATEGORY_CONFIG[category]) throw new Error(`Unknown category: ${category}`);
   if (!DIFFICULTIES[difficulty]) throw new Error(`Unknown difficulty: ${difficulty}`);
+
+  if (category === 'sudoku') {
+    const mode = ['numbers', 'letters', 'symbols'].includes(option) ? option : 'numbers';
+    const used = new Set();
+    return Array.from({ length: SESSION_SIZE }, (_, slot) => {
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        const seed = (Math.floor(rng() * 4294967296) ^ Math.imul(slot + 1, 0x9E3779B9) ^ attempt) >>> 0;
+        const game = createSudokuPuzzle({ difficulty, mode, rng: seededRandom(seed) });
+        const key = game.givens.join('');
+        if (used.has(key)) continue;
+        used.add(key);
+        const task = makeTask({
+          id: `sudoku-${mode}-${difficulty}-${seed}`, category: 'sudoku', title: 'Mini-Sudoku',
+          label: 'Mini-Sudoku', speech: 'Jedes Zeichen einmal in jeder Reihe, Spalte und jedem Kästchen.',
+          strokes: [], completionGroups: [], gameMode: 'sudoku', game, group: mode,
+        });
+        return { ...task, uid: `${task.id}-${slot}`, assist: difficulty, slot };
+      }
+      throw new Error('Unable to create distinct Sudoku puzzles.');
+    });
+  }
 
   if (category === 'name') {
     const sequence = createNameRound(name, viewport);

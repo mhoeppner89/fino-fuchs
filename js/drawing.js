@@ -3,8 +3,8 @@
 import {
   CHARACTER_TEMPLATE_SHEETS,
   characterTemplateCrop,
-} from './handwriting-template-data.js?v=1.3.52';
-import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.52';
+} from './handwriting-template-data.js?v=1.3.53';
+import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.53';
 import {
   connectInkWidthForBoard,
   connectTrailCollision,
@@ -14,7 +14,7 @@ import {
   pointDistanceInPixels,
   planConnectContinuation,
   connectHintRoute,
-} from './mini-games.js?v=1.3.52';
+} from './mini-games.js?v=1.3.53';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -1050,6 +1050,25 @@ export function evaluateTaskDrawing(task, userStrokes, options = {}) {
   }
   if (task.category !== 'shapes' || !result.hasInk) return result;
 
+  // Recognising the overall picture cannot substitute for drawing each part.
+  // The identity fit can move neighbouring ink into an untouched sail/flame's
+  // generous band. Preserve independent evidence from the original routes:
+  // at least 20% of their ink length (density is normalised by 0.6 above),
+  // spread over a third of their length bins. Identity still checks neatness
+  // and completeness, so this presence check can stay forgiving on easy.
+  const recognizedPaths = new Map((identity?.groups ?? []).flatMap((group) => (
+    (group.pathMetrics ?? []).map((metric) => [metric.index, metric.pass])
+  )));
+  const shapePathPresence = task.strokes.map((stroke, index) => (
+    stroke.length === 1
+      ? result.pathDensitySupport[index] === 1 || recognizedPaths.get(index) === true
+      : result.pathDensitySupport[index] >= 1 / 3 && result.pathLongitudinalSupport[index] >= 1 / 3
+  ));
+  const everyShapePathPresent = shapePathPresence.every(Boolean);
+  // Fino must advance using the same per-part decision as final completion.
+  const pathComplete = shapePathPresence.map((present, index) => present && (
+    result.pathCoverage[index] >= REQUIRED_PATH_COVERAGE || recognizedPaths.get(index) === true
+  ));
   let shapeStructure = true;
   let shapeMetrics = null;
   if (BASIC_CONTOUR_SHAPES.has(task.id.replace(/^mixed-/, ''))) {
@@ -1078,7 +1097,15 @@ export function evaluateTaskDrawing(task, userStrokes, options = {}) {
     shapeStructure = aspectDifference <= Math.log(aspectLimit)
       && contourCompatible;
   }
-  return { ...result, shapeStructure, shapeMetrics, allRequired: result.allRequired && shapeStructure };
+  return {
+    ...result,
+    shapeStructure,
+    shapeMetrics,
+    shapePathPresence,
+    pathComplete,
+    completion: everyShapePathPresent ? result.completion : Math.min(result.completion, 0.69),
+    allRequired: result.allRequired && everyShapePathPresent && shapeStructure,
+  };
 }
 
 const PASS_CRITERIA = Object.freeze({
@@ -1845,7 +1872,8 @@ export class DrawingBoard {
     if (!stages.length || !this.getScoreableStrokes().some((stroke) => stroke.length)) return 0;
     if (this.activeStroke && Number.isInteger(this.activeGuideStageAtStart)) return this.activeGuideStageAtStart;
     const result = this.currentEvaluation();
-    const stageIndex = stages.findIndex((stage) => stage.some((index) => result.pathCoverage[index] < REQUIRED_PATH_COVERAGE));
+    const completedPaths = result.pathComplete ?? result.pathCoverage.map((coverage) => coverage >= REQUIRED_PATH_COVERAGE);
+    const stageIndex = stages.findIndex((stage) => stage.some((index) => !completedPaths[index]));
     return stageIndex >= 0 ? stageIndex : stages.length - 1;
   }
 
@@ -1869,8 +1897,9 @@ export class DrawingBoard {
     if (this.task?.gameMode === 'maze') return 0;
     if (this.activeStroke && Number.isInteger(this.activeGuideIndex)) return this.activeGuideIndex;
     if (!this.task?.strokes?.length || !this.getScoreableStrokes().some((stroke) => stroke.length)) return 0;
-    const pathCoverage = this.currentEvaluation()?.pathCoverage ?? [];
-    const next = pathCoverage.findIndex((coverage) => coverage < REQUIRED_PATH_COVERAGE);
+    const result = this.currentEvaluation();
+    const completedPaths = result.pathComplete ?? result.pathCoverage.map((coverage) => coverage >= REQUIRED_PATH_COVERAGE);
+    const next = this.task.strokes.findIndex((_, index) => !completedPaths[index]);
     return next >= 0 ? next : Math.max(0, this.task.strokes.length - 1);
   }
 

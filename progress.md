@@ -883,3 +883,119 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
   On iPhone-sized WebKit (390×844 at 3×), a live drag kept marker paint count
   fixed at two through thirteen stroke samples, with no browser errors. Screenshot:
   `test-artifacts/funkelpunkte-v152/webkit-mobile-drag.png`.
+
+## 2026-10-26 — Picture tasks completing before their final part
+
+- Request: prevent shapes/pictures from finishing before the final part is
+  drawn (reported: second sail and rocket plume).
+- Reproduced both reports with slightly displaced earlier parts. The
+  per-route checks identified missing ink, but the whole-picture identity
+  fit overwrote `allRequired` and borrowed neighbouring ink for the missing
+  route. Exact template-only omissions had hidden this defect in old tests.
+- Added an independent shape-part presence gate from owned ink length and
+  longitudinal support, with distinct-dot matching for tiny marks. Whole-
+  picture recognition and the existing MSE tolerances still judge quality.
+- Fino and staged guides now use the same per-part decisions: raw coverage
+  can advance early parts, identity can accept a rough drawn part, and missing
+  owned ink always keeps the final sail/plume visible and unfinished.
+- Verification: 58 focused drawing, shape, completion, release and forgiving-
+  ink tests passed. The new sweeps cover every shipped picture prefix on all
+  three difficulties in portrait/landscape, plus 490 individual part omissions
+  with easy retry slack. Existing child-like variations remain accepted.
+- Six real-pointer Chrome playthroughs (ship/rocket on both phone orientations
+  and the testversion copy) wait for the final part, show it in Fino's guide,
+  and advance only after drawing it; no browser errors. Inspected waiting and
+  success screenshots in `test-artifacts/picture-completion/browser/`.
+- Runtime copies synchronized. No remaining implementation TODOs; changes are
+  local and have not been committed or pushed in this follow-up.
+
+## 2026-10-26 — Handwritten Mini-Sudoku
+
+- Request: add 4×4 Sudoku with 2×2 boxes; choices 1–4, A–D or four symbols.
+  User clarified that children should write/draw answers with their pen.
+- Added a unique-solution generator with exact 12/9/6 starting clues for
+  easy/medium/hard, always solvable with naked or hidden singles. Rounds have
+  ten distinct fresh puzzles. Internal values map to numbers, letters or
+  circle/triangle/square/star without changing the rules.
+- New menu option and dedicated puzzle view: select a blank cell, write in a
+  larger pad and explicitly confirm. Recognition tests all four choices before
+  answer validation; it receives no puzzle solution. Given cells are locked.
+- Added retained handwritten entries, undo/clear, contextual Fino hints,
+  colour selection and uniform pen coordinates preserved on rotation.
+- Engine/recognition tests passed, including 300 generated puzzles, unique
+  solutions, deduction-only solving, all twelve handwritten choices, an
+  ordinary straight-line 1, and rejection of scribbles/incomplete A strokes.
+- Full suite: 171 checks, 169 initially passing; two source assertions still
+  expected eight menu activities and the old fixed Fino label. Updated those
+  assertions and verified the affected files (47 curriculum checks, plus 20
+  release/Sudoku checks). Expanded offline-source coverage to the new modules;
+  the standard SVG DOM namespace is allowed while network URLs remain banned.
+- Ten real-input Chrome playthroughs cover every mode/difficulty combination
+  and the testversion copy at 320×568, 390×844, 844×390, 1024×768 and 667×375.
+  Wrong answers, fixed clues, touch selection, explicit pen confirmation, undo,
+  hints and complete puzzle advancement pass. Rotation preserves draft ink.
+  Inspected screenshots; fixed a clipped confirm button on the smallest phone.
+- Additional browser checks pass offline loading, retained handwriting colours,
+  a full ten-puzzle round, repeat, and returning to tracing after Sudoku.
+  No browser errors. Artifacts: `test-artifacts/sudoku/`.
+- Root/testversion runtime copies match. No implementation TODOs. All changes,
+  including the preceding picture-completion fix, remain uncommitted/unpushed.
+- Local preview server is running on 127.0.0.1:4173 (exec session 62286); reuse
+  it for review rather than starting a second server on the same port.
+
+## 2026-10-26 — Kidoku must have exactly one solution
+
+- Confirmed that generation already rejects every clue removal allowing a
+  second completion; this applies to every difficulty and all symbol sets.
+- Added an independent regression that enumerates all 288 valid 4×4 solved
+  grids without using the production solver or its unit definitions. Each of
+  900 generated puzzles (100 per mode/difficulty combination) matches exactly
+  one of those completions, equal to its stored solution. The test also checks
+  that the production solver detects ambiguity on an empty grid. Passed.
+
+## 2026-10-26 — Kidoku freehand recognition
+
+- Request: recognise numbers, letters and symbols written without predefined
+  tracing lines. Found actual errors with independently sketched examples:
+  a 1 with a foot became 2, a rounded square became a circle, a 5 could become
+  3, and rotated triangles/squares and a pentagram star were rejected.
+- Replaced Kidoku's use of tracing pass/fail rules with its own whole-answer
+  classifier using symmetric, length-weighted squared distance and contour
+  coverage. Position/size are normalised, with bounded character width/slant
+  correction and orientation/proportion correction for geometric symbols.
+  Added common handwriting forms and competing out-of-set/mirrored examples;
+  unknown or ambiguous ink can remain unrecognised. Classification receives
+  no puzzle solution. The shared tracing evaluator was not changed here.
+- Pen direction, stroke order, harmless pen lifts and uneven pointer sampling
+  do not affect the decision. Closed symbols still require a closed outline
+  with a small joining tolerance. Explicit Einsetzen confirmation is retained.
+- Verification: 26 focused freehand, Sudoku and release-readiness tests pass.
+  The freehand suite checks 385 decisions from 37 independent sketches and
+  size/position/slant/proportion/wobble, reversal, pen-lift and sampling variants.
+  These are hand-authored fixtures, not a dataset collected from children;
+  real child handwriting remains the next source of recognition examples.
+- Nine Chrome real-pointer scenarios pass on phone/desktop and testversion,
+  covering a footed 1, open 4, round D, rounded square, inverted triangle and
+  pentagram star; a 5 and P are rejected before answer validation. No browser
+  errors. Inspected drawing/result screenshots and state in
+  `test-artifacts/sudoku/freehand-browser/`. Runtime copies match. Changes
+  remain local and uncommitted; no implementation TODOs for this request.
+
+## 2026-10-26 — Release v1.3.53
+
+- Request: test, then commit and push all pending changes to GitHub main.
+- Included the picture final-part fix, handwritten Mini-Sudoku with unique
+  solutions, freehand recognition, regression fixtures and tests. Bumped the
+  app/package/lockfile, all module queries, calibration metadata and offline
+  caches to 1.3.53. Root and testversion runtime files match byte for byte.
+- Verification: all 177 automated tests pass. The release-readiness checks
+  also pass after the version bump. Chrome passes 10 full handwritten Sudoku
+  playthroughs, 9 independent freehand scenarios and 6 picture-completion
+  scenarios, with no browser errors. Inspected phone/desktop screenshots.
+- Both root and testversion service workers install the 1.3.53 cache; each
+  reloads offline, starts Sudoku and recognises handwriting without a network.
+  Initial browser attempts found a stopped local server; restarting it fixed
+  the test setup and all reruns passed. Diff whitespace checks pass.
+- GitHub main matched the local base before release. No remaining work for
+  this request; real child handwriting examples remain useful for future
+  recognition tuning. Local preview uses exec session 66044 on port 4173.

@@ -11,7 +11,7 @@ const manifest = JSON.parse(read('manifest.webmanifest'));
 const html = read('index.html');
 const styles = read('styles.css');
 const serviceWorker = read('sw.js');
-const scripts = ['app.js', 'curriculum.js', 'drawing.js', 'mini-games.js', 'handwriting-template-data.js', 'handwriting-stroke-data.js']
+const scripts = ['app.js', 'curriculum.js', 'drawing.js', 'mini-games.js', 'sudoku.js', 'sudoku-ui.js', 'sudoku-recognition.js', 'handwriting-template-data.js', 'handwriting-stroke-data.js']
   .map((file) => [`js/${file}`, read(`js/${file}`)]);
 
 function shellPaths() {
@@ -71,7 +71,8 @@ test('letter and number Fino follows the child and previews the next stroke', ()
   assert.match(app, /const shouldDemo = !task\.gameMode/);
   assert.match(app, /await previewCurrentStroke\(\{ force: true \}\);/);
   assert.match(app, /board\.rejectLastStrokeForScoring\(\)/);
-  assert.match(app, /aria-label', 'Fino zeigt die Spur'/);
+  assert.match(app, /'Fino zeigt die Spur'/);
+  assert.match(app, /'Fino gibt einen Sudoku-Tipp'/);
   assert.match(drawing, /judgeLastStroke\(\)/);
   assert.match(drawing, /scoreableStrokes\(this\.userStrokes, this\.rejectedStrokes\)/);
   assert.match(app, /rejectedStrokeIndexes/);
@@ -201,7 +202,8 @@ test('install icons have the declared PNG dimensions', () => {
 
 test('the child-facing app is local-only and synthetic voice remains disabled', () => {
   const runtime = [html, styles, serviceWorker, ...scripts.map(([, source]) => source)].join('\n');
-  assert.doesNotMatch(runtime, /https?:\/\//i);
+  // An SVG namespace identifies DOM elements; it does not fetch a resource.
+  assert.doesNotMatch(runtime.replaceAll('http://www.w3.org/2000/svg', ''), /https?:\/\//i);
   assert.doesNotMatch(runtime, /\blocalStorage\b|\bindexedDB\b/);
   assert.match(read('js/app.js'), /const SYNTHETIC_VOICE_ENABLED = false;/);
   assert.match(html, /id="home-sound-button"[^>]*hidden/);

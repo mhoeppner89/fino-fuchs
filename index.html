@@ -13,7 +13,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./assets/icons/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="./styles.css?v=1.3.52">
+  <link rel="stylesheet" href="./styles.css?v=1.3.53">
   <script>
     // Register before the app module loads. If an older installed version is
     // controlling this page, reload once as soon as the new worker takes over.
@@ -109,6 +109,13 @@
                 <span>Funkelpunkte</span>
                 <span class="card-check" aria-hidden="true">✓</span>
               </button>
+              <button class="activity-card" type="button" data-category="sudoku" aria-pressed="false">
+                <span class="activity-icon icon-sudoku" aria-hidden="true">
+                  <svg viewBox="0 0 80 64"><rect x="16" y="6" width="48" height="52" rx="5"/><path d="M40 6v52M16 32h48M28 6v52M52 6v52M16 19h48M16 45h48"/><path d="m21 11 2-1v6m22 23h5l-5 4h5"/></svg>
+                </span>
+                <span>Mini-Sudoku</span>
+                <span class="card-check" aria-hidden="true">✓</span>
+              </button>
               <button class="activity-card" type="button" data-category="mixed" aria-pressed="false">
                 <span class="activity-icon icon-mixed" aria-hidden="true">
                   <svg viewBox="0 0 80 64"><path d="m40 7 5 15 16-4-9 13 12 10-16 1-1 16-10-12-13 9 4-16-15-5 14-7-3-16 13 10 3-14Z"/></svg>
@@ -168,6 +175,15 @@
               <legend>Deine Aufgabe</legend>
               <p class="option-note">Verbinde immer den neuen Punkt. Alte Linien dürfen sich nicht berühren.</p>
             </fieldset>
+            <fieldset class="selection-group option-panel" data-options-for="sudoku" hidden>
+              <legend>Deine vier Zeichen</legend>
+              <div class="choice-row" role="radiogroup" aria-label="Sudoku-Zeichen">
+                <label class="choice-chip"><input type="radio" name="sudoku-symbols" value="numbers" checked><span>1 2 3 4</span></label>
+                <label class="choice-chip"><input type="radio" name="sudoku-symbols" value="letters"><span>A B C D</span></label>
+                <label class="choice-chip"><input type="radio" name="sudoku-symbols" value="symbols"><span>○ △ □ ☆</span></label>
+              </div>
+              <p class="option-note">Jedes Zeichen einmal pro Reihe, Spalte und 2×2-Kästchen. Die fehlenden Zeichen schreibst du selbst.</p>
+            </fieldset>
             <fieldset class="selection-group option-panel" data-options-for="mixed" hidden>
               <legend>In dieser Runde</legend>
               <p class="option-note">Schreiben, Zeichnen, Labyrinthe und Funkelpunkte werden bunt gemischt.</p>
@@ -206,7 +222,7 @@
       </main>
       <footer class="privacy-line">
         <span>Ohne Konto · Ohne Werbung · Keine Datenübertragung</span>
-        <small class="app-version" aria-label="App-Version 1.3.52">v1.3.52</small>
+        <small class="app-version" aria-label="App-Version 1.3.53">v1.3.53</small>
       </footer>
     </section>
 
@@ -269,6 +285,25 @@
               <svg viewBox="0 0 48 48"><path d="M31 5 10 26l-2 10 10-2L39 13 31 5Z"/><path d="m27 9 8 8M10 26l8 8"/></svg>
               <span>Hier schreiben</span>
             </div>
+            <section class="sudoku-game" id="sudoku-game" aria-label="Mini-Sudoku" hidden>
+              <header class="sudoku-heading">
+                <div><h2>Mini-Sudoku</h2><p>Jedes Zeichen einmal pro Reihe, Spalte und 2×2-Kästchen.</p></div>
+                <span class="sudoku-count" aria-label="Ausgefüllte Felder">0 / 16</span>
+              </header>
+              <div class="sudoku-main">
+                <div class="sudoku-grid" role="group" aria-label="Sudoku mit vier Reihen und vier Spalten"></div>
+                <section class="sudoku-writing" aria-label="Deine Antwort">
+                  <div class="sudoku-symbols" role="group" aria-label="Diese vier Zeichen kannst du schreiben"></div>
+                  <p class="sudoku-selection"></p>
+                  <div class="sudoku-pad">
+                    <canvas id="sudoku-canvas" aria-label="Schreibfeld für das ausgewählte Sudoku-Feld" role="img" tabindex="0"></canvas>
+                    <span class="sudoku-placeholder" aria-hidden="true">Hier schreiben</span>
+                  </div>
+                  <p class="sudoku-feedback" aria-live="polite"></p>
+                  <button class="primary-button sudoku-submit" type="button" disabled><span aria-hidden="true">✓</span> Einsetzen</button>
+                </section>
+              </div>
+            </section>
           </div>
         </section>
         <button class="rotate-suggestion" id="rotate-suggestion" type="button" aria-label="Vollbild öffnen und ins Querformat wechseln">
@@ -324,6 +359,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   </div>
-  <script type="module" src="./js/app.js?v=1.3.52"></script>
+  <script type="module" src="./js/app.js?v=1.3.53"></script>
 </body>
 </html>
