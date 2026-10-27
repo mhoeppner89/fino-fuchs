@@ -6,6 +6,7 @@ import { recognizeSudokuInk } from '../js/sudoku-recognition.js';
 
 const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url)));
 const { cases } = JSON.parse(readFileSync(new URL('./fixtures/ink-public-audit.json', import.meta.url)));
+const loopCases = JSON.parse(readFileSync(new URL('./fixtures/letter-loop-regressions.json',import.meta.url))).cases;
 const inkFor = row => row.strokes.map(stroke => stroke.map(([x,y]) => ({x:(90+x*1.2)/300,y:(40+y*1.2)/200})));
 const samples = {};
 for (const mode of ['numbers','letters','symbols']) {
@@ -48,16 +49,17 @@ async function draw(page,row) {
 }
 
 try {
-  for(const [directory,mode] of [['','numbers'],['','letters'],['/testversion','symbols']]) {
+  for(const [directory,mode,loopCase] of [['','numbers'],['','letters'],['/testversion','symbols'],['','letters',true]]) {
     const context=await browser.newContext({viewport:{width:390,height:844}});
     const page=await context.newPage();const errors=[],external=[];
     page.on('pageerror',e=>errors.push(e.message));
     page.on('request',r=>{if(!r.url().startsWith(origin+'/'))external.push(r.url());});
-    const row=samples[mode];let index=-1;
+    const row=loopCase?loopCases.find(row=>row.value===4):samples[mode];let index=-1;
     for(let attempt=0;attempt<10 && index<0;attempt++) {
       await page.goto(`${origin}${directory}/?test`);
       await page.evaluate(()=>navigator.serviceWorker.ready);
-      await page.reload();await page.waitForFunction(()=>navigator.serviceWorker.controller);
+      await page.waitForFunction(()=>navigator.serviceWorker.controller, null, {timeout:15000});
+      await page.reload();
       await context.setOffline(true);await page.reload();
       index=await start(page,mode,row.value);
       if(index<0)await context.setOffline(false);
@@ -75,7 +77,7 @@ try {
     await page.locator('.sudoku-submit').click();
     assert.equal((await page.evaluate(()=>window.__fuchsschrift.sudoku.snapshot())).values[index],row.value);
     assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
-    const key=`${directory?'testversion-':''}${mode}`;
+    const key=`${directory?'testversion-':''}${mode}${loopCase?'-serif-loop':''}`;
     await page.screenshot({path:`${output}/${key}-offline-public-ink.png`});
     report.push({directory:directory||'/',mode,sourceId:row.id,offline:true,recognition,errors,external});
     await context.close();

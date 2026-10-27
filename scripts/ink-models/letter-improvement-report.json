@@ -1,0 +1,214 @@
+{
+  "samples": 3200,
+  "weightsSha256": "8e9f493d7308cf0ac6f113261314c632fe0b474e56a3b157aee1b604048546be",
+  "policy": {
+    "confidence": 0.65,
+    "margin": 0,
+    "templateConfidence": 0.98,
+    "views": [
+      1.2,
+      1.8
+    ],
+    "validationRecall": 0.9263089851325146,
+    "validationSpecificity": 0.9910436621470332,
+    "validationSamples": 9586
+  },
+  "previous": {
+    "positive": 1000,
+    "correct": 825,
+    "wrong": 11,
+    "negative": 2200,
+    "rejected": 2173,
+    "recall": 0.825,
+    "specificity": 0.9877272727272727
+  },
+  "current": {
+    "positive": 1000,
+    "correct": 931,
+    "wrong": 5,
+    "negative": 2200,
+    "rejected": 2176,
+    "recall": 0.931,
+    "specificity": 0.9890909090909091
+  },
+  "medianMilliseconds": 21.030624999999418,
+  "p95Milliseconds": 23.419375000000173,
+  "release": "1.3.55",
+  "training": {
+    "seed": 2710,
+    "epochs": 12,
+    "trainingUniqueImages": 86268,
+    "validationUniqueImages": 9586,
+    "log": [
+      {
+        "epoch": 1,
+        "recall": 0.9411764705882353,
+        "specificity": 0.9705187212339843,
+        "balanced": 0.9558475959111098,
+        "seconds": 33
+      },
+      {
+        "epoch": 2,
+        "recall": 0.9508726567550096,
+        "specificity": 0.9802214205746983,
+        "balanced": 0.9655470386648539,
+        "seconds": 67
+      },
+      {
+        "epoch": 3,
+        "recall": 0.9541047188106012,
+        "specificity": 0.9794750590869511,
+        "balanced": 0.9667898889487762,
+        "seconds": 97
+      },
+      {
+        "epoch": 4,
+        "recall": 0.9599224305106658,
+        "specificity": 0.9746237094165942,
+        "balanced": 0.96727306996363,
+        "seconds": 127
+      },
+      {
+        "epoch": 5,
+        "recall": 0.9528118939883645,
+        "specificity": 0.980594601318572,
+        "balanced": 0.9667032476534683,
+        "seconds": 159
+      },
+      {
+        "epoch": 6,
+        "recall": 0.9515190691661279,
+        "specificity": 0.9829580793631049,
+        "balanced": 0.9672385742646163,
+        "seconds": 189
+      },
+      {
+        "epoch": 7,
+        "recall": 0.9541047188106012,
+        "specificity": 0.9840776215947257,
+        "balanced": 0.9690911702026634,
+        "seconds": 217
+      },
+      {
+        "epoch": 8,
+        "recall": 0.9385908209437621,
+        "specificity": 0.985445950988929,
+        "balanced": 0.9620183859663456,
+        "seconds": 248
+      },
+      {
+        "epoch": 9,
+        "recall": 0.9566903684550744,
+        "specificity": 0.9843264087573081,
+        "balanced": 0.9705083886061913,
+        "seconds": 282
+      },
+      {
+        "epoch": 10,
+        "recall": 0.9541047188106012,
+        "specificity": 0.9818385371314841,
+        "balanced": 0.9679716279710426,
+        "seconds": 311
+      },
+      {
+        "epoch": 11,
+        "recall": 0.9547511312217195,
+        "specificity": 0.9839532280134345,
+        "balanced": 0.969352179617577,
+        "seconds": 342
+      },
+      {
+        "epoch": 12,
+        "recall": 0.9553975436328378,
+        "specificity": 0.9845751959198905,
+        "balanced": 0.9699863697763642,
+        "seconds": 372
+      }
+    ]
+  },
+  "validation": {
+    "policy": {
+      "confidence": 0.65,
+      "margin": 0,
+      "templateConfidence": 0.98,
+      "views": [
+        1.2,
+        1.8
+      ]
+    },
+    "previous": {
+      "positive": 1547,
+      "correct": 1245,
+      "wrong": 9,
+      "negative": 8039,
+      "rejected": 7944,
+      "recall": 0.8047834518422754,
+      "specificity": 0.9881826097773355
+    },
+    "candidate": {
+      "positive": 1547,
+      "correct": 1433,
+      "wrong": 4,
+      "negative": 8039,
+      "rejected": 7967,
+      "recall": 0.9263089851325146,
+      "specificity": 0.9910436621470332
+    },
+    "samples": 9586
+  },
+  "singleViewValidation": {
+    "policy": {
+      "confidence": 0.75,
+      "margin": 0,
+      "templateConfidence": 0.95
+    },
+    "previous": {
+      "positive": 1547,
+      "correct": 1245,
+      "wrong": 9,
+      "negative": 8039,
+      "rejected": 7944,
+      "recall": 0.8047834518422754,
+      "specificity": 0.9881826097773355
+    },
+    "candidate": {
+      "positive": 1547,
+      "correct": 1424,
+      "wrong": 4,
+      "negative": 8039,
+      "rejected": 7974,
+      "recall": 0.9204912734324499,
+      "specificity": 0.9919144172160717
+    },
+    "samples": 9586
+  },
+  "notes": [
+    "The 3200 audit IDs were excluded from the v1.3.54 exploratory and final audits. They were not used for training, checkpoint choice, thresholds or pen-width view selection.",
+    "Model selection and confidence thresholds use source-training validation data only. Regression fixtures are separate product requirements.",
+    "The audit uses skeleton-derived vectors from EMNIST images, not original pen trajectories or a representative sample of children.",
+    "Digit and symbol tensors/policies are unchanged; only the letter model and letter decision path changed."
+  ],
+  "auditIdsSha256": "65a28780d2cda4a511a3e252ba27b36dcf9d2bb56f6aa0e8c1ec3779da276943",
+  "perLetter": {
+    "A": {
+      "samples": 250,
+      "previousCorrect": 186,
+      "currentCorrect": 227
+    },
+    "B": {
+      "samples": 250,
+      "previousCorrect": 215,
+      "currentCorrect": 243
+    },
+    "C": {
+      "samples": 250,
+      "previousCorrect": 232,
+      "currentCorrect": 241
+    },
+    "D": {
+      "samples": 250,
+      "previousCorrect": 192,
+      "currentCorrect": 220
+    }
+  }
+}

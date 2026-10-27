@@ -1,6 +1,6 @@
-import { SUDOKU_SYMBOLS, isSudokuComplete, sudokuHint, validateSudokuEntry } from './sudoku.js?v=1.3.54';
-import { loadSudokuRecognizer, recognizeSudokuInk, sudokuRecognizerReady, sudokuReferenceInk, SUDOKU_PAD } from './sudoku-recognition.js?v=1.3.54';
-import { pointerSamples } from './drawing.js?v=1.3.54';
+import { SUDOKU_SYMBOLS, isSudokuComplete, sudokuHint, validateSudokuEntry } from './sudoku.js?v=1.3.56';
+import { loadSudokuRecognizer, recognizeSudokuInk, sudokuRecognizerReady, sudokuReferenceInk, SUDOKU_PAD } from './sudoku-recognition.js?v=1.3.56';
+import { pointerSamples } from './drawing.js?v=1.3.56';
 
 const cloneInk = (strokes) => strokes.map((stroke) => stroke.map((point) => ({ ...point })));
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));

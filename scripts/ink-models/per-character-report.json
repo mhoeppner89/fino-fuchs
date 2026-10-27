@@ -1,0 +1,831 @@
+{
+  "version": "1.3.56",
+  "target": "Observed correct recognition exceeds 95% for each of the 12 Kidoku choices, with unrelated rejection above 95% in each mode.",
+  "metric": "Correct labeled value / all valid examples; rejected valid drawings count as errors.",
+  "totalFreshSamples": 36155,
+  "bundle": {
+    "bytes": 5343140,
+    "sha256": "f7fbe89a7dba12dffe83434a39056c9ef4c5f41dbe2102f04eb8564130a72967",
+    "architecture": "mixed-cnn",
+    "policies": {
+      "numbers": {
+        "conditionTargets": true,
+        "confidence": 0.1,
+        "margin": 0,
+        "templateConfidence": 0.9995,
+        "maxGapFraction": 0,
+        "thresholds": {
+          "1": 0.35,
+          "2": 0.1,
+          "3": 0.075,
+          "4": 0.25
+        }
+      },
+      "letters": {
+        "conditionTargets": true,
+        "confidence": 0.1,
+        "margin": 0,
+        "templateConfidence": 0.95,
+        "maxGapFraction": 0,
+        "thresholds": {
+          "A": 0.1,
+          "B": 0.4,
+          "C": 0.55,
+          "D": 0.2
+        },
+        "views": [
+          {
+            "model": "letters",
+            "thickness": 1.8
+          },
+          {
+            "model": "letterAux",
+            "thickness": 1.2
+          }
+        ]
+      },
+      "symbols": {
+        "conditionTargets": true,
+        "confidence": 0.1,
+        "margin": 0,
+        "templateConfidence": 0.9995,
+        "maxGapFraction": 0.2,
+        "thresholds": {
+          "circle": 0.65,
+          "triangle": 0.95,
+          "square": 0.975,
+          "star": 0.075
+        },
+        "supportedTemplateConfidence": 0.99,
+        "templateSupport": 0.75
+      }
+    }
+  },
+  "targets": [
+    {
+      "mode": "letters",
+      "label": "A",
+      "value": 1,
+      "total": 502,
+      "correct": 483,
+      "accuracy": 0.9621513944223108,
+      "wrong": 1,
+      "wilson95": [
+        0.9416455899338028,
+        0.9756378630313969
+      ]
+    },
+    {
+      "mode": "letters",
+      "label": "B",
+      "value": 2,
+      "total": 88,
+      "correct": 86,
+      "accuracy": 0.9772727272727273,
+      "wrong": 2,
+      "wilson95": [
+        0.9208745464473266,
+        0.9937450717361876
+      ]
+    },
+    {
+      "mode": "letters",
+      "label": "C",
+      "value": 3,
+      "total": 540,
+      "correct": 526,
+      "accuracy": 0.9740740740740741,
+      "wrong": 1,
+      "wilson95": [
+        0.9569560678253443,
+        0.9844947754227206
+      ]
+    },
+    {
+      "mode": "letters",
+      "label": "D",
+      "value": 4,
+      "total": 219,
+      "correct": 209,
+      "accuracy": 0.954337899543379,
+      "wrong": 1,
+      "wilson95": [
+        0.9180005785690787,
+        0.975010986931946
+      ]
+    },
+    {
+      "mode": "numbers",
+      "label": "1",
+      "value": 1,
+      "total": 1000,
+      "correct": 979,
+      "accuracy": 0.979,
+      "wrong": 3,
+      "wilson95": [
+        0.9681097049387629,
+        0.9862242604320756
+      ]
+    },
+    {
+      "mode": "numbers",
+      "label": "2",
+      "value": 2,
+      "total": 1000,
+      "correct": 970,
+      "accuracy": 0.97,
+      "wrong": 10,
+      "wilson95": [
+        0.9574965858524133,
+        0.9789062611711651
+      ]
+    },
+    {
+      "mode": "numbers",
+      "label": "3",
+      "value": 3,
+      "total": 1000,
+      "correct": 970,
+      "accuracy": 0.97,
+      "wrong": 8,
+      "wilson95": [
+        0.9574965858524133,
+        0.9789062611711651
+      ]
+    },
+    {
+      "mode": "numbers",
+      "label": "4",
+      "value": 4,
+      "total": 1000,
+      "correct": 982,
+      "accuracy": 0.982,
+      "wrong": 6,
+      "wilson95": [
+        0.971726744829493,
+        0.9885842599904321
+      ]
+    },
+    {
+      "mode": "symbols",
+      "label": "circle",
+      "value": 1,
+      "total": 5000,
+      "correct": 4813,
+      "accuracy": 0.9626,
+      "wrong": 4,
+      "wilson95": [
+        0.9569756727532719,
+        0.9675140494071615
+      ]
+    },
+    {
+      "mode": "symbols",
+      "label": "triangle",
+      "value": 2,
+      "total": 5000,
+      "correct": 4804,
+      "accuracy": 0.9608,
+      "wrong": 19,
+      "wilson95": [
+        0.9550574231485998,
+        0.9658350627388357
+      ]
+    },
+    {
+      "mode": "symbols",
+      "label": "square",
+      "value": 3,
+      "total": 5000,
+      "correct": 4801,
+      "accuracy": 0.9602,
+      "wrong": 14,
+      "wilson95": [
+        0.9544186942432928,
+        0.9652747128864767
+      ]
+    },
+    {
+      "mode": "symbols",
+      "label": "star",
+      "value": 4,
+      "total": 5000,
+      "correct": 4797,
+      "accuracy": 0.9594,
+      "wrong": 9,
+      "wilson95": [
+        0.9535675700518442,
+        0.9645270654010374
+      ]
+    }
+  ],
+  "groups": {
+    "letters": {
+      "samples": 3755,
+      "artifact": {
+        "tensors": "e668b788080b0aa90ab411c9e7d0d2a7cc7b63b9c48aad3b64387777b2a09983",
+        "policy": "222b2489c28f7ff8e67c8d6bce9d1f1cb886857605ad8e64dbd58f7775ccab39"
+      },
+      "sourceFileSha256": "91c4e6f1460ca195dde3260657a838d7aa4e40f636a77bb0fa6cc7bf80de0dc7",
+      "current": {
+        "targets": [
+          {
+            "value": 1,
+            "total": 502,
+            "correct": 483,
+            "accuracy": 0.9621513944223108,
+            "wrong": 1
+          },
+          {
+            "value": 2,
+            "total": 88,
+            "correct": 86,
+            "accuracy": 0.9772727272727273,
+            "wrong": 2
+          },
+          {
+            "value": 3,
+            "total": 540,
+            "correct": 526,
+            "accuracy": 0.9740740740740741,
+            "wrong": 1
+          },
+          {
+            "value": 4,
+            "total": 219,
+            "correct": 209,
+            "accuracy": 0.954337899543379,
+            "wrong": 1
+          }
+        ],
+        "other": {
+          "total": 2406,
+          "rejected": 2324,
+          "accuracy": 0.9659185369908562
+        }
+      },
+      "previousV155": {
+        "targets": [
+          {
+            "value": 1,
+            "total": 502,
+            "correct": 458,
+            "accuracy": 0.9123505976095617,
+            "wrong": 0
+          },
+          {
+            "value": 2,
+            "total": 88,
+            "correct": 84,
+            "accuracy": 0.9545454545454546,
+            "wrong": 1
+          },
+          {
+            "value": 3,
+            "total": 540,
+            "correct": 519,
+            "accuracy": 0.9611111111111111,
+            "wrong": 0
+          },
+          {
+            "value": 4,
+            "total": 219,
+            "correct": 195,
+            "accuracy": 0.8904109589041096,
+            "wrong": 1
+          }
+        ],
+        "other": {
+          "total": 2406,
+          "rejected": 2375,
+          "accuracy": 0.987115544472153
+        }
+      },
+      "sources": {
+        "EMNIST fresh official test": {
+          "current": {
+            "targets": [
+              {
+                "value": 1,
+                "total": 462,
+                "correct": 446,
+                "accuracy": 0.9653679653679653,
+                "wrong": 1
+              },
+              {
+                "value": 2,
+                "total": 48,
+                "correct": 46,
+                "accuracy": 0.9583333333333334,
+                "wrong": 2
+              },
+              {
+                "value": 3,
+                "total": 500,
+                "correct": 486,
+                "accuracy": 0.972,
+                "wrong": 1
+              },
+              {
+                "value": 4,
+                "total": 179,
+                "correct": 170,
+                "accuracy": 0.9497206703910615,
+                "wrong": 1
+              }
+            ],
+            "other": {
+              "total": 1526,
+              "rejected": 1464,
+              "accuracy": 0.9593709043250328
+            }
+          },
+          "previous": {
+            "targets": [
+              {
+                "value": 1,
+                "total": 462,
+                "correct": 424,
+                "accuracy": 0.9177489177489178,
+                "wrong": 0
+              },
+              {
+                "value": 2,
+                "total": 48,
+                "correct": 44,
+                "accuracy": 0.9166666666666666,
+                "wrong": 1
+              },
+              {
+                "value": 3,
+                "total": 500,
+                "correct": 480,
+                "accuracy": 0.96,
+                "wrong": 0
+              },
+              {
+                "value": 4,
+                "total": 179,
+                "correct": 157,
+                "accuracy": 0.8770949720670391,
+                "wrong": 1
+              }
+            ],
+            "other": {
+              "total": 1526,
+              "rejected": 1504,
+              "accuracy": 0.9855832241153342
+            }
+          }
+        },
+        "UJI Pen Characters v2": {
+          "current": {
+            "targets": [
+              {
+                "value": 1,
+                "total": 40,
+                "correct": 37,
+                "accuracy": 0.925,
+                "wrong": 0
+              },
+              {
+                "value": 2,
+                "total": 40,
+                "correct": 40,
+                "accuracy": 1,
+                "wrong": 0
+              },
+              {
+                "value": 3,
+                "total": 40,
+                "correct": 40,
+                "accuracy": 1,
+                "wrong": 0
+              },
+              {
+                "value": 4,
+                "total": 40,
+                "correct": 39,
+                "accuracy": 0.975,
+                "wrong": 0
+              }
+            ],
+            "other": {
+              "total": 880,
+              "rejected": 860,
+              "accuracy": 0.9772727272727273
+            }
+          },
+          "previous": {
+            "targets": [
+              {
+                "value": 1,
+                "total": 40,
+                "correct": 34,
+                "accuracy": 0.85,
+                "wrong": 0
+              },
+              {
+                "value": 2,
+                "total": 40,
+                "correct": 40,
+                "accuracy": 1,
+                "wrong": 0
+              },
+              {
+                "value": 3,
+                "total": 40,
+                "correct": 39,
+                "accuracy": 0.975,
+                "wrong": 0
+              },
+              {
+                "value": 4,
+                "total": 40,
+                "correct": 38,
+                "accuracy": 0.95,
+                "wrong": 0
+              }
+            ],
+            "other": {
+              "total": 880,
+              "rejected": 871,
+              "accuracy": 0.9897727272727272
+            }
+          }
+        }
+      }
+    },
+    "numbers": {
+      "samples": 5200,
+      "artifact": {
+        "tensors": "4f8bec915ae2f97f27d28ade4a95a89be6858d4d77939ef2ed097db4eca42cce",
+        "policy": "78de0242a7600e2c806dae52e707f08cc0233a72c86fc1669656e422f067eead"
+      },
+      "sourceFileSha256": "204b372ba7fa3cb27624d87dd23ebc41237370c8bfafa82c9cb81fb22c50f0b8",
+      "current": {
+        "targets": [
+          {
+            "value": 1,
+            "total": 1000,
+            "correct": 979,
+            "accuracy": 0.979,
+            "wrong": 3
+          },
+          {
+            "value": 2,
+            "total": 1000,
+            "correct": 970,
+            "accuracy": 0.97,
+            "wrong": 10
+          },
+          {
+            "value": 3,
+            "total": 1000,
+            "correct": 970,
+            "accuracy": 0.97,
+            "wrong": 8
+          },
+          {
+            "value": 4,
+            "total": 1000,
+            "correct": 982,
+            "accuracy": 0.982,
+            "wrong": 6
+          }
+        ],
+        "other": {
+          "total": 1200,
+          "rejected": 1173,
+          "accuracy": 0.9775
+        }
+      },
+      "previousV155": {
+        "targets": [
+          {
+            "value": 1,
+            "total": 1000,
+            "correct": 979,
+            "accuracy": 0.979,
+            "wrong": 12
+          },
+          {
+            "value": 2,
+            "total": 1000,
+            "correct": 935,
+            "accuracy": 0.935,
+            "wrong": 21
+          },
+          {
+            "value": 3,
+            "total": 1000,
+            "correct": 938,
+            "accuracy": 0.938,
+            "wrong": 17
+          },
+          {
+            "value": 4,
+            "total": 1000,
+            "correct": 967,
+            "accuracy": 0.967,
+            "wrong": 7
+          }
+        ],
+        "other": {
+          "total": 1200,
+          "rejected": 1168,
+          "accuracy": 0.9733333333333334
+        }
+      },
+      "sources": {
+        "EMNIST fresh confirmation": {
+          "current": {
+            "targets": [
+              {
+                "value": 1,
+                "total": 1000,
+                "correct": 979,
+                "accuracy": 0.979,
+                "wrong": 3
+              },
+              {
+                "value": 2,
+                "total": 1000,
+                "correct": 970,
+                "accuracy": 0.97,
+                "wrong": 10
+              },
+              {
+                "value": 3,
+                "total": 1000,
+                "correct": 970,
+                "accuracy": 0.97,
+                "wrong": 8
+              },
+              {
+                "value": 4,
+                "total": 1000,
+                "correct": 982,
+                "accuracy": 0.982,
+                "wrong": 6
+              }
+            ],
+            "other": {
+              "total": 1200,
+              "rejected": 1173,
+              "accuracy": 0.9775
+            }
+          },
+          "previous": {
+            "targets": [
+              {
+                "value": 1,
+                "total": 1000,
+                "correct": 979,
+                "accuracy": 0.979,
+                "wrong": 12
+              },
+              {
+                "value": 2,
+                "total": 1000,
+                "correct": 935,
+                "accuracy": 0.935,
+                "wrong": 21
+              },
+              {
+                "value": 3,
+                "total": 1000,
+                "correct": 938,
+                "accuracy": 0.938,
+                "wrong": 17
+              },
+              {
+                "value": 4,
+                "total": 1000,
+                "correct": 967,
+                "accuracy": 0.967,
+                "wrong": 7
+              }
+            ],
+            "other": {
+              "total": 1200,
+              "rejected": 1168,
+              "accuracy": 0.9733333333333334
+            }
+          }
+        }
+      }
+    },
+    "symbols": {
+      "samples": 27200,
+      "artifact": {
+        "tensors": "110fc6778c177ca1cd899414d09984250c964c756a59a0b031d00481a445b43b",
+        "policy": "6fd6ae9950181101e8428ede79c16ac66a85ed7977ef138456ebacbb0ecb05f4"
+      },
+      "sourceFileSha256": "b4c552b58607333a09066eaea76689aa1c3fff0da8f6075f41fdba2e662df703",
+      "current": {
+        "targets": [
+          {
+            "value": 1,
+            "total": 5000,
+            "correct": 4813,
+            "accuracy": 0.9626,
+            "wrong": 4
+          },
+          {
+            "value": 2,
+            "total": 5000,
+            "correct": 4804,
+            "accuracy": 0.9608,
+            "wrong": 19
+          },
+          {
+            "value": 3,
+            "total": 5000,
+            "correct": 4801,
+            "accuracy": 0.9602,
+            "wrong": 14
+          },
+          {
+            "value": 4,
+            "total": 5000,
+            "correct": 4797,
+            "accuracy": 0.9594,
+            "wrong": 9
+          }
+        ],
+        "other": {
+          "total": 7200,
+          "rejected": 6883,
+          "accuracy": 0.9559722222222222
+        }
+      },
+      "previousV155": {
+        "targets": [
+          {
+            "value": 1,
+            "total": 5000,
+            "correct": 4540,
+            "accuracy": 0.908,
+            "wrong": 2
+          },
+          {
+            "value": 2,
+            "total": 5000,
+            "correct": 4566,
+            "accuracy": 0.9132,
+            "wrong": 18
+          },
+          {
+            "value": 3,
+            "total": 5000,
+            "correct": 4568,
+            "accuracy": 0.9136,
+            "wrong": 22
+          },
+          {
+            "value": 4,
+            "total": 5000,
+            "correct": 4438,
+            "accuracy": 0.8876,
+            "wrong": 6
+          }
+        ],
+        "other": {
+          "total": 7200,
+          "rejected": 6564,
+          "accuracy": 0.9116666666666666
+        }
+      },
+      "sources": {
+        "quickdraw": {
+          "current": {
+            "targets": [
+              {
+                "value": 1,
+                "total": 5000,
+                "correct": 4813,
+                "accuracy": 0.9626,
+                "wrong": 4
+              },
+              {
+                "value": 2,
+                "total": 5000,
+                "correct": 4804,
+                "accuracy": 0.9608,
+                "wrong": 19
+              },
+              {
+                "value": 3,
+                "total": 5000,
+                "correct": 4801,
+                "accuracy": 0.9602,
+                "wrong": 14
+              },
+              {
+                "value": 4,
+                "total": 5000,
+                "correct": 4797,
+                "accuracy": 0.9594,
+                "wrong": 9
+              }
+            ],
+            "other": {
+              "total": 7200,
+              "rejected": 6883,
+              "accuracy": 0.9559722222222222
+            }
+          },
+          "previous": {
+            "targets": [
+              {
+                "value": 1,
+                "total": 5000,
+                "correct": 4540,
+                "accuracy": 0.908,
+                "wrong": 2
+              },
+              {
+                "value": 2,
+                "total": 5000,
+                "correct": 4566,
+                "accuracy": 0.9132,
+                "wrong": 18
+              },
+              {
+                "value": 3,
+                "total": 5000,
+                "correct": 4568,
+                "accuracy": 0.9136,
+                "wrong": 22
+              },
+              {
+                "value": 4,
+                "total": 5000,
+                "correct": 4438,
+                "accuracy": 0.8876,
+                "wrong": 6
+              }
+            ],
+            "other": {
+              "total": 7200,
+              "rejected": 6564,
+              "accuracy": 0.9116666666666666
+            }
+          }
+        }
+      }
+    }
+  },
+  "nativeDigitDiagnostic": {
+    "targets": [
+      {
+        "value": 1,
+        "total": 40,
+        "correct": 39,
+        "accuracy": 0.975,
+        "wrong": 0
+      },
+      {
+        "value": 2,
+        "total": 40,
+        "correct": 40,
+        "accuracy": 1,
+        "wrong": 0
+      },
+      {
+        "value": 3,
+        "total": 40,
+        "correct": 40,
+        "accuracy": 1,
+        "wrong": 0
+      },
+      {
+        "value": 4,
+        "total": 40,
+        "correct": 39,
+        "accuracy": 0.975,
+        "wrong": 0
+      }
+    ],
+    "other": {
+      "total": 240,
+      "rejected": 238,
+      "accuracy": 0.9916666666666667
+    }
+  },
+  "protocol": {
+    "letters": "Frozen before first audit; fresh official EMNIST test IDs plus official UJI test writers.",
+    "symbols": "Frozen before first audit; 5000 new native Quick Draw drawings per shape plus 7200 unrelated drawings.",
+    "numbers": "Final confirmation IDs exclude the original 600-per-class corpus, the initial diagnostic audit and the first confirmation audit; cutoffs and checkpoints selected on development validation and known regressions.",
+    "nativeDigits": "Diagnostic after first audit use; not a fresh second writer sample.",
+    "baseline": "Preserved v1.3.55 weights, decision behavior and original templates; evaluated on the same fresh inputs.",
+    "development": "Earlier audits, native digit failures and hand-authored fixtures may inform fixes; no test trajectories are used to fit weights."
+  },
+  "limits": [
+    "These are public-data point estimates, not measured accuracy for children aged 5–8.",
+    "Three cursive native A forms remain rejected (37/40 in that source stratum); the combined A score includes them.",
+    "Letter B and D audit samples are small; confidence intervals are reported and do not establish a population accuracy above 95%.",
+    "EMNIST ink is reconstructed by skeletonization; Quick Draw recognition labels sometimes include unfinished drawings."
+  ]
+}

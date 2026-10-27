@@ -1,8 +1,8 @@
 /** Freehand recognition for Kidoku; no Sudoku solution is available here. */
-import { EXERCISE_BANKS, adaptTaskToViewport } from './curriculum.js?v=1.3.54';
-import { SUDOKU_SYMBOLS } from './sudoku.js?v=1.3.54';
-import { createInkNetwork, rasterizeInk } from './ink-network.js?v=1.3.54';
-import { matchInkTemplates } from './ink-templates.js?v=1.3.54';
+import { EXERCISE_BANKS, adaptTaskToViewport } from './curriculum.js?v=1.3.56';
+import { SUDOKU_SYMBOLS } from './sudoku.js?v=1.3.56';
+import { createInkNetwork, rasterizeInk } from './ink-network.js?v=1.3.56';
+import { matchInkTemplates } from './ink-templates.js?v=1.3.56';
 
 export const SUDOKU_PAD = Object.freeze({ width: 300, height: 200 });
 const VIEWPORT = { width: 900, height: 620 };
@@ -16,8 +16,8 @@ export async function loadSudokuRecognizer(loader = globalThis.fetch) {
   if (loading) return loading;
   loading = (async () => {
     const [description, weights] = await Promise.all([
-      loader(new URL('../assets/ink-models/models.json?v=1.3.54', import.meta.url)),
-      loader(new URL('../assets/ink-models/weights.bin?v=1.3.54', import.meta.url)),
+      loader(new URL('../assets/ink-models/models.json?v=1.3.56', import.meta.url)),
+      loader(new URL('../assets/ink-models/weights.bin?v=1.3.56', import.meta.url)),
     ]);
     if (!description.ok || !weights.ok) throw new Error('Ink model files unavailable.');
     const metadata = await description.json();
@@ -73,6 +73,58 @@ function completeOutline(strokes) {
   });
 }
 
+export function inkHullCorners(strokes) {
+  const points = strokes.flat().map(p => ({ x: p.x * 300, y: p.y * 200 }))
+    .sort((a, b) => a.x - b.x || a.y - b.y);
+  if (points.length < 3) return points.length;
+  const span = Math.max(points.at(-1).x - points[0].x,
+    Math.max(...points.map(p => p.y)) - Math.min(...points.map(p => p.y)), 1);
+  // Ignore numerical collinearity when a pointer adds samples on a segment.
+  const epsilon = span * span * 1e-5;
+  const cross = (o, a, b) => (a.x-o.x)*(b.y-o.y) - (a.y-o.y)*(b.x-o.x);
+  const half = (ordered) => {
+    const result = [];
+    for (const point of ordered) {
+      while (result.length > 1 && cross(result.at(-2), result.at(-1), point) <= epsilon) result.pop();
+      result.push(point);
+    }
+    return result;
+  };
+  return half(points).length + half(points.toReversed()).length - 2;
+}
+
+export function outlineGapFraction(strokes, image = rasterizeInk(strokes), closeCrossings = true) {
+  // A return stroke may cross its starting segment instead of ending exactly
+  // at its first point. Detect the enclosed contour before comparing ends.
+  if (closeCrossings && image && hasLoop(image)) return 0;
+  const box=bounds(strokes,SUDOKU_PAD);
+  if(!box)return 1;
+  const span=Math.max(box.width,box.height);
+  const paths=strokes.map(stroke=>stroke.map(p=>({x:p.x*300,y:p.y*200}))).filter(stroke=>stroke.length>1);
+  const ends=[];let length=0;
+  for(const [index,stroke] of paths.entries()) {
+    const inkLength=stroke.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-stroke[i].x,p.y-stroke[i].y),0);
+    length+=inkLength;
+    if(inkLength<span*.03)continue;
+    if(Math.hypot(stroke[0].x-stroke.at(-1).x,stroke[0].y-stroke.at(-1).y)<=Math.max(span*.02,inkLength*.1))continue;
+    for(const point of [stroke[0],stroke.at(-1)]) {
+      const joined=paths.some((other,j)=>j!==index&&other.some((b,k)=>k&&segmentDistance(point,other[k-1],b)<=span*.08));
+      if(!joined)ends.push(point);
+    }
+  }
+  let gap=0;
+  while(ends.length>1) {
+    let a=0,b=1,minimum=Infinity;
+    for(let i=0;i<ends.length;i++)for(let j=i+1;j<ends.length;j++){
+      const distance=Math.hypot(ends[i].x-ends[j].x,ends[i].y-ends[j].y);
+      if(distance<minimum){minimum=distance;a=i;b=j;}
+    }
+    gap+=minimum;ends.splice(b,1);ends.splice(a,1);
+  }
+  if(ends.length)gap+=span;
+  return gap/Math.max(.001,length+gap);
+}
+
 function enclosedLoop(image, joiningSlack) {
   // One pixel of joining slack keeps small gaps from erasing a real loop.
   const mask = new Uint8Array(784), seen = new Uint8Array(784), stack = [];
@@ -114,6 +166,52 @@ function hasLeftStem(strokes) {
   return covered >= 7;
 }
 
+export function letterInkFeatures(strokes, image = rasterizeInk(strokes)) {
+  return { loop: image ? hasLoop(image) : false, stem: hasLeftStem(strokes) };
+}
+
+export function decideLetterInk(scores, template, features, policy = {}) {
+  const values = ['A','B','C','D'];
+  const matches = scores.filter(item => values.includes(item.label)).map(item => ({ ...item, value:values.indexOf(item.label)+1 }));
+  const best = policy.conditionTargets ? matches[0] : scores[0];
+  if (!best) return { value:null, reason:'unrecognized', matches };
+  if (template.value && template.matches[0].score >= (policy.templateConfidence ?? .98)) {
+    return { value:template.value, matches, recognizer:'public-data-cnn+template' };
+  }
+  const value = values.indexOf(best.label)+1;
+  if (!value) return { value:null, reason:'out-of-set', alternative:best.label, matches };
+  const runner = policy.conditionTargets ? matches[1] : scores[1];
+  if (best.score < (policy.thresholds?.[best.label] ?? policy.confidence ?? .5) || best.score-runner.score < (policy.margin ?? 0)) return { value:null, reason:'ambiguous', matches };
+  if ([2,4].includes(value) && !features.loop && !features.stem) return { value:null, reason:'incomplete', matches };
+  if (value === 1 && template.alternative === 'letter-A-gross' && !features.loop) return { value:null, reason:'incomplete', matches };
+  return { value, matches, recognizer:'public-data-cnn' };
+}
+
+export function decideConditionedInk(mode, scores, template, features, policy) {
+  if (mode === 'letters') return decideLetterInk(scores, template, features, policy);
+  const labels = mode === 'numbers' ? ['1','2','3','4'] : ['circle','triangle','square','star'];
+  const matches = scores.filter(item => labels.includes(item.label)).map(item => ({ ...item, value: labels.indexOf(item.label) + 1 }));
+  if (template.value && template.matches[0].score >= (policy.templateConfidence ?? .98)) {
+    return { value: template.value, matches, recognizer: 'public-data-cnn+template' };
+  }
+  const best = matches[0];
+  // Keep raw probabilities: a low target score still means "try again" even
+  // though there are only four choices. The puzzle solution is never used.
+  const supportedTemplate = best && template.value === best.value
+    && template.matches[0].score >= (policy.supportedTemplateConfidence ?? 2)
+    && best.score >= (policy.templateSupport ?? 1);
+  if (!best || (!supportedTemplate && best.score < (policy.thresholds?.[best.label] ?? policy.confidence ?? .5))
+    || best.score - matches[1].score < (policy.margin ?? 0)) {
+    return { value: null, reason: 'ambiguous', matches };
+  }
+  // A star's internal crossings enclose small areas before its outer drawing
+  // is finished, so it must also pass the independent endpoint gap check.
+  if (mode === 'symbols' && best.value === 4 && features.hullCorners < 5) return { value: null, reason: 'incomplete', matches };
+  const gap = best.value === 4 ? features.starGapFraction : features.gapFraction;
+  if (mode === 'symbols' && gap > (policy.maxGapFraction ?? .18)) return { value: null, reason: 'incomplete', matches };
+  return { value: best.value, matches, recognizer: supportedTemplate ? 'public-data-cnn+template' : 'public-data-cnn' };
+}
+
 export function sudokuReferenceInk(mode, value) {
   const task = referenceTask(mode, value);
   if (!task) return [];
@@ -131,7 +229,27 @@ export function recognizeSudokuInk(strokes, mode) {
   const image = rasterizeInk(strokes);
   if (!image) return { value: null, reason: 'empty', matches: [] };
   const template = matchInkTemplates(strokes, mode);
-  const scores = network.predict(image, mode);
+  let scores = network.predict(image, mode);
+  const modePolicy=settings.policies?.[mode];
+  if (modePolicy?.views?.length) {
+    const totals = new Map();
+    const labels = settings.models[mode].labels;
+    for (const specification of modePolicy.views) {
+      const { model = mode, thickness } = typeof specification === 'number' ? { thickness: specification } : specification;
+      const view = model === mode && thickness === 1.8 ? scores : network.predict(rasterizeInk(strokes, { thickness }), model);
+      for (const item of view) {
+        // The auxiliary letter model distinguishes all 26 capitals. Pool its
+        // out-of-set evidence into the main model's explicit other output.
+        const label = labels.includes(item.label) ? item.label : 'other';
+        totals.set(label, (totals.get(label) ?? 0) + item.score / modePolicy.views.length);
+      }
+    }
+    scores = [...totals].map(([label, score]) => ({ label, score })).sort((a, b) => b.score - a.score);
+  }
+  if (mode === 'letters') return decideLetterInk(scores, template, letterInkFeatures(strokes, image), modePolicy);
+  if (modePolicy?.conditionTargets) {
+    return decideConditionedInk(mode, scores, template, { gapFraction: mode === 'symbols' ? outlineGapFraction(strokes, image) : 0, starGapFraction: mode === 'symbols' ? outlineGapFraction(strokes, image, false) : 0, hullCorners: mode === 'symbols' ? inkHullCorners(strokes) : 0 }, modePolicy);
+  }
   const values = mode === 'numbers' ? ['1','2','3','4'] : mode === 'letters' ? ['A','B','C','D'] : ['circle','triangle','square','star'];
   const matches = scores.filter((item) => values.includes(item.label)).map((item) => ({ ...item, value: values.indexOf(item.label)+1 }));
   const best = scores[0];
@@ -146,11 +264,9 @@ export function recognizeSudokuInk(strokes, mode) {
   }
   if (!value) return { value: null, reason: 'out-of-set', alternative: best.label, matches };
   if (best.score < policy.confidence || best.score-scores[1].score < policy.margin) return { value: null, reason: 'ambiguous', matches };
-  if (template.reason === 'out-of-set' && best.score < (policy.disagreementConfidence ?? .7)) return { value: null, reason: 'ambiguous', matches };
+  if (mode !== 'letters' && template.reason === 'out-of-set' && best.score < (policy.disagreementConfidence ?? .7)) return { value: null, reason: 'ambiguous', matches };
   // Recognition alone can label an unfinished outline. Require its ends to
   // meet, allowing ordinary small gaps, separate sides and pen lifts.
   if (mode === 'symbols' && !completeOutline(strokes)) return { value: null, reason: 'incomplete', matches };
-  if (mode === 'letters' && [2,4].includes(value) && !completeOutline(strokes) && !hasLeftStem(strokes)) return { value: null, reason: 'incomplete', matches };
-  if (mode === 'letters' && value === 1 && template.alternative === 'letter-A-gross' && !hasLoop(image)) return { value: null, reason: 'incomplete', matches };
   return { value, matches, recognizer: 'public-data-cnn' };
 }

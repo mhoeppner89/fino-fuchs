@@ -76,21 +76,27 @@ function dense(input, kernel, bias, relu) {
 }
 
 export function createInkNetwork(metadata, buffer) {
-  if (metadata.format !== 1 || metadata.architecture !== 'conv12-pool-conv24-pool-dense64' || buffer.byteLength % 4) throw new Error('Unsupported ink model.');
+  const supported = (metadata.format === 1 && metadata.architecture === 'conv12-pool-conv24-pool-dense64')
+    || (metadata.format === 2 && metadata.architecture === 'mixed-cnn');
+  if (!supported || buffer.byteLength % 4) throw new Error('Unsupported ink model.');
   const models = {};
   for (const [mode, model] of Object.entries(metadata.models)) {
     const weights = {};
+    const channels = model.channels ?? [12,24], hidden = model.hidden ?? 64;
+    if (![[12,24],[24,48,48]].some(shape => JSON.stringify(shape) === JSON.stringify(channels)) || ![64,128].includes(hidden)) throw new Error('Unsupported ink layers.');
+    const last = channels.at(-1);
     const expected = {
-      'conv1.weight': [12,1,3,3], 'conv1.bias': [12], 'conv2.weight': [24,12,3,3], 'conv2.bias': [24],
-      'dense.weight': [64,1176], 'dense.bias': [64], 'output.weight': [model.labels.length,64], 'output.bias': [model.labels.length],
+      'conv1.weight': [channels[0],1,3,3], 'conv1.bias': [channels[0]], 'conv2.weight': [channels[1],channels[0],3,3], 'conv2.bias': [channels[1]],
+      'dense.weight': [hidden,last*49], 'dense.bias': [hidden], 'output.weight': [model.labels.length,hidden], 'output.bias': [model.labels.length],
     };
+    if (channels.length === 3) { expected['conv3.weight'] = [channels[2],channels[1],3,3]; expected['conv3.bias'] = [channels[2]]; }
     for (const [name, shape] of Object.entries(expected)) {
       const spec = model.weights[name];
       if (!spec || JSON.stringify(spec.shape) !== JSON.stringify(shape) || spec.length !== shape.reduce((a,b) => a*b,1)
         || !Number.isInteger(spec.offset) || spec.offset < 0 || (spec.offset+spec.length)*4 > buffer.byteLength) throw new Error('Invalid ink model weights.');
       weights[name] = new Float32Array(buffer, spec.offset * 4, spec.length);
     }
-    models[mode] = { labels: model.labels, weights };
+    models[mode] = { labels: model.labels, weights, channels };
   }
   if (!['numbers','letters','symbols'].every((mode) => models[mode])) throw new Error('Incomplete ink models.');
   return {
@@ -98,8 +104,10 @@ export function createInkNetwork(metadata, buffer) {
       const model = models[mode];
       if (!model || image?.length !== 784) return [];
       const w = model.weights;
-      let x = pool(convolution(image, 28, 1, w['conv1.weight'], w['conv1.bias'], 12), 28, 12);
-      x = pool(convolution(x, 14, 12, w['conv2.weight'], w['conv2.bias'], 24), 14, 24);
+      const c = model.channels;
+      let x = pool(convolution(image, 28, 1, w['conv1.weight'], w['conv1.bias'], c[0]), 28, c[0]);
+      x = pool(convolution(x, 14, c[0], w['conv2.weight'], w['conv2.bias'], c[1]), 14, c[1]);
+      if (c.length === 3) x = convolution(x, 7, c[1], w['conv3.weight'], w['conv3.bias'], c[2]);
       x = dense(x, w['dense.weight'], w['dense.bias'], true);
       const logits = dense(x, w['output.weight'], w['output.bias'], false);
       const peak = Math.max(...logits), exp = Array.from(logits, (value) => Math.exp(value - peak));

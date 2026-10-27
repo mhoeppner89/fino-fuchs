@@ -8,9 +8,9 @@ is used at runtime.
 ## Training data
 
 - **EMNIST ByClass**, by Gregory Cohen, Saeed Afshar, Jonathan Tapson and
-  André van Schaik, derived from NIST Special Database 19. Numbers use all ten
-  digits; letters use all 26 uppercase letters. The in-game choices are 1–4
-  or A–D, and other predicted classes can be rejected.
+  André van Schaik, derived from NIST Special Database 19. Training includes all ten
+  digits and all 26 uppercase letters. Each model has four target outputs
+  (1–4 or A–D) and an additional output for other characters.
   Source: https://www.nist.gov/itl/products-and-services/emnist-dataset
   Citation: Cohen et al. (2017), *EMNIST: an extension of MNIST to handwritten
   letters*, https://arxiv.org/abs/1702.05373
@@ -23,8 +23,22 @@ is used at runtime.
   images, added rotation/slant/size/thickness augmentation, and trained a small
   classifier on circle, triangle, square, star and an additional other class.
 
+- **UJI Pen Characters (Version 2)**, F. Prat, M. Castro, D. Llorens,
+  A. Marzal and J. Vilar (2008), UCI Machine Learning Repository.
+  License: **Creative Commons Attribution 4.0 International**.
+  Source and citation: https://doi.org/10.24432/C5FG8S
+  Modifications: retained uppercase ASCII letters and digits; normalized native
+  stylus trajectories; split training/validation by writer and retained the
+  official test writers for audit; augmented the training drawings.
+
 EMNIST images were cropped and proportionally resized. Letter training also
 uses skeleton-derived pen-style renderings from the source training partition.
+The v1.3.56 update uses three-convolution models in all modes. Validation
+selects checkpoints, confidence thresholds and optional local pen-width views.
+Training also includes unrelated doodles and generated, labeled 1/7 forms.
+Validation and audit examples are not used to fit the weights. The four target
+scores retain their original probabilities, including the competing other
+output; they are never renormalized to force an answer from the four choices.
 The source datasets and their notices are not relicensed by this file.
 Data citations do not imply endorsement by NIST, Google or the original authors.
 

@@ -1,6 +1,6 @@
 /** Recognise a child's complete answer independently of the Sudoku solution. */
-import { EXERCISE_BANKS, adaptTaskToViewport } from './curriculum.js?v=1.3.54';
-import { SUDOKU_SYMBOLS } from './sudoku.js?v=1.3.54';
+import { EXERCISE_BANKS, adaptTaskToViewport } from './curriculum.js?v=1.3.56';
+import { SUDOKU_SYMBOLS } from './sudoku.js?v=1.3.56';
 
 export const SUDOKU_PAD = Object.freeze({ width: 300, height: 200 });
 const VIEWPORT = { width: 900, height: 620 };
@@ -182,6 +182,9 @@ function profiles(mode) {
     const one = referenceTask(mode, 1);
     positive.push(
       makeProfile(one, 1, [[[50, 0], [50, 100]]]),
+      // Flagged 1 is also valid without a foot. Keep both ordinary flag sizes.
+      makeProfile(one, 1, [[[20, 25], [55, 0], [55, 100]]]),
+      makeProfile(one, 1, [[[0, 40], [50, 0], [50, 100]]]),
       makeProfile(one, 1, [[[25, 20], [55, 0], [55, 100]], [[20, 100], [85, 100]]]),
       makeProfile(one, 1, [[[50, 0], [50, 100]], [[20, 100], [80, 100]]]),
       makeProfile(referenceTask(mode, 2), 2, [[[0, 20], [15, 0], [80, 0], [100, 20], [90, 40], [0, 100], [100, 100]]]),

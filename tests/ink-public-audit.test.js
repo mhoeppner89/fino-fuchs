@@ -20,7 +20,7 @@ test('the offline hybrid improves on the previous recognizer on fixed public han
     const old = metric(rows.map(row => row.previousValue));
     const current = metric(predicted);
     assert.ok(current.balanced >= old.balanced+.1, `${mode}: ${JSON.stringify({old,current})}`);
-    assert.ok(current.specificity >= .85, `${mode}: unrelated marks remain rejected`);
-    assert.ok(current.recall >= {numbers:.9,letters:.7,symbols:.8}[mode], `${mode}: valid drawings remain usable`);
+    assert.ok(current.specificity >= (mode === 'letters' ? .95 : .85), `${mode}: unrelated marks remain rejected`);
+    assert.ok(current.recall >= {numbers:.9,letters:.85,symbols:.8}[mode], `${mode}: valid drawings remain usable`);
   }
 });

@@ -15,6 +15,17 @@ test('bundled weights are intact and a truncated model cannot be used', () => {
   assert.deepEqual(metadata, JSON.parse(readFileSync(new URL('../testversion/assets/ink-models/models.json', import.meta.url))));
 });
 
+test('each Kidoku model retains an explicit other output and raw rejection thresholds', () => {
+  for (const mode of ['letters','numbers','symbols']) {
+    assert.equal(metadata.models[mode].labels.at(-1), 'other');
+    assert.deepEqual(metadata.models[mode].channels, [24,48,48]);
+    assert.equal(metadata.policies[mode].conditionTargets, true);
+    for (const label of metadata.models[mode].labels.slice(0,4)) {
+      assert.ok(metadata.policies[mode].thresholds[label] > 0);
+    }
+  }
+});
+
 test('JavaScript inference agrees with the PyTorch reference for every model', () => {
   const network = createInkNetwork(metadata, buffer);
   const fixtures = JSON.parse(readFileSync(new URL('./fixtures/ink-network-parity.json', import.meta.url)));

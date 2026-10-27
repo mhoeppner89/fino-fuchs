@@ -8,10 +8,10 @@ mkdirSync(output, { recursive: true });
 const browser = await chromium.launch({ headless: true, ...(process.env.FINO_CHROME_PATH ? { executablePath: process.env.FINO_CHROME_PATH } : {}) });
 const report = [];
 const viewports = [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 1024, height: 768 }];
-const modes = ['numbers', 'letters', 'symbols'];
+const modes = process.env.FINO_SUDOKU_MODE ? [process.env.FINO_SUDOKU_MODE] : ['numbers', 'letters', 'symbols'];
 const difficulties = ['easy', 'medium', 'hard'];
-const cases = modes.flatMap((mode, m) => difficulties.map((difficulty, d) => ({ mode, difficulty, viewport: viewports[(m + d) % 4], directory: '' })));
-cases.push({ mode: 'symbols', difficulty: 'hard', viewport: { width: 667, height: 375 }, directory: '/testversion' });
+const cases = modes.flatMap((mode) => difficulties.map((difficulty, d) => ({ mode, difficulty, viewport: viewports[(['numbers','letters','symbols'].indexOf(mode) + d) % 4], directory: '' })));
+cases.push({ mode: process.env.FINO_SUDOKU_MODE ?? 'symbols', difficulty: 'hard', viewport: { width: 667, height: 375 }, directory: '/testversion' });
 
 try {
   for (const [caseIndex, scenario] of cases.entries()) {

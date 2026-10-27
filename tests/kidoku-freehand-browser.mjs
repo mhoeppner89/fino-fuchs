@@ -9,6 +9,7 @@ const browser = await chromium.launch({ headless: true, ...(process.env.FINO_CHR
 const report = [];
 const scenarios = [
   { id: 'one-flag-and-foot', target: 1 },
+  { id: 'one-flag-no-foot', target: 1, angle: 17 },
   { id: 'four-open', target: 4 },
   { id: 'd-round', target: 4 },
   { id: 'square-rounded', target: 3 },
@@ -51,10 +52,15 @@ try {
         return { x: rect.x, y: rect.y, transform: game.transform };
       });
       // Independent sketches in the blank pad, with no hint/reference shown.
-      const client = ([x, y]) => ({
-        x: data.x + data.transform.x + (90 + x * 1.2) * data.transform.scale,
-        y: data.y + data.transform.y + (40 + y * 1.2) * data.transform.scale,
-      });
+      const client = ([x, y]) => {
+        const angle = (scenario.angle ?? 0) * Math.PI / 180;
+        const dx=x-50,dy=y-50;
+        const xx=50+dx*Math.cos(angle)-dy*Math.sin(angle),yy=50+dx*Math.sin(angle)+dy*Math.cos(angle);
+        return {
+          x: data.x + data.transform.x + (90 + xx * 1.2) * data.transform.scale,
+          y: data.y + data.transform.y + (40 + yy * 1.2) * data.transform.scale,
+        };
+      };
       for (const stroke of example.strokes) {
         const first = client(stroke[0]);
         await page.mouse.move(first.x, first.y);

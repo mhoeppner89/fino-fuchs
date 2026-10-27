@@ -1061,3 +1061,93 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
   the shipped/benchmarked weights checksum and diff whitespace.
 - Release includes the local model weights/runtime, safe loading and retry,
   training and comparison scripts, public regression data, credits and report.
+
+## 2026-10-27 — Stronger offline letter recognition (v1.3.55, local)
+
+- Request: improve the 80% letter result further while keeping recognition
+  offline. Inspected failures: model confusion plus over-strict B/D endpoint
+  checks rejected recognisable loops and serif forms. Used develop-web-game
+  for the affected gameplay/browser checks.
+- Trained a larger three-convolution letter CNN (24/48/48 channels, dense128)
+  on 86,268 unique EMNIST source-training images, mixing original images with
+  skeleton-derived pen renderings of varied widths and ordinary augmentation.
+  Kept the 9,586 validation IDs separate. All 26 uppercase classes remain in
+  the model so unrelated letters can be rejected.
+- Compared single-width and two-width inference on validation only. Selected
+  local averaging at widths 1.2/1.8: target recall 92.63% vs 80.48% previously,
+  unrelated-letter rejection 99.10% vs 98.82%, and 4 vs 9 wrong A–D substitutions.
+  Threshold selection required at least 99.1% rejection and no increase in
+  wrong A–D substitutions on validation. Reference/freehand regressions also
+  pass before the final audit.
+- B/D completeness now uses loops in the combined ink image, with a stem
+  fallback, rather than requiring each pen movement's ends to meet. Preserved
+  missing-crossbar, open/mirrored-ink and out-of-set checks. Added eight real
+  validation B/D serif-loop regressions, including reversed and fragmented
+  pen movements. The Sudoku solution is never supplied to recognition.
+- Fresh end-to-end JavaScript audit: 3,200 examples excluded from the previous
+  exploratory/final audits and never used for fitting or policy choice. On
+  the same 1,000 valid letters, v1.3.54 scores 82.5% and v1.3.55 scores 93.1%.
+  Wrong A–D substitutions fall from 11 to 5. Of 2,200 unrelated letters, old
+  rejects 2,173 and new rejects 2,176 (98.77% to 98.91%). Per-letter correct
+  results: A 90.8%, B 97.2%, C 96.4%, D 88.0%. D remains the weakest group.
+  These public-data scores are not child-handwriting accuracy estimates.
+- Added comparison/reproduction scripts and
+  `scripts/ink-models/letter-improvement-report.json`, preserving the v1.3.54
+  report as a historical baseline. Stored model/ID hashes and selection logs.
+- Bundled tensors total 1,972,324 bytes; no CDN, inference service or runtime
+  library was added. Digit and symbol tensors/policies are byte-identical to
+  v1.3.54, verified by hashes. The inference engine supports the larger letter
+  model and both old/new formats. Root and testversion runtime/model files
+  match; queries and offline caches are bumped to 1.3.55.
+- Verification: all 183 automated tests pass. Four real-input A–D playthroughs
+  cover all difficulties, phone/tablet viewports and testversion. Five offline
+  browser checks pass, including the recovered D serif loop, all three modes,
+  no external requests and safe model-load retry. Inspected screenshots/state.
+  At 4× Chrome CPU throttling, first recognition was 124.5 ms; warmed median
+  87.7 ms and p95 95.9 ms, with no browser errors. Syntax/diff checks pass.
+- No implementation TODOs remain. Changes are local, uncommitted and unpushed.
+  Future work should validate representative child handwriting; the remaining
+  ambiguous public D/O and cursive forms should not be mistaken for proof of
+  classroom accuracy.
+
+## 2026-10-27 Kidoku per-character recognition iteration (v1.3.56)
+
+- Request: iterate until each Kidoku target, rather than only a group average,
+  exceeds 95% recognition accuracy; keep recognition fully offline.
+- Expanded EMNIST source-training data, added writer-disjoint UJI native pen
+  data, and expanded Quick Draw. Retained unrelated classes as explicit other
+  outputs. Compared task-specific heads and the earlier 26-letter model.
+- Selected a two-model local letter ensemble. Reserved letter audit: A 483/502,
+  B 86/88, C 526/540, D 209/219; all exceed 95%. Native-pen A remains 37/40,
+  including cursive forms; those failures are retained and reported separately.
+- Fixed shape closure at an overshooting starting segment and added a
+  sample-density-independent five-tip check for stars. Reserved shape audit:
+  circle 4813/5000, triangle 4804/5000, square 4801/5000, star 4797/5000;
+  unrelated rejection 6883/7200. All exceed 95%.
+- Initial digit diagnostic led to validation-based cutoff balancing. A fresh
+  5,200-example EMNIST confirmation passed each digit. Checking native stylus
+  examples then exposed missing flagged-1 variants without a foot. Final flag
+  refinement and a further untouched digit confirmation are in progress.
+- The first complete verification passed all 185 tests. Ten Sudoku browser
+  playthroughs, nine real freehand entries, and five offline/retry browser checks
+  passed. Repeat only the recognition checks affected by the final flag fix.
+- No commit or push has been made for this iteration.
+
+- Finalized the flagged-1 fix with balanced, generated 1/7 training forms. The
+  selected digit checkpoint (21) passes the new tilted footless-1 regression
+  while keeping tilted 7 rejected. The small native-pen diagnostic now accepts
+  39/40 ones (previously 36/40); no test trajectory was used to fit weights.
+- Final, further untouched EMNIST digit confirmation: 1 979/1000, 2 970/1000,
+  3 970/1000, 4 982/1000. Unrelated rejection 1173/1200. The combined final
+  fresh benchmark has 36,155 examples; all twelve target scores and all three
+  unrelated-input rejection rates exceed 95%. Counts, confidence intervals,
+  source strata and tensor/policy fingerprints are in per-character-report.json.
+- Final recognition-focused checks: 20/20 passed, after the earlier full
+  185/185 suite. Root and testversion contain the same final model artifacts.
+- Final browser checks accepted all ten freehand entries, including the new
+  tilted footless 1; screenshot inspected. Offline inference with 4× Chrome
+  CPU throttling: p95 letters 79.3 ms, numbers 40.4 ms, symbols 42.9 ms.
+- The repeated legacy offline harness waited indefinitely during service-worker
+  takeover. Its setup now waits for a controller before reloading and has a
+  bounded wait. A separate final root/testversion offline reload check verifies
+  the cached final models, without extending the recognition scope.
