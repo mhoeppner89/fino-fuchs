@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { recognizeSudokuInk } from '../js/sudoku-recognition.js';
+import './load-ink-models.mjs';
 
 const { cases } = JSON.parse(readFileSync(new URL('./fixtures/kidoku-freehand.json', import.meta.url)));
 

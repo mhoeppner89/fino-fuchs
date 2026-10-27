@@ -11,7 +11,7 @@ const manifest = JSON.parse(read('manifest.webmanifest'));
 const html = read('index.html');
 const styles = read('styles.css');
 const serviceWorker = read('sw.js');
-const scripts = ['app.js', 'curriculum.js', 'drawing.js', 'mini-games.js', 'sudoku.js', 'sudoku-ui.js', 'sudoku-recognition.js', 'handwriting-template-data.js', 'handwriting-stroke-data.js']
+const scripts = ['app.js', 'curriculum.js', 'drawing.js', 'mini-games.js', 'sudoku.js', 'sudoku-ui.js', 'sudoku-recognition.js', 'ink-network.js', 'ink-templates.js', 'handwriting-template-data.js', 'handwriting-stroke-data.js']
   .map((file) => [`js/${file}`, read(`js/${file}`)]);
 
 function shellPaths() {
@@ -164,7 +164,7 @@ test('every offline shell entry and local runtime dependency exists', () => {
       dependencies.add(dependency);
     }
     for (const match of source.matchAll(/new URL\(['"](\.[^'"]+)['"],\s*import\.meta\.url\)/g)) {
-      dependencies.add(normalize(relative(root, resolve(root, dirname(sourcePath), match[1]))));
+      dependencies.add(normalize(relative(root, resolve(root, dirname(sourcePath), match[1]))).split('?')[0]);
     }
   }
   dependencies.forEach((path) => {

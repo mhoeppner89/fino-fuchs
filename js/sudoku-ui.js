@@ -1,6 +1,6 @@
-import { SUDOKU_SYMBOLS, isSudokuComplete, sudokuHint, validateSudokuEntry } from './sudoku.js?v=1.3.53';
-import { recognizeSudokuInk, sudokuReferenceInk, SUDOKU_PAD } from './sudoku-recognition.js?v=1.3.53';
-import { pointerSamples } from './drawing.js?v=1.3.53';
+import { SUDOKU_SYMBOLS, isSudokuComplete, sudokuHint, validateSudokuEntry } from './sudoku.js?v=1.3.54';
+import { loadSudokuRecognizer, recognizeSudokuInk, sudokuRecognizerReady, sudokuReferenceInk, SUDOKU_PAD } from './sudoku-recognition.js?v=1.3.54';
+import { pointerSamples } from './drawing.js?v=1.3.54';
 
 const cloneInk = (strokes) => strokes.map((stroke) => stroke.map((point) => ({ ...point })));
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -64,7 +64,23 @@ export class SudokuGame {
       return item;
     }));
     this.render();
+    this.prepareRecognition();
     requestAnimationFrame(() => this.resize());
+  }
+
+  async prepareRecognition() {
+    const task = this.task;
+    try {
+      await loadSudokuRecognizer();
+      if (this.task !== task) return;
+      this.recognitionFailed = false;
+    } catch {
+      if (this.task !== task) return;
+      this.recognitionFailed = true;
+      this.message = 'Die Erkennung konnte nicht geladen werden. Tippe auf „Einsetzen“, um es noch einmal zu versuchen.';
+      this.messageKind = 'retry';
+    }
+    this.render();
   }
 
   setLocked(locked) {
@@ -148,6 +164,7 @@ export class SudokuGame {
 
   submit() {
     if (!this.task || this.locked || this.isDrawing() || this.selected < 0) return;
+    if (!sudokuRecognizerReady()) { this.prepareRecognition(); return; }
     const index = this.selected;
     const ink = this.drafts[index];
     const recognized = recognizeSudokuInk(ink, this.puzzle.mode);
@@ -218,7 +235,7 @@ export class SudokuGame {
     this.selectionLabel.textContent = `Dein Feld: Reihe ${Math.floor(this.selected / 4) + 1}, Spalte ${this.selected % 4 + 1}`;
     this.feedback.textContent = this.message;
     this.feedback.dataset.kind = this.messageKind;
-    this.submitButton.disabled = this.locked || this.isDrawing() || !this.drafts[this.selected]?.length;
+    this.submitButton.disabled = this.locked || this.isDrawing() || !this.drafts[this.selected]?.length || (!sudokuRecognizerReady() && !this.recognitionFailed);
     this.drawPad();
     this.hooks.onChange?.();
   }

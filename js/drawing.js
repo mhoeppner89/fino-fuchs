@@ -3,8 +3,8 @@
 import {
   CHARACTER_TEMPLATE_SHEETS,
   characterTemplateCrop,
-} from './handwriting-template-data.js?v=1.3.53';
-import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.53';
+} from './handwriting-template-data.js?v=1.3.54';
+import { characterStrokeGeometry } from './handwriting-stroke-data.js?v=1.3.54';
 import {
   connectInkWidthForBoard,
   connectTrailCollision,
@@ -14,7 +14,7 @@ import {
   pointDistanceInPixels,
   planConnectContinuation,
   connectHintRoute,
-} from './mini-games.js?v=1.3.53';
+} from './mini-games.js?v=1.3.54';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);

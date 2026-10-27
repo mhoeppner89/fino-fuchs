@@ -999,3 +999,65 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
 - GitHub main matched the local base before release. No remaining work for
   this request; real child handwriting examples remain useful for future
   recognition tuning. Local preview uses exec session 66044 on port 4173.
+
+## 2026-10-27 — Public-data offline Kidoku recognizer (v1.3.54, local)
+
+- Request: use existing handwriting/drawing datasets and models, compare with
+  the current recognizer, replace it with the best usable option and keep the
+  game offline. Used the develop-web-game workflow for gameplay verification.
+- Downloaded official EMNIST ByClass and Google Quick Draw to a temporary
+  development cache. Trained small digit, uppercase-letter and shape CNNs,
+  keeping original source train/test partitions separate and reserving
+  validation examples. Numbers cover all ten digits; letters all uppercase
+  letters; shapes include a separate other category from 12 distractor types.
+- Tested mixed-case and uppercase letter candidates. Fine-tuned the uppercase
+  model using 25,000 additional pen-style renderings of public training images
+  after finding a scanned-image/pen-input mismatch. These are transformed
+  examples, not additional independent people. No user ink was collected.
+- Benchmarked the existing DoodleNet weights too; checked their conversion
+  against TensorFlow.js (maximum probability error ~6e-8), checked the model's
+  own labels and evaluated normalization extents on validation examples. The
+  general 345-class model often calls geometric ink a circular object and was
+  not selected. Its weights/runtime are not shipped.
+- Shipped a hybrid: learned recognition with a strong template backstop for
+  clear Schulschrift/reference forms and small completion checks. A plain CNN
+  scores higher on some public-data recall metrics but misses important
+  reference/unfinished-ink regressions. The chosen hybrid preserves all 37
+  hand-authored cases and their transformed/split/sampling regressions.
+- Separate final audit: 9,920 samples excluded from both training and the
+  earlier exploratory subset. Correct target recognition improved from
+  56.4% to 96.5% (digits), 40.4% to 80.0% (letters), and 65.4% to 89.2%
+  (shapes). Other-input rejection improved from 87.5% to 96.8%, 94.5% to 98.9%,
+  and 89.1% to 91.2%. The report includes the plain CNN and DoodleNet results,
+  errors, sample-ID hashes, weights hash and training counts. Letters remain
+  the weakest group. Public scores do not establish accuracy for children.
+- Runtime: 947,428 bytes of bundled weights, a local manifest and a small
+  vanilla-JavaScript CNN evaluator. No inference library, CDN, telemetry or
+  recognition service at runtime. Weight checksum/tensor checks reject broken
+  files. Local model loading is explicit and retryable; it never submits stale
+  ink. Recognition remains independent of the Sudoku solution. The tracing
+  evaluator has only module-version updates in this change.
+- Added reproducible preparation/training/comparison scripts and dataset
+  credits/model notice. Added 480 fixed public-data regression examples and
+  PyTorch/JavaScript parity fixtures. See `scripts/ink-models/README.md` and
+  `scripts/ink-models/benchmark-report.json` for the full tradeoff and limits.
+- Verification: all 181 automated tests pass. Nine freehand browser scenarios,
+  ten full Kidoku playthroughs and four new browser checks pass. The new checks
+  submit actual public examples rescued by the CNN in all three modes after
+  going offline, verify no external requests, and test missing-model retry
+  without stale submission. Inspected phone screenshots and state. Root and
+  testversion runtime/model files match; syntax and diff checks pass.
+- Bumped module queries/package/offline caches to 1.3.54. Changes remain local,
+  uncommitted and unpushed. Preview server: port 4173, exec session 69831. No
+  remaining implementation TODOs for this request; future tuning should use
+  representative child handwriting kept separate from training examples.
+
+## 2026-10-27 — Publish v1.3.54
+
+- User requested committing and pushing all pending changes to GitHub main.
+  Fetched origin/main and confirmed the local base matches it. The 181-test
+  suite and browser/offline checks above passed before this release; no
+  runtime changes have been made since. Rechecked root/testversion parity,
+  the shipped/benchmarked weights checksum and diff whitespace.
+- Release includes the local model weights/runtime, safe loading and retry,
+  training and comparison scripts, public regression data, credits and report.

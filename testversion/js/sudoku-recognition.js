@@ -1,237 +1,117 @@
-/** Recognise a child's complete answer independently of the Sudoku solution. */
-import { EXERCISE_BANKS, adaptTaskToViewport } from './curriculum.js?v=1.3.53';
-import { SUDOKU_SYMBOLS } from './sudoku.js?v=1.3.53';
+/** Freehand recognition for Kidoku; no Sudoku solution is available here. */
+import { EXERCISE_BANKS, adaptTaskToViewport } from './curriculum.js?v=1.3.54';
+import { SUDOKU_SYMBOLS } from './sudoku.js?v=1.3.54';
+import { createInkNetwork, rasterizeInk } from './ink-network.js?v=1.3.54';
+import { matchInkTemplates } from './ink-templates.js?v=1.3.54';
 
 export const SUDOKU_PAD = Object.freeze({ width: 300, height: 200 });
 const VIEWPORT = { width: 900, height: 620 };
-const referenceCache = new Map();
-const profileCache = new Map();
+const references = new Map();
+let network = null;
+let loading = null;
+let settings = null;
+
+export async function loadSudokuRecognizer(loader = globalThis.fetch) {
+  if (network) return true;
+  if (loading) return loading;
+  loading = (async () => {
+    const [description, weights] = await Promise.all([
+      loader(new URL('../assets/ink-models/models.json?v=1.3.54', import.meta.url)),
+      loader(new URL('../assets/ink-models/weights.bin?v=1.3.54', import.meta.url)),
+    ]);
+    if (!description.ok || !weights.ok) throw new Error('Ink model files unavailable.');
+    const metadata = await description.json();
+    const buffer = await weights.arrayBuffer();
+    if (globalThis.crypto?.subtle) {
+      const digest = await globalThis.crypto.subtle.digest('SHA-256', buffer);
+      const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+      if (hash !== metadata.weightsSha256) throw new Error('Ink model checksum mismatch.');
+    }
+    network = createInkNetwork(metadata, buffer);
+    settings = metadata;
+    return true;
+  })();
+  try { return await loading; }
+  catch (error) { loading = null; throw error; }
+}
+
+export function sudokuRecognizerReady() { return Boolean(network); }
 
 function bounds(strokes, viewport) {
   const points = strokes.flat();
   if (!points.length) return null;
-  const xs = points.map((point) => point.x * viewport.width);
-  const ys = points.map((point) => point.y * viewport.height);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
-  return { width: maxX - minX, height: maxY - minY, x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+  const xs = points.map((p) => p.x * viewport.width), ys = points.map((p) => p.y * viewport.height);
+  const left = Math.min(...xs), right = Math.max(...xs), top = Math.min(...ys), bottom = Math.max(...ys);
+  return { width: right-left, height: bottom-top, x: (left+right)/2, y: (top+bottom)/2 };
 }
 
 function referenceTask(mode, value) {
   const key = `${mode}-${value}`;
-  if (referenceCache.has(key)) return referenceCache.get(key);
-  const symbol = SUDOKU_SYMBOLS[mode]?.[value - 1];
+  if (references.has(key)) return references.get(key);
+  const symbol = SUDOKU_SYMBOLS[mode]?.[value-1];
   if (!symbol) return null;
   const task = adaptTaskToViewport(EXERCISE_BANKS[symbol.category].find((task) => task.id === symbol.taskId), VIEWPORT);
-  referenceCache.set(key, task);
+  references.set(key, task);
   return task;
 }
 
-function segmentDistanceSquared(point, a, b) {
-  const dx = b.x - a.x, dy = b.y - a.y;
-  const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
-  return (point.x - a.x - t * dx) ** 2 + (point.y - a.y - t * dy) ** 2;
+function segmentDistance(point, a, b) {
+  const dx = b.x-a.x, dy = b.y-a.y;
+  const t = Math.max(0, Math.min(1, ((point.x-a.x)*dx+(point.y-a.y)*dy)/(dx*dx+dy*dy || 1)));
+  return Math.hypot(point.x-a.x-t*dx, point.y-a.y-t*dy);
 }
 
-function inkDistanceSquared(point, strokes) {
-  let nearest = Infinity;
-  for (const stroke of strokes) {
-    if (stroke.length === 1) nearest = Math.min(nearest, (point.x - stroke[0].x) ** 2 + (point.y - stroke[0].y) ** 2);
-    for (let index = 1; index < stroke.length; index += 1) nearest = Math.min(nearest, segmentDistanceSquared(point, stroke[index - 1], stroke[index]));
-  }
-  return nearest;
-}
-
-function simplify(points) {
-  if (points.length <= 2) return points;
-  let farthest = 0, error = 0.006 ** 2;
-  for (let index = 1; index < points.length - 1; index += 1) {
-    const candidate = segmentDistanceSquared(points[index], points[0], points.at(-1));
-    if (candidate > error) { farthest = index; error = candidate; }
-  }
-  return farthest
-    ? [...simplify(points.slice(0, farthest + 1)).slice(0, -1), ...simplify(points.slice(farthest))]
-    : [points[0], points.at(-1)];
-}
-
-function normalizeInk(strokes, viewport, degrees = 0, shear = 0) {
-  const source = bounds(strokes, viewport);
-  const angle = degrees * Math.PI / 180;
-  const rotated = strokes.filter((stroke) => stroke.length).map((stroke) => stroke.map((point) => {
-    const x = point.x * viewport.width - source.x, y = point.y * viewport.height - source.y;
-    const yy = x * Math.sin(angle) + y * Math.cos(angle);
-    return { x: x * Math.cos(angle) - y * Math.sin(angle) + shear * yy, y: yy };
-  }));
-  const box = bounds(rotated, { width: 1, height: 1 });
-  const height = Math.max(0.001, box.height);
-  return rotated.map((stroke) => simplify(stroke.map((point) => ({ x: (point.x - box.x) / height, y: (point.y - box.y) / height }))));
-}
-
-function prepareInk(strokes) {
-  const samples = [];
-  for (const stroke of strokes) {
-    for (let index = 1; index < stroke.length; index += 1) {
-      const a = stroke[index - 1], b = stroke[index];
-      const length = Math.hypot(b.x - a.x, b.y - a.y);
-      const count = Math.max(1, Math.ceil(length / 0.055));
-      for (let sample = 0; sample < count; sample += 1) {
-        const t = (sample + 0.5) / count;
-        samples.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, weight: length / count });
-      }
-    }
-  }
-  return { strokes, samples, box: bounds(strokes, { width: 1, height: 1 }), length: samples.reduce((sum, point) => sum + point.weight, 0) };
-}
-
-function normalizeShape(strokes, viewport) {
-  const ink = prepareInk(normalizeInk(strokes, viewport));
-  const average = (fn) => ink.samples.reduce((sum, point) => sum + point.weight * fn(point), 0) / Math.max(0.001, ink.length);
-  const cx = average((p) => p.x), cy = average((p) => p.y);
-  const xx = average((p) => (p.x - cx) ** 2), yy = average((p) => (p.y - cy) ** 2);
-  const xy = average((p) => (p.x - cx) * (p.y - cy));
-  const shear = xy / Math.max(0.001, yy);
-  const sx = Math.sqrt(Math.max(0.001, xx - xy * shear)), sy = Math.sqrt(Math.max(0.001, yy));
-  // Symbols name a shape rather than a prescribed orientation/proportion.
-  // Remove ordinary oval/skew distortions before comparing their contours.
-  const corrected = ink.strokes.map((stroke) => stroke.map((p) => ({ x: (p.x - cx - shear * (p.y - cy)) / sx, y: (p.y - cy) / sy })));
-  return normalizeInk(corrected, { width: 1, height: 1 });
-}
-
-function fitWidth(ink, profile) {
-  const ratio = profile.ink.box.width / Math.max(0.001, ink.box.width);
-  // A narrow 1 must not swallow the crossbar of a 4 or the long top of a 7.
-  const one = profile.value === 1 && profile.task.category === 'numbers';
-  const scale = Math.max(one ? 0.85 : 0.4, Math.min(one ? 1.25 : 2.5, ratio));
-  return prepareInk(ink.strokes.map((stroke) => stroke.map((p) => ({ x: p.x * scale, y: p.y }))));
-}
-
-function coveredInk(source, target) {
-  return source.samples.reduce((sum, point) => sum + (inkDistanceSquared(point, target.strokes) <= 0.15 ** 2 ? point.weight : 0), 0) / Math.max(0.001, source.length);
-}
-
-function distanceCost(a, b) {
-  const mean = (source, target) => source.samples.reduce((sum, point) => sum + point.weight * inkDistanceSquared(point, target.strokes), 0) / Math.max(0.001, source.length);
-  return (mean(a, b) + mean(b, a)) / 2;
-}
-
-function makeProfile(task, value, coordinates = null) {
-  if (coordinates) {
-    const strokes = coordinates.map((stroke) => stroke.map(([x, y]) => ({ x, y })));
-    const box = bounds(strokes, { width: 1, height: 1 });
-    const target = bounds(task.strokes, VIEWPORT);
-    const scale = target.height / box.height;
-    task = { ...task, strokes: strokes.map((stroke) => stroke.map((p) => ({
-      x: (target.x + (p.x - box.x) * scale) / VIEWPORT.width,
-      y: (target.y + (p.y - box.y) * scale) / VIEWPORT.height,
-    }))), completionGroups: [strokes.map((_, index) => index)] };
-  }
-  return { task, value, ink: prepareInk(task.category === 'shapes' ? normalizeShape(task.strokes, VIEWPORT) : normalizeInk(task.strokes, VIEWPORT)) };
-}
-
-function roundedSquare() {
-  const points = [];
-  for (const [cx, cy, start] of [[82, 18, -90], [82, 82, 0], [18, 82, 90], [18, 18, 180]]) {
-    for (let index = 0; index <= 6; index += 1) {
-      const angle = (start + index * 15) * Math.PI / 180;
-      points.push([cx + 18 * Math.cos(angle), cy + 18 * Math.sin(angle)]);
-    }
-  }
-  return [[...points, points[0]]];
-}
-
-function arcPoints(cx, cy, rx, ry, start, end) {
-  return Array.from({ length: 33 }, (_, index) => {
-    const angle = (start + (end - start) * index / 32) * Math.PI / 180;
-    return [cx + rx * Math.cos(angle), cy + ry * Math.sin(angle)];
-  });
-}
-
-function curve(a, b, c, d) {
-  return Array.from({ length: 25 }, (_, index) => {
-    const t = index / 24, u = 1 - t;
-    return [0, 1].map((axis) => u ** 3 * a[axis] + 3 * u ** 2 * t * b[axis] + 3 * u * t ** 2 * c[axis] + t ** 3 * d[axis]);
-  });
-}
-
-function joinPenLifts(strokes) {
-  const paths = strokes.map((stroke) => [...stroke]);
-  while (paths.length > 1) {
-    let best = null;
-    for (let a = 0; a < paths.length; a += 1) for (let b = a + 1; b < paths.length; b += 1) {
-      for (const reverseA of [false, true]) for (const reverseB of [false, true]) {
-        const end = reverseA ? paths[a][0] : paths[a].at(-1);
-        const start = reverseB ? paths[b].at(-1) : paths[b][0];
-        const gap = Math.hypot(end.x - start.x, end.y - start.y);
-        if (gap <= 0.12 && (!best || gap < best.gap)) best = { a, b, reverseA, reverseB, gap };
-      }
-    }
-    if (!best) break;
-    const { a, b, reverseA, reverseB } = best;
-    const first = reverseA ? [...paths[a]].reverse() : paths[a];
-    const second = reverseB ? [...paths[b]].reverse() : paths[b];
-    paths[a] = simplify([...first, ...second]);
-    paths.splice(b, 1);
-  }
-  return paths;
-}
-
-function profiles(mode) {
-  if (profileCache.has(mode)) return profileCache.get(mode);
-  const positive = [1, 2, 3, 4].map((value) => makeProfile(referenceTask(mode, value), value));
-  if (mode === 'numbers') {
-    const one = referenceTask(mode, 1);
-    positive.push(
-      makeProfile(one, 1, [[[50, 0], [50, 100]]]),
-      makeProfile(one, 1, [[[25, 20], [55, 0], [55, 100]], [[20, 100], [85, 100]]]),
-      makeProfile(one, 1, [[[50, 0], [50, 100]], [[20, 100], [80, 100]]]),
-      makeProfile(referenceTask(mode, 2), 2, [[[0, 20], [15, 0], [80, 0], [100, 20], [90, 40], [0, 100], [100, 100]]]),
-      makeProfile(referenceTask(mode, 3), 3, [[
-        ...curve([10, 8], [100, -23], [110, 48], [38, 48]),
-        ...curve([38, 48], [115, 45], [115, 125], [8, 91]).slice(1),
-      ]]),
-    );
-  }
-  if (mode === 'letters') positive.push(makeProfile(referenceTask(mode, 4), 4, [[[0, 0], [0, 100]], arcPoints(0, 50, 80, 50, -90, 90)]));
-  if (mode === 'symbols') {
-    positive.push(makeProfile(referenceTask(mode, 3), 3, roundedSquare()));
-    positive.push(makeProfile(referenceTask(mode, 4), 4, [[[50, 0], [80, 95], [2, 36], [98, 36], [20, 95], [50, 0]]]));
-  }
-  // "None of these four" is a real outcome: a 5 must not become the nearest
-  // available 3, and an O or unfinished P must not be forced into A–D.
-  const distractors = mode === 'numbers' ? ['0', '5', '6', '7', '8', '9']
-    : mode === 'letters' ? ['E', 'F', 'H', 'I', 'L', 'O', 'P', 'R', 'U', 'V', 'X', 'Y', 'Z']
-      : ['heart', 'pentagon', 'hexagon'];
-  const bank = mode === 'numbers' ? 'numbers' : mode === 'letters' ? 'letters' : 'shapes';
-  const negative = distractors.map((symbol) => {
-    const id = mode === 'numbers' ? `number-${symbol}-gross` : mode === 'letters' ? `letter-${symbol}-gross` : `shape-${symbol}`;
-    return makeProfile(adaptTaskToViewport(EXERCISE_BANKS[bank].find((task) => task.id === id), VIEWPORT), null);
-  });
-  if (mode === 'numbers') {
-    const seven = adaptTaskToViewport(EXERCISE_BANKS.numbers.find((task) => task.id === 'number-7-gross'), VIEWPORT);
-    negative.push(makeProfile(seven, null, [[[0, 0], [100, 0], [30, 100]]]));
-  }
-  if (mode === 'letters') negative.push(makeProfile(referenceTask(mode, 1), null, [[[0, 100], [50, 0], [100, 100]]]));
-  if (mode !== 'symbols') {
-    for (const value of mode === 'numbers' ? [2, 3] : [2, 3, 4]) {
-      const task = referenceTask(mode, value), center = bounds(task.strokes, VIEWPORT).x / VIEWPORT.width;
-      negative.push(makeProfile({ ...task, strokes: task.strokes.map((stroke) => stroke.map((p) => ({ x: 2 * center - p.x, y: p.y }))) }, null));
-    }
-  }
-  const result = { positive, negative };
-  profileCache.set(mode, result);
-  return result;
-}
-
-function isClosedInk(strokes) {
-  // Allow ordinary pen lifts and small joining gaps, but not three sides of
-  // a square or an open C standing in for a closed symbol.
-  const ink = prepareInk(normalizeInk(strokes, SUDOKU_PAD));
-  const paths = ink.strokes.filter((stroke) => prepareInk([stroke]).length >= 0.1);
+function completeOutline(strokes) {
+  const box = bounds(strokes, SUDOKU_PAD);
+  const span = Math.max(box.width, box.height);
+  const paths = strokes.map((stroke) => stroke.map((p) => ({ x: p.x*300, y: p.y*200 })))
+    .filter((stroke) => stroke.length > 1);
   return paths.length > 0 && paths.every((stroke, index) => {
-    if (Math.hypot(stroke[0].x - stroke.at(-1).x, stroke[0].y - stroke.at(-1).y) <= 0.18) return true;
-    const other = paths.filter((_, candidate) => candidate !== index);
-    return inkDistanceSquared(stroke[0], other) <= 0.12 ** 2 && inkDistanceSquared(stroke.at(-1), other) <= 0.12 ** 2;
+    if (Math.hypot(stroke[0].x-stroke.at(-1).x, stroke[0].y-stroke.at(-1).y) <= span*.35) return true;
+    const nearOther = (p) => paths.some((other, i) => i !== index && other.some((b, j) => j && segmentDistance(p, other[j-1], b) <= span*.18));
+    return nearOther(stroke[0]) && nearOther(stroke.at(-1));
   });
+}
+
+function enclosedLoop(image, joiningSlack) {
+  // One pixel of joining slack keeps small gaps from erasing a real loop.
+  const mask = new Uint8Array(784), seen = new Uint8Array(784), stack = [];
+  for (let y = 1; y < 27; y += 1) for (let x = 1; x < 27; x += 1) {
+    if (image[y*28+x] < .3) continue;
+    for (let dy = -joiningSlack; dy <= joiningSlack; dy += 1) for (let dx = -joiningSlack; dx <= joiningSlack; dx += 1) mask[(y+dy)*28+x+dx] = 1;
+  }
+  for (let i = 0; i < 28; i += 1) stack.push(i, 756+i, i*28, i*28+27);
+  while (stack.length) {
+    const p = stack.pop();
+    if (p < 0 || p >= 784 || seen[p] || mask[p]) continue;
+    seen[p] = 1;
+    if (p % 28) stack.push(p-1);
+    if (p % 28 < 27) stack.push(p+1);
+    stack.push(p-28, p+28);
+  }
+  return mask.reduce((sum, ink, i) => sum+(!ink && !seen[i] ? 1 : 0), 0) >= 2;
+}
+
+function hasLoop(image) {
+  return enclosedLoop(image, 0) || enclosedLoop(image, 1);
+}
+
+function hasLeftStem(strokes) {
+  const box = bounds(strokes, SUDOKU_PAD);
+  const left = box.x-box.width/2, top = box.y-box.height/2;
+  let covered = 0;
+  for (let bin = 0; bin < 10; bin += 1) {
+    const y = top+box.height*(.1+.8*(bin+.5)/10);
+    const hit = strokes.some((stroke) => stroke.some((p, i) => {
+      if (!i) return false;
+      const a = stroke[i-1], dy = (p.y-a.y)*200;
+      if (Math.abs(dy) < .001) return false;
+      const t = (y-a.y*200)/dy;
+      return t >= 0 && t <= 1 && (a.x+(p.x-a.x)*t)*300 <= left+box.width*.45;
+    }));
+    if (hit) covered += 1;
+  }
+  return covered >= 7;
 }
 
 export function sudokuReferenceInk(mode, value) {
@@ -246,38 +126,31 @@ export function sudokuReferenceInk(mode, value) {
 }
 
 export function recognizeSudokuInk(strokes, mode) {
-  const box = bounds(strokes, SUDOKU_PAD);
-  if (!box || box.height < 14 || Math.max(box.width, box.height) < 20) return { value: null, reason: 'empty', matches: [] };
-  if (!SUDOKU_SYMBOLS[mode] || (mode === 'symbols' && !isClosedInk(strokes))) return { value: null, reason: 'unrecognized', matches: [] };
-  const transforms = mode === 'symbols'
-    ? Array.from({ length: 24 }, (_, index) => [index * 15, 0])
-    : [0, -12, 12].flatMap((angle) => [0, -0.25, 0.25].map((shear) => [angle, shear]));
-  const shape = mode === 'symbols' ? normalizeShape(strokes, SUDOKU_PAD) : null;
-  const inputs = transforms.map(([angle, shear]) => {
-    const normalized = shape ? normalizeInk(shape, { width: 1, height: 1 }, angle) : normalizeInk(strokes, SUDOKU_PAD, angle, shear);
-    return prepareInk(mode === 'symbols' ? joinPenLifts(normalized) : normalized);
-  });
-  const library = profiles(mode);
-  const closest = (profile) => inputs.reduce((best, ink) => {
-    const fitted = fitWidth(ink, profile);
-    const cost = distanceCost(fitted, profile.ink);
-    return !best || cost < best.cost ? { profile, ink: fitted, cost } : best;
-  }, null);
-  const candidates = library.positive.map(closest);
-  const matches = [];
-  for (const value of [1, 2, 3, 4]) {
-    const alternatives = candidates.filter((candidate) => candidate.profile.value === value).sort((a, b) => a.cost - b.cost);
-    for (const candidate of alternatives.slice(0, 2)) {
-      const { profile, ink, cost } = candidate;
-      if (cost > 0.025 || coveredInk(profile.ink, ink) < 0.82 || coveredInk(ink, profile.ink) < 0.82) continue;
-      matches.push({ value, score: Math.exp(-40 * cost), cost });
-      break;
-    }
+  if (!network) return { value: null, reason: 'loading', matches: [] };
+  if (!SUDOKU_SYMBOLS[mode]) return { value: null, reason: 'unrecognized', matches: [] };
+  const image = rasterizeInk(strokes);
+  if (!image) return { value: null, reason: 'empty', matches: [] };
+  const template = matchInkTemplates(strokes, mode);
+  const scores = network.predict(image, mode);
+  const values = mode === 'numbers' ? ['1','2','3','4'] : mode === 'letters' ? ['A','B','C','D'] : ['circle','triangle','square','star'];
+  const matches = scores.filter((item) => values.includes(item.label)).map((item) => ({ ...item, value: values.indexOf(item.label)+1 }));
+  const best = scores[0];
+  let value = values.indexOf(best.label)+1;
+  const policy = settings.policies?.[mode] ?? { confidence: .5, margin: .05 };
+  // Keep very clear Schulschrift and geometric forms, including the German
+  // flagged 1, which are underrepresented in the public handwriting data.
+  const strongTemplate = template.value && template.matches[0].score >= (policy.templateConfidence ?? .93);
+  if (strongTemplate) value = template.value;
+  if (strongTemplate) {
+    return { value, matches, recognizer: 'public-data-cnn+template' };
   }
-  matches.sort((a, b) => b.score - a.score);
-  if (!matches.length) return { value: null, reason: 'unrecognized', matches };
-  const negative = library.negative.map(closest).sort((a, b) => a.cost - b.cost)[0];
-  if (negative.cost <= matches[0].cost * 1.05 + 0.0002) return { value: null, reason: 'out-of-set', alternative: negative.profile.task.id, matches };
-  if (matches.length > 1 && matches[0].score - matches[1].score < 0.035) return { value: null, reason: 'ambiguous', matches };
-  return { value: matches[0].value, matches };
+  if (!value) return { value: null, reason: 'out-of-set', alternative: best.label, matches };
+  if (best.score < policy.confidence || best.score-scores[1].score < policy.margin) return { value: null, reason: 'ambiguous', matches };
+  if (template.reason === 'out-of-set' && best.score < (policy.disagreementConfidence ?? .7)) return { value: null, reason: 'ambiguous', matches };
+  // Recognition alone can label an unfinished outline. Require its ends to
+  // meet, allowing ordinary small gaps, separate sides and pen lifts.
+  if (mode === 'symbols' && !completeOutline(strokes)) return { value: null, reason: 'incomplete', matches };
+  if (mode === 'letters' && [2,4].includes(value) && !completeOutline(strokes) && !hasLeftStem(strokes)) return { value: null, reason: 'incomplete', matches };
+  if (mode === 'letters' && value === 1 && template.alternative === 'letter-A-gross' && !hasLoop(image)) return { value: null, reason: 'incomplete', matches };
+  return { value, matches, recognizer: 'public-data-cnn' };
 }

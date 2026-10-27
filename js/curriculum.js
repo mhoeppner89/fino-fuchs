@@ -6,15 +6,15 @@
 import {
   CHARACTER_STROKES,
   CHARACTER_STROKE_GEOMETRY,
-} from './handwriting-stroke-data.js?v=1.3.53';
+} from './handwriting-stroke-data.js?v=1.3.54';
 import {
   connectSolutionStrokes,
   createConnectSpec,
   createMazeSpec,
   layoutConnect,
   layoutMaze,
-} from './mini-games.js?v=1.3.53';
-import { createSudokuPuzzle } from './sudoku.js?v=1.3.53';
+} from './mini-games.js?v=1.3.54';
+import { createSudokuPuzzle } from './sudoku.js?v=1.3.54';
 
 const p = (x, y) => ({ x, y });
 const poly = (...pairs) => pairs.map(([x, y]) => p(x, y));

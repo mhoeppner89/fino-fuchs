@@ -1,4 +1,5 @@
 import test from 'node:test';
+import './load-ink-models.mjs';
 import assert from 'node:assert/strict';
 import { adaptTaskToViewport, buildSession, seededRandom } from '../js/curriculum.js';
 import {

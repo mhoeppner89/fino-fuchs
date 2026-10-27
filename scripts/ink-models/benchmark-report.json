@@ -1,0 +1,223 @@
+{
+  "weightsSha256": "5cf388b90d2dc415305fdf4460e18a8cc42beb80d4c1247e7679b61792c9a3c2",
+  "auditSamples": 9920,
+  "data": {
+    "numbers": {
+      "source": "emnist-skeleton",
+      "idsSha256": "24e153e1fced40b0fba91c4fef98faacdbf189e9470aa436b230ef9cd5cda5b1",
+      "medianHybridMilliseconds": 3.6674999999995634
+    },
+    "letters": {
+      "source": "emnist-skeleton",
+      "idsSha256": "856d1bb4d02497138aa79562d8bdd9da242ebb1029da9c20150823aacf255e98",
+      "medianHybridMilliseconds": 3.998062500006199
+    },
+    "symbols": {
+      "source": "quickdraw",
+      "idsSha256": "711260255602d9382531fad2ac7761952c3084617a7f5c0f695c75ba6259cfad",
+      "medianHybridMilliseconds": 4.055166500000269
+    }
+  },
+  "candidates": {
+    "numbers": {
+      "previousMSE": {
+        "validSamples": 1000,
+        "otherSamples": 600,
+        "correctValid": 564,
+        "wrongValidClass": 38,
+        "rejectedOther": 525,
+        "recall": 0.564,
+        "specificity": 0.875,
+        "balancedAccuracy": 0.7195
+      },
+      "publicDataCNN": {
+        "validSamples": 1000,
+        "otherSamples": 600,
+        "correctValid": 967,
+        "wrongValidClass": 11,
+        "rejectedOther": 584,
+        "recall": 0.967,
+        "specificity": 0.9733333333333334,
+        "balancedAccuracy": 0.9701666666666666
+      },
+      "hybrid": {
+        "validSamples": 1000,
+        "otherSamples": 600,
+        "correctValid": 965,
+        "wrongValidClass": 8,
+        "rejectedOther": 581,
+        "recall": 0.965,
+        "specificity": 0.9683333333333334,
+        "balancedAccuracy": 0.9666666666666667
+      }
+    },
+    "letters": {
+      "previousMSE": {
+        "validSamples": 1000,
+        "otherSamples": 2200,
+        "correctValid": 404,
+        "wrongValidClass": 34,
+        "rejectedOther": 2079,
+        "recall": 0.404,
+        "specificity": 0.945,
+        "balancedAccuracy": 0.6745
+      },
+      "publicDataCNN": {
+        "validSamples": 1000,
+        "otherSamples": 2200,
+        "correctValid": 873,
+        "wrongValidClass": 22,
+        "rejectedOther": 2163,
+        "recall": 0.873,
+        "specificity": 0.9831818181818182,
+        "balancedAccuracy": 0.9280909090909091
+      },
+      "hybrid": {
+        "validSamples": 1000,
+        "otherSamples": 2200,
+        "correctValid": 800,
+        "wrongValidClass": 13,
+        "rejectedOther": 2176,
+        "recall": 0.8,
+        "specificity": 0.9890909090909091,
+        "balancedAccuracy": 0.8945454545454545
+      }
+    },
+    "symbols": {
+      "previousMSE": {
+        "validSamples": 3500,
+        "otherSamples": 1620,
+        "correctValid": 2288,
+        "wrongValidClass": 52,
+        "rejectedOther": 1443,
+        "recall": 0.6537142857142857,
+        "specificity": 0.8907407407407407,
+        "balancedAccuracy": 0.7722275132275132
+      },
+      "publicDataCNN": {
+        "validSamples": 3500,
+        "otherSamples": 1620,
+        "correctValid": 3308,
+        "wrongValidClass": 11,
+        "rejectedOther": 1466,
+        "recall": 0.9451428571428572,
+        "specificity": 0.9049382716049382,
+        "balancedAccuracy": 0.9250405643738977
+      },
+      "hybrid": {
+        "validSamples": 3500,
+        "otherSamples": 1620,
+        "correctValid": 3122,
+        "wrongValidClass": 6,
+        "rejectedOther": 1477,
+        "recall": 0.892,
+        "specificity": 0.9117283950617284,
+        "balancedAccuracy": 0.9018641975308642
+      },
+      "pretrainedDoodleNet": {
+        "validSamples": 3500,
+        "otherSamples": 1620,
+        "correctValid": 1599,
+        "wrongValidClass": 0,
+        "rejectedOther": 1619,
+        "recall": 0.45685714285714285,
+        "specificity": 0.9993827160493827,
+        "balancedAccuracy": 0.7281199294532628
+      }
+    }
+  },
+  "training": {
+    "numbers": {
+      "mode": "numbers",
+      "seed": 141,
+      "epochs": 8,
+      "trainingSamples": 36000,
+      "validationSamples": 4000,
+      "testSamples": 6000,
+      "validationAccuracy": 0.983,
+      "testAccuracy": 0.9851666666666666,
+      "labels": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9"
+      ]
+    },
+    "letters": {
+      "mode": "letters",
+      "seed": 142,
+      "epochs": 5,
+      "trainingSamples": 111268,
+      "case": "uppercase",
+      "inkStyleFinetuning": true,
+      "validationSamples": 14586,
+      "testSamples": 14659,
+      "validationAccuracy": 0.9391882627176745,
+      "testAccuracy": 0.9613889078381881,
+      "labels": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K",
+        "L",
+        "M",
+        "N",
+        "O",
+        "P",
+        "Q",
+        "R",
+        "S",
+        "T",
+        "U",
+        "V",
+        "W",
+        "X",
+        "Y",
+        "Z"
+      ]
+    },
+    "symbols": {
+      "mode": "symbols",
+      "seed": 143,
+      "epochs": 10,
+      "trainingSamples": 49280,
+      "validationSamples": 6160,
+      "testSamples": 6160,
+      "validationAccuracy": 0.9443181818181818,
+      "testAccuracy": 0.9396103896103896,
+      "labels": [
+        "circle",
+        "triangle",
+        "square",
+        "star",
+        "other"
+      ]
+    }
+  },
+  "notes": [
+    "All audit examples are excluded from training and from the earlier exploratory comparison.",
+    "EMNIST audit vectors are reconstructed from held-out raster images by skeletonization; actual pen order is unavailable.",
+    "Quick Draw audit uses native vectors, prompted labels and the source recognized=true flag; labels are not expert handwriting-quality ratings.",
+    "DoodleNet pretrained training IDs are unavailable: its overlap with public Quick Draw cannot be ruled out.",
+    "These results measure public-data recognition, not accuracy on children aged 5\u20138."
+  ],
+  "handAuthoredRegressions": {
+    "samples": 37,
+    "previousMSE": 37,
+    "publicDataCNN": 32,
+    "hybrid": 37
+  }
+}
