@@ -1,6 +1,6 @@
 /** Recognise a child's complete answer independently of the Sudoku solution. */
-import { EXERCISE_BANKS, adaptTaskToViewport } from './curriculum.js?v=1.3.56';
-import { SUDOKU_SYMBOLS } from './sudoku.js?v=1.3.56';
+import { EXERCISE_BANKS, adaptTaskToViewport } from './curriculum.js?v=1.3.57';
+import { SUDOKU_SYMBOLS } from './sudoku.js?v=1.3.57';
 
 export const SUDOKU_PAD = Object.freeze({ width: 300, height: 200 });
 const VIEWPORT = { width: 900, height: 620 };

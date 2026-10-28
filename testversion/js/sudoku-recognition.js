@@ -1,8 +1,8 @@
 /** Freehand recognition for Kidoku; no Sudoku solution is available here. */
-import { EXERCISE_BANKS, adaptTaskToViewport } from './curriculum.js?v=1.3.56';
-import { SUDOKU_SYMBOLS } from './sudoku.js?v=1.3.56';
-import { createInkNetwork, rasterizeInk } from './ink-network.js?v=1.3.56';
-import { matchInkTemplates } from './ink-templates.js?v=1.3.56';
+import { EXERCISE_BANKS, adaptTaskToViewport } from './curriculum.js?v=1.3.57';
+import { SUDOKU_SYMBOLS } from './sudoku.js?v=1.3.57';
+import { createInkNetwork, rasterizeInk } from './ink-network.js?v=1.3.57';
+import { matchInkTemplates } from './ink-templates.js?v=1.3.57';
 
 export const SUDOKU_PAD = Object.freeze({ width: 300, height: 200 });
 const VIEWPORT = { width: 900, height: 620 };
@@ -16,8 +16,8 @@ export async function loadSudokuRecognizer(loader = globalThis.fetch) {
   if (loading) return loading;
   loading = (async () => {
     const [description, weights] = await Promise.all([
-      loader(new URL('../assets/ink-models/models.json?v=1.3.56', import.meta.url)),
-      loader(new URL('../assets/ink-models/weights.bin?v=1.3.56', import.meta.url)),
+      loader(new URL('../assets/ink-models/models.json?v=1.3.57', import.meta.url)),
+      loader(new URL('../assets/ink-models/weights.bin?v=1.3.57', import.meta.url)),
     ]);
     if (!description.ok || !weights.ok) throw new Error('Ink model files unavailable.');
     const metadata = await description.json();

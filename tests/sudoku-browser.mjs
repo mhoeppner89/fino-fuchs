@@ -48,8 +48,16 @@ try {
       await checkBounds();
       await page.screenshot({ path: `${output}/${key}-puzzle.png` });
       await page.locator('#show-button').click();
-      const hint = await page.evaluate(() => ({ value: window.__fuchsschrift.sudoku.hintValue, selected: window.__fuchsschrift.sudoku.selected }));
-      assert.equal(hint.value, task.game.solution[hint.selected]);
+      const hint = await page.evaluate(() => window.__fuchsschrift.sudoku.snapshot());
+      assert.equal(hint.guideValue, null, 'Fino never chooses a tracing guide');
+      assert.equal(hint.selected, initial.selected, 'Fino leaves the choice of cell to the child');
+      assert.deepEqual(hint.values, initial.values, 'Fino does not enter an answer');
+      if (hint.hintUnit) {
+        assert.equal(hint.hintUnit.cells.filter((index) => initial.values[index]).length, 3);
+        assert.equal(await page.locator('.sudoku-cell.is-hint').count(), 4);
+      } else {
+        assert.match(await page.locator('.sudoku-feedback').textContent(), /^\?/);
+      }
       assert.equal(await page.locator('.sudoku-feedback').getAttribute('data-kind'), 'hint');
 
       const select = async (index) => {

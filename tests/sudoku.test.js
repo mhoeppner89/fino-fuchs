@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { adaptTaskToViewport, buildSession, seededRandom } from '../js/curriculum.js';
 import {
   SUDOKU_CLUES, SUDOKU_SYMBOLS, SUDOKU_UNITS, countSudokuSolutions, createSudokuPuzzle,
-  isSudokuComplete, sudokuCandidates, sudokuConflicts, sudokuHint, validateSudokuEntry,
+  isSudokuComplete, sudokuCandidates, sudokuConflicts, sudokuHint, sudokuHintUnit, validateSudokuEntry,
 } from '../js/sudoku.js';
 import { recognizeSudokuInk, sudokuReferenceInk } from '../js/sudoku-recognition.js';
 
@@ -22,6 +22,27 @@ test('Sudoku enforces four different values in every row, column and 2×2 box', 
   assert.equal(countSudokuSolutions(values), 0);
   assert.equal(isSudokuComplete(Array(16).fill(1)), false);
   assert.equal(isSudokuComplete(Array(16).fill(0)), false);
+});
+
+test('Fino points only to visible groups with three entries and never returns an answer', () => {
+  const solution = [1, 2, 3, 4, 3, 4, 1, 2, 2, 1, 4, 3, 4, 3, 2, 1];
+  for (const kind of ['row', 'column', 'box']) {
+    const unit = SUDOKU_UNITS.find((group) => group.kind === kind);
+    const values = Array(16).fill(0);
+    unit.cells.slice(0, 3).forEach((index) => { values[index] = solution[index]; });
+    const before = [...values];
+    assert.deepEqual(sudokuHintUnit(values), unit);
+    assert.equal('value' in sudokuHintUnit(values), false);
+    assert.deepEqual(values, before);
+  }
+  const values = [...solution];
+  values[3] = values[11] = 0;
+  assert.deepEqual(sudokuHintUnit(values, 11), SUDOKU_UNITS[2], 'prefer a group around the selected cell');
+  assert.deepEqual(sudokuHintUnit(values), SUDOKU_UNITS[0], 'otherwise find a group elsewhere');
+  assert.equal(sudokuHintUnit(solution), null);
+  assert.equal(sudokuHintUnit(Array(16).fill(0)), null);
+  assert.equal(sudokuHintUnit(Array(16).fill(1)), null);
+  assert.equal(sudokuHintUnit([1, 0, 0, 4, 0, 4, 1, 0, 0, 1, 4, 0, 4, 0, 0, 1]), null, 'two entries in each group are not enough');
 });
 
 test('all difficulties generate the exact clue count, one solution and a deduction-only path', () => {

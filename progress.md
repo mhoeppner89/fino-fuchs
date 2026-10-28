@@ -1151,3 +1151,38 @@ eingeben), danach läuft derselbe Checksatz im echten Safari.
   takeover. Its setup now waits for a controller before reloading and has a
   bounded wait. A separate final root/testversion offline reload check verifies
   the cached final models, without extending the recognition scope.
+
+## 2026-10-28 Kidoku guides and thinking hints (v1.3.57)
+
+- Request: let children choose a tracing guide from the four legend buttons; Fino
+  points to a row, column or 2×2 box with three entries without revealing its
+  answer, or shows ? when no such group exists.
+- Added a separate visible-group hint helper. It prefers groups at the selected
+  cell, then elsewhere; it does not use the puzzle solution or solver. Existing
+  generation/uniqueness logic retains its internal singles solver.
+- Converted the legend into accessible toggle buttons; choosing any guide does
+  not fill the cell, alter handwriting, or affect recognition. Fino preserves the
+  child's guide, selected cell and ink. Root/testversion and offline cache URLs
+  are synchronized.
+- Verification: 22 focused Sudoku/release checks pass. Four browser scenarios
+  cover all three symbol sets, each hint type, no-hint ?, every guide, touch and
+  keyboard toggles, handwriting preservation, and root/testversion. Four full
+  handwritten puzzle playthroughs cover all difficulties, wrong-answer rejection,
+  undo, and completion. No browser errors; screenshots/state inspected.
+- Fixed the compact portrait layout after the larger 44px guide buttons pushed
+  Einsetzen slightly below a 320×568 viewport. It now fits; mirrored gameplay
+  assets match and git diff --check passes.
+- No remaining implementation TODOs. Changes are local, uncommitted/unpushed.
+
+### Phone submit-button layout
+
+- Request: place the phone Einsetzen control next to the four guide buttons and
+  show only a checkmark. Kept its accessible name and existing submit behavior.
+- Phone portrait and short landscape layouts now share one row for the four
+  guides and a 44×44 checkmark. Larger screens keep the labeled button below
+  the pad. Root/testversion match; this remains part of local v1.3.57.
+- Verification: all four focused browser scenarios pass, covering phone portrait,
+  phone landscape, a tablet and testversion. Checked button alignment, 44px touch
+  size, hidden phone label, accessible name, empty-pad disabling, and actual
+  handwritten submission in numbers/letters/symbols. No browser errors; updated
+  screenshots inspected. Mirrored assets match and git diff --check passes.

@@ -1,6 +1,6 @@
-import { SUDOKU_SYMBOLS, isSudokuComplete, sudokuHint, validateSudokuEntry } from './sudoku.js?v=1.3.56';
-import { loadSudokuRecognizer, recognizeSudokuInk, sudokuRecognizerReady, sudokuReferenceInk, SUDOKU_PAD } from './sudoku-recognition.js?v=1.3.56';
-import { pointerSamples } from './drawing.js?v=1.3.56';
+import { SUDOKU_SYMBOLS, isSudokuComplete, sudokuHintUnit, validateSudokuEntry } from './sudoku.js?v=1.3.57';
+import { loadSudokuRecognizer, recognizeSudokuInk, sudokuRecognizerReady, sudokuReferenceInk, SUDOKU_PAD } from './sudoku-recognition.js?v=1.3.57';
+import { pointerSamples } from './drawing.js?v=1.3.57';
 
 const cloneInk = (strokes) => strokes.map((stroke) => stroke.map((point) => ({ ...point })));
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -18,6 +18,7 @@ export class SudokuGame {
     this.placeholder = root.querySelector('.sudoku-placeholder');
     this.selectionLabel = root.querySelector('.sudoku-selection');
     this.counter = root.querySelector('.sudoku-count');
+    this.legend = root.querySelector('.sudoku-symbols');
     this.inkColor = '#3F8FB5';
     this.pointerId = null;
     this.locked = false;
@@ -29,6 +30,10 @@ export class SudokuGame {
       if (button) this.select(Number(button.dataset.sudokuCell));
     });
     this.submitButton.addEventListener('click', () => this.submit());
+    this.legend.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-sudoku-guide]');
+      if (button) this.selectGuide(Number(button.dataset.sudokuGuide));
+    });
     this.canvas.addEventListener('pointerdown', (event) => this.pointerDown(event));
     this.canvas.addEventListener('pointermove', (event) => this.pointerMove(event));
     ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((name) => {
@@ -49,18 +54,21 @@ export class SudokuGame {
     this.draftColors = Array.from({ length: 16 }, () => []);
     this.history = [];
     this.selected = this.values.indexOf(0);
-    this.hintValue = null;
+    this.guideValue = null;
+    this.hintUnit = null;
     this.conflicts = [];
     this.message = 'Tippe ein freies Feld. Schreib das fehlende Zeichen.';
     this.messageKind = '';
     this.locked = false;
     this.status = 'ready';
-    const legend = this.root.querySelector('.sudoku-symbols');
-    legend.replaceChildren(...SUDOKU_SYMBOLS[this.puzzle.mode].map((symbol) => {
-      const item = document.createElement('span');
+    this.legend.replaceChildren(...SUDOKU_SYMBOLS[this.puzzle.mode].map((symbol, index) => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.dataset.sudokuGuide = index + 1;
       item.textContent = symbol.label;
-      item.title = symbol.name;
-      item.setAttribute('aria-label', symbol.name);
+      item.title = `Spur für ${symbol.name} anzeigen`;
+      item.setAttribute('aria-label', item.title);
+      item.setAttribute('aria-pressed', 'false');
       return item;
     }));
     this.render();
@@ -98,7 +106,8 @@ export class SudokuGame {
   select(index) {
     if (this.locked || this.isDrawing() || this.puzzle.givens[index]) return;
     this.selected = index;
-    this.hintValue = null;
+    this.guideValue = null;
+    this.hintUnit = null;
     this.conflicts = [];
     this.message = 'Schreib dein Zeichen. Tippe dann auf „Einsetzen“.';
     this.messageKind = '';
@@ -119,7 +128,8 @@ export class SudokuGame {
     }
     this.drafts[index] = [];
     this.draftColors[index] = [];
-    this.hintValue = null;
+    this.guideValue = null;
+    this.hintUnit = null;
     this.conflicts = [];
     this.message = 'Hier kannst du neu schreiben.';
     this.messageKind = '';
@@ -139,25 +149,31 @@ export class SudokuGame {
       this.selected = change.index;
     }
     this.conflicts = [];
-    this.hintValue = null;
+    this.guideValue = null;
+    this.hintUnit = null;
     this.message = 'Versuch es noch einmal.';
+    this.messageKind = '';
+    this.render();
+  }
+
+  selectGuide(value) {
+    if (!this.task || this.locked || this.isDrawing() || !Number.isInteger(value) || value < 1 || value > 4) return;
+    this.guideValue = this.guideValue === value ? null : value;
+    this.message = this.guideValue
+      ? `Spur für ${SUDOKU_SYMBOLS[this.puzzle.mode][value - 1].name}. Du kannst sie nachzeichnen.`
+      : 'Die Spur ist ausgeblendet. Schreib dein Zeichen.';
     this.messageKind = '';
     this.render();
   }
 
   hint() {
     if (!this.task || this.locked || this.isDrawing()) return;
-    const hint = sudokuHint(this.values);
-    if (!hint) return;
-    this.selected = hint.index;
-    this.hintValue = hint.value;
+    this.hintUnit = sudokuHintUnit(this.values, this.selected);
     this.conflicts = [];
-    const symbol = SUDOKU_SYMBOLS[this.puzzle.mode][hint.value - 1];
-    const unit = hint.unit?.kind === 'row' ? 'Reihe' : hint.unit?.kind === 'column' ? 'Spalte' : hint.unit?.kind === 'box' ? 'Kästchen' : null;
-    this.message = unit === 'Reihe' ? `In dieser Reihe fehlt ${symbol.label}.`
-      : unit === 'Spalte' ? `In dieser Spalte fehlt ${symbol.label}.`
-        : unit === 'Kästchen' ? `In diesem Kästchen fehlt ${symbol.label}.`
-          : `Hier passt ${symbol.label}. Schreib es nach.`;
+    this.message = this.hintUnit?.kind === 'row' ? 'Schau auf die markierte Reihe. Welches Zeichen fehlt?'
+      : this.hintUnit?.kind === 'column' ? 'Schau auf die markierte Spalte. Welches Zeichen fehlt?'
+        : this.hintUnit?.kind === 'box' ? 'Schau auf das markierte Kästchen. Welches Zeichen fehlt?'
+          : '? Noch kein Tipp. Schau dir das Rätsel in Ruhe an.';
     this.messageKind = 'hint';
     this.render();
   }
@@ -169,6 +185,7 @@ export class SudokuGame {
     const ink = this.drafts[index];
     const recognized = recognizeSudokuInk(ink, this.puzzle.mode);
     this.conflicts = [];
+    this.hintUnit = null;
     if (!recognized.value) {
       this.message = recognized.reason === 'empty' ? 'Schreib zuerst ein Zeichen.' : 'Noch nicht erkannt. Nimm einen Strich zurück oder schreib neu.';
       this.messageKind = 'retry';
@@ -191,7 +208,7 @@ export class SudokuGame {
     this.entries[index] = { strokes: cloneInk(ink), colors: [...this.draftColors[index]] };
     this.drafts[index] = [];
     this.draftColors[index] = [];
-    this.hintValue = null;
+    this.guideValue = null;
     this.message = 'Prima! Das passt.';
     this.messageKind = 'success';
     this.status = isSudokuComplete(this.values) ? 'complete' : 'ready';
@@ -206,6 +223,8 @@ export class SudokuGame {
       values: [...this.values], givens: [...this.puzzle.givens], selected: this.selected,
       clueCount: this.puzzle.clueCount, filled: this.values.filter(Boolean).length,
       draftStrokes: this.drafts[this.selected]?.length ?? 0,
+      guideValue: this.guideValue,
+      hintUnit: this.hintUnit ? { kind: this.hintUnit.kind, cells: [...this.hintUnit.cells] } : null,
     } : null;
   }
 
@@ -220,6 +239,7 @@ export class SudokuGame {
       button.classList.toggle('is-given', Boolean(this.puzzle.givens[index]));
       button.classList.toggle('is-selected', index === this.selected);
       button.classList.toggle('is-conflict', this.conflicts.includes(index));
+      button.classList.toggle('is-hint', this.hintUnit?.cells.includes(index) ?? false);
       button.classList.toggle('is-alt-box', (Math.floor(index / 8) + Math.floor((index % 4) / 2)) % 2 === 1);
       button.disabled = this.locked || this.isDrawing() || Boolean(this.puzzle.givens[index]);
       button.setAttribute('aria-pressed', String(index === this.selected));
@@ -235,6 +255,10 @@ export class SudokuGame {
     this.selectionLabel.textContent = `Dein Feld: Reihe ${Math.floor(this.selected / 4) + 1}, Spalte ${this.selected % 4 + 1}`;
     this.feedback.textContent = this.message;
     this.feedback.dataset.kind = this.messageKind;
+    this.legend.querySelectorAll('[data-sudoku-guide]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(Number(button.dataset.sudokuGuide) === this.guideValue));
+      button.disabled = this.locked || this.isDrawing();
+    });
     this.submitButton.disabled = this.locked || this.isDrawing() || !this.drafts[this.selected]?.length || (!sudokuRecognizerReady() && !this.recognitionFailed);
     this.drawPad();
     this.hooks.onChange?.();
@@ -294,9 +318,9 @@ export class SudokuGame {
       if (stroke.length === 1) ctx.lineTo(stroke[0].x * SUDOKU_PAD.width + 0.01, stroke[0].y * SUDOKU_PAD.height);
       ctx.stroke(); ctx.setLineDash([]);
     };
-    if (this.hintValue) sudokuReferenceInk(this.puzzle.mode, this.hintValue).forEach((stroke) => draw(stroke, '#B9C6CC', 9));
+    if (this.guideValue) sudokuReferenceInk(this.puzzle.mode, this.guideValue).forEach((stroke) => draw(stroke, '#B9C6CC', 9));
     (this.drafts[this.selected] ?? []).forEach((stroke, index) => draw(stroke, this.draftColors[this.selected][index], 6));
-    this.placeholder.hidden = Boolean(this.hintValue || this.drafts[this.selected]?.length);
+    this.placeholder.hidden = Boolean(this.guideValue || this.drafts[this.selected]?.length);
   }
 
   point(event) {

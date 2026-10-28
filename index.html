@@ -13,7 +13,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./assets/icons/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="./styles.css?v=1.3.56">
+  <link rel="stylesheet" href="./styles.css?v=1.3.57">
   <script>
     // Register before the app module loads. If an older installed version is
     // controlling this page, reload once as soon as the new worker takes over.
@@ -222,7 +222,7 @@
       </main>
       <footer class="privacy-line">
         <span>Ohne Konto · Ohne Werbung · Keine Datenübertragung</span>
-        <small class="app-version" aria-label="App-Version 1.3.56">v1.3.56</small>
+        <small class="app-version" aria-label="App-Version 1.3.57">v1.3.57</small>
       </footer>
     </section>
 
@@ -293,14 +293,14 @@
               <div class="sudoku-main">
                 <div class="sudoku-grid" role="group" aria-label="Sudoku mit vier Reihen und vier Spalten"></div>
                 <section class="sudoku-writing" aria-label="Deine Antwort">
-                  <div class="sudoku-symbols" role="group" aria-label="Diese vier Zeichen kannst du schreiben"></div>
+                  <div class="sudoku-symbols" role="group" aria-label="Tippe ein Zeichen, um seine Spur anzuzeigen"></div>
                   <p class="sudoku-selection"></p>
                   <div class="sudoku-pad">
                     <canvas id="sudoku-canvas" aria-label="Schreibfeld für das ausgewählte Sudoku-Feld" role="img" tabindex="0"></canvas>
                     <span class="sudoku-placeholder" aria-hidden="true">Hier schreiben</span>
                   </div>
                   <p class="sudoku-feedback" aria-live="polite"></p>
-                  <button class="primary-button sudoku-submit" type="button" disabled><span aria-hidden="true">✓</span> Einsetzen</button>
+                  <button class="primary-button sudoku-submit" type="button" aria-label="Einsetzen" disabled><span aria-hidden="true">✓</span><span class="sudoku-submit-label">Einsetzen</span></button>
                 </section>
               </div>
             </section>
@@ -359,6 +359,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   </div>
-  <script type="module" src="./js/app.js?v=1.3.56"></script>
+  <script type="module" src="./js/app.js?v=1.3.57"></script>
 </body>
 </html>

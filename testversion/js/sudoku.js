@@ -78,6 +78,13 @@ export function isSudokuComplete(values) {
   return validGrid(values) && values.every(VALID_VALUE);
 }
 
+/** A visible group with three entries; never computes or returns its answer. */
+export function sudokuHintUnit(values, preferredIndex = -1) {
+  if (!validGrid(values)) return null;
+  const units = SUDOKU_UNITS.filter((unit) => unit.cells.filter((index) => values[index]).length === 3);
+  return units.find((unit) => unit.cells.includes(preferredIndex)) ?? units[0] ?? null;
+}
+
 /** A naked or hidden single, including the row/column/box that explains it. */
 export function sudokuHint(values) {
   if (!validGrid(values)) return null;

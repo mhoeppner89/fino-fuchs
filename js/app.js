@@ -6,14 +6,14 @@ import {
   DIFFICULTIES,
   normalizeName,
   reflowTaskWithInk,
-} from './curriculum.js?v=1.3.56';
+} from './curriculum.js?v=1.3.57';
 import {
   DrawingBoard,
   evaluateTaskDrawing,
   feedbackForEvaluation,
   passesDrawingCriteria,
-} from './drawing.js?v=1.3.56';
-import { SudokuGame } from './sudoku-ui.js?v=1.3.56';
+} from './drawing.js?v=1.3.57';
+import { SudokuGame } from './sudoku-ui.js?v=1.3.57';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
